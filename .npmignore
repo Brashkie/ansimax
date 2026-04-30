@@ -1,0 +1,33 @@
+# Source files
+src/
+tests/
+examples/
+
+# Config files
+.github/
+.vscode/
+.husky/
+*.config.js
+*.config.ts
+tsconfig*.json
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Documentation
+docs/
+*.md
+!README.md
+!LICENSE
+!CHANGELOG.md
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+codecov.yml
+
+# Other
+coverage/
+*.log
+.DS_Store
+.env*

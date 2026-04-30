@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "outDir": "dist-test",
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["jest", "node"],
+    // TS6: disable build-only flags for test env
+    "erasableSyntaxOnly": false,
+    "noUncheckedSideEffectImports": false
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "examples"]
+}

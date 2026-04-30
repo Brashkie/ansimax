@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────
+#  Dependencies
+# ─────────────────────────────────────────────
+node_modules/
+jspm_packages/
+.pnpm-store/
+
+# ─────────────────────────────────────────────
+#  Build output
+# ─────────────────────────────────────────────
+dist/
+dist-test/
+build/
+out/
+*.tsbuildinfo
+
+# ─────────────────────────────────────────────
+#  Test coverage
+# ─────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ─────────────────────────────────────────────
+#  Logs
+# ─────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─────────────────────────────────────────────
+#  Environment variables
+# ─────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# ─────────────────────────────────────────────
+#  Editor / IDE
+# ─────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Keep VS Code workspace settings (shared with team)
+# but ignore personal preferences
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# ─────────────────────────────────────────────
+#  Operating system
+# ─────────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# ─────────────────────────────────────────────
+#  npm / yarn / pnpm
+# ─────────────────────────────────────────────
+.npm
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Lock files — keep package-lock.json, ignore others if mixing
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ─────────────────────────────────────────────
+#  TypeScript
+# ─────────────────────────────────────────────
+*.tsbuildinfo
+.tsbuildinfo
+
+# ─────────────────────────────────────────────
+#  Caches
+# ─────────────────────────────────────────────
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.eslintcache
+.stylelintcache
+.prettier-cache
+
+# ─────────────────────────────────────────────
+#  Optional npm cache directory
+# ─────────────────────────────────────────────
+.npm
+.node_repl_history
+
+# ─────────────────────────────────────────────
+#  Temporary files
+# ─────────────────────────────────────────────
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+
+# ─────────────────────────────────────────────
+#  Project-specific (ansimax)
+# ─────────────────────────────────────────────
+# Build artifacts from tsup
+*.tgz
+
+# Test snapshots that may include sensitive data
+__snapshots__/
+
+# Documentation site build (if you add one)
+docs-site/dist/
+docs-site/.cache/
+
+# Local CLI test output
+.test-output/
