@@ -1,13 +1,15 @@
 <div align="center">
 
-# 🎨 Ansimax
+<img src="media/ansimax.png" alt="Ansimax" width="180"/>
+
+# Ansimax
 
 ### La librería definitiva para crear interfaces de consola en Node.js
 
 Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Componentes • Temas
 
-[![npm version](https://img.shields.io/npm/v/ansimax.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
-[![License](https://img.shields.io/npm/l/ansimax.svg?style=flat-square)](LICENSE)
+[![status](https://img.shields.io/badge/status-unreleased-orange?style=flat-square)](#)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg?style=flat-square)](#)
 [![Tests](https://img.shields.io/badge/tests-750%2B%20passing-brightgreen.svg?style=flat-square)](#)
@@ -19,26 +21,60 @@ Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Component
 
 ---
 
+## 🎬 Vista previa en vivo
+
+Mira Ansimax en acción — todas las animaciones y loaders corriendo en vivo:
+
+### Animaciones
+
+https://github.com/Brashkie/ansimax/raw/main/media/animations.mp4
+
+### Loaders
+
+https://github.com/Brashkie/ansimax/raw/main/media/loaders.mp4
+
+> 💡 GitHub renderiza estos MP4 como reproductores de video integrados al subir el repo. O ejecútalos localmente con `npx tsx examples/animations.ts` y `npx tsx examples/loaders.ts`.
+
+---
+
 ## 🌟 ¿Qué es Ansimax?
 
 **Ansimax** es una librería moderna de Node.js, sin dependencias, que convierte tu terminal en un lienzo vibrante y dinámico. Combina colores ANSI avanzados, animaciones fluidas, ASCII art, pixel art, componentes interactivos y un sistema de temas — todo en un único paquete escrito en TypeScript estricto y con tipos completos.
 
 Diseñada para desarrolladores que quieren publicar CLIs que **se sientan** profesionales.
 
-## ✨ Características
+---
 
-| Módulo | Capacidades |
-|---|---|
-| 🎨 **Colores** | 16 colores · 256 colores · truecolor de 24 bits · hex · RGB · `compose()` para apilar estilos · soporta `NO_COLOR` |
-| 🌈 **Gradientes** | Lineales · multi-stop · arcoíris · rectángulos de gradiente (horizontal, vertical, diagonal, radial) |
-| ⚡ **Animaciones** | typewriter · fadeIn · fadeOut · slide · pulse · wave · glitch · reveal — todas con `AbortSignal` |
-| 🔄 **Loaders** | 11 estilos de spinner · barras de progreso animadas · ejecución de tareas (secuencial y paralela) · countdowns |
-| 🖼️ **ASCII Art** | Dos fuentes · `box()` con 6 estilos de borde · separadores ANSI-aware · banners con gradiente |
-| 🎬 **Frames** | Motor de frames · render en vivo · barras de carga · pelota rebotando · **morph** (texto→texto) |
-| 🧩 **Componentes** | Tablas · mensajes de estado · badges · barras de progreso · timelines · menús interactivos (single/multi-select) |
-| 🌃 **Temas** | 8 temas integrados (Dracula, Nord, Monokai, Cyberpunk, Pastel, Matrix, Ocean, Sunset) · temas personalizados |
-| 🖌️ **Pixel Art** | Renderizado half-block · librería de sprites · API de canvas · transformaciones (flip, rotate) |
-| 🛠️ **Utilidades** | `truncateAnsi` · `wordWrap` (con soft-break) · `repeatVisible` · `stripAnsi` · matemática de colores |
+## 💡 ¿Por qué Ansimax?
+
+- ⚡ **Cero dependencias** — sin bloat, sin vulnerabilidades transitivas, sin conflictos de versiones
+- 🎯 **Una librería en lugar de 10** — reemplaza `chalk` + `ora` + `cli-table3` + `figlet` + `gradient-string` y más
+- 🎨 **Truecolor de 24 bits + gradientes** out of the box — fallback automático a 256/16 cuando hace falta
+- 🧠 **Pensada para CLIs reales** — soporte de `AbortSignal`, cumple `NO_COLOR`, consciente de TTY
+- 🛡️ **100% de cobertura de tests** — más de 750 tests en cada módulo
+- 📘 **TypeScript primero** — modo estricto, tipos completos, cero `any`
+
+---
+
+## 🆚 Comparación
+
+| Característica         | **Ansimax** | chalk | ora  | cli-table3 | figlet | gradient-string |
+|------------------------|-------------|-------|------|------------|--------|-----------------|
+| 16 colores             | ✅          | ✅    | ➖   | ➖         | ➖     | ➖              |
+| 256 colores            | ✅          | ✅    | ➖   | ➖         | ➖     | ➖              |
+| Truecolor (24 bits)    | ✅          | ✅    | ➖   | ➖         | ➖     | ✅              |
+| Gradientes             | ✅          | ❌    | ❌   | ❌         | ❌     | ✅              |
+| Animaciones            | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+| Spinners               | ✅          | ❌    | ✅   | ❌         | ❌     | ❌              |
+| Barras de progreso     | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+| Tablas                 | ✅          | ❌    | ❌   | ✅         | ❌     | ❌              |
+| ASCII art / banners    | ✅          | ❌    | ❌   | ❌         | ✅     | ❌              |
+| Pixel art / canvas     | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+| Temas                  | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+| Soporte de AbortSignal | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+| Cero dependencias      | ✅          | ❌    | ❌   | ❌         | ❌     | ❌              |
+
+> Ansimax reemplaza más de 5 paquetes separados con una sola librería sin dependencias.
 
 ---
 
@@ -58,16 +94,27 @@ bun add ansimax     # Bun
 
 ---
 
+## ⚡ Ejemplo de 30 segundos
+
+```ts
+import { color } from 'ansimax';
+
+console.log(color.green('Hola mundo'));
+```
+
+Eso es todo. Sin config, sin setup. ¿Quieres más? Sigue leyendo.
+
+---
+
 ## 🚀 Inicio rápido
 
 ```ts
-import { color, animate, loader, ascii, components } from 'ansimax';
+import { color, animate, loader, ascii, components, gradient } from 'ansimax';
 
 // Colores con estilos apilados (un solo reset ANSI, sin anidamiento)
 console.log(color.bold(color.cyan('¡Hola, terminal!')));
 
 // Texto con gradiente
-import { gradient } from 'ansimax';
 console.log(gradient('Flujo de color suave', ['#ff6b6b', '#feca57', '#48dbfb']));
 
 // Typewriter animado
@@ -87,6 +134,23 @@ console.log(components.table([
   ['Build',  '✓ listo'],
 ], { header: true, borderStyle: 'rounded' }));
 ```
+
+---
+
+## ✨ Características
+
+| Módulo | Capacidades |
+|---|---|
+| 🎨 **Colores** | 16 colores · 256 colores · truecolor de 24 bits · hex · RGB · `compose()` para apilar estilos · soporta `NO_COLOR` |
+| 🌈 **Gradientes** | Lineales · multi-stop · arcoíris · rectángulos de gradiente (horizontal, vertical, diagonal, radial) |
+| ⚡ **Animaciones** | typewriter · fadeIn · fadeOut · slide · pulse · wave · glitch · reveal — todas con `AbortSignal` |
+| 🔄 **Loaders** | 11 estilos de spinner · barras de progreso animadas · ejecución de tareas (secuencial y paralela) · countdowns |
+| 🖼️ **ASCII Art** | Dos fuentes · `box()` con 6 estilos de borde · separadores ANSI-aware · banners con gradiente |
+| 🎬 **Frames** | Motor de frames · render en vivo · barras de carga · pelota rebotando · **morph** (texto→texto) |
+| 🧩 **Componentes** | Tablas · mensajes de estado · badges · barras de progreso · timelines · menús interactivos (single/multi-select) |
+| 🌃 **Temas** | 8 temas integrados (Dracula, Nord, Monokai, Cyberpunk, Pastel, Matrix, Ocean, Sunset) · temas personalizados |
+| 🖌️ **Pixel Art** | Renderizado half-block · librería de sprites · API de canvas · transformaciones (flip, rotate) |
+| 🛠️ **Utilidades** | `truncateAnsi` · `wordWrap` (con soft-break) · `repeatVisible` · `stripAnsi` · matemática de colores |
 
 ---
 
@@ -319,6 +383,12 @@ node examples/demo.js
 
 # Showcase visual (ideal para capturas de pantalla)
 npx tsx examples/showcase.ts
+
+# Demo de animaciones para grabar
+npx tsx examples/animations.ts
+
+# Demo de loaders para grabar
+npx tsx examples/loaders.ts
 ```
 
 ---
@@ -487,7 +557,7 @@ ansimax/
 │   ├── utils/           # Helpers ANSI, math de colores, utils de strings
 │   └── index.ts         # Barrel del API público
 ├── examples/            # Demos ejecutables (TS + JS)
-├── media/               # Capturas para el README
+├── media/               # Capturas y videos para el README
 └── dist/                # Build (CJS + ESM + tipos)
 ```
 
@@ -517,6 +587,20 @@ Asegúrate de que:
 
 ---
 
+## ⭐ Apoyar el proyecto
+
+Si te gusta Ansimax:
+
+- ⭐ **Dale una estrella al repo** — ayuda a que otros descubran el proyecto
+- 🐛 **Reporta bugs** — abre un [issue](https://github.com/Brashkie/ansimax/issues)
+- 🚀 **Úsalo en tus proyectos CLI** — es el mejor apoyo posible
+- 📢 **Compártelo** — tweet, blog, menciónalo a un colega que construya CLIs
+- 💬 **Difúndelo** — etiqueta tu CLI con `#ansimax` para que otros encuentren inspiración
+
+Esto ayuda al proyecto a crecer y le da impulso para añadir las funcionalidades planeadas más rápido.
+
+---
+
 ## 📝 Changelog
 
 Consulta [CHANGELOG.md](CHANGELOG.md) para el historial de versiones.
@@ -532,6 +616,10 @@ Consulta [CHANGELOG.md](CHANGELOG.md) para el historial de versiones.
 ## 📜 Licencia
 
 [MIT](LICENSE) © 2026 Brashkie
+
+---
+
+**Keywords:** cli, terminal, ansi, colors, gradients, animation, spinner, ascii, ascii-art, pixel-art, progress-bar, loader, components, table, banner, theme, typescript, nodejs, zero-dependencies
 
 ---
 
