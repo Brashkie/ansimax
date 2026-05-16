@@ -1,7 +1,7 @@
 {
   "name": "ansimax",
-  "version": "1.0.0",
-  "description": "Zero-dependency CLI rendering library: colors, gradients, animations, ASCII art, pixel art, components, and themes — all in TypeScript.",
+  "version": "1.1.0",
+  "description": "Zero-dependency CLI rendering library: colors, gradients, animations, ASCII art, pixel art, components, and themes \u2014 all in TypeScript.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -50,6 +50,11 @@
     "table",
     "badge",
     "timeline",
+    "tree",
+    "trees",
+    "tui",
+    "canvas",
+    "sprite",
     "theme",
     "themes",
     "styling",
@@ -65,13 +70,18 @@
     "typescript",
     "zero-dependencies",
     "abort-signal",
-    "no-color"
+    "no-color",
+    "chalk-alternative",
+    "ora-alternative",
+    "figlet-alternative",
+    "boxen-alternative",
+    "inquirer-alternative"
   ],
   "author": {
     "name": "Brashkie",
     "url": "https://github.com/Brashkie"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Brashkie/ansimax.git"
@@ -82,8 +92,10 @@
   "homepage": "https://github.com/Brashkie/ansimax#readme",
   "files": [
     "dist",
+    "examples",
     "README.md",
     "README.es.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
@@ -91,7 +103,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
-    "@types/node": "^20.19.39",
+    "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",
@@ -101,9 +113,9 @@
     "prettier": "^3.1.0",
     "ts-jest": "^29.1.1",
     "tsup": "^8.0.1",
-    "tsx": "^4.21.0",
-    "typescript": "6.0.3"
+    "typescript": "^6.0.3"
   },
+  "dependencies": {},
   "publishConfig": {
     "access": "public"
   }

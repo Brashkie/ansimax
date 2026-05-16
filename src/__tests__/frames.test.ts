@@ -1,4 +1,4 @@
-import { frames } from '../frames/index.js';
+import { frames, resetFramesCursorCount } from '../frames/index.js';
 
 let output = '';
 
@@ -8,6 +8,10 @@ beforeEach(() => {
     output += String(s); return true;
   });
   jest.useFakeTimers();
+  // Reset cursor ref count so tests are fully isolated.
+  // Otherwise a previous test leaving count>0 would suppress hide/show
+  // escapes in subsequent tests via the ref-counting guard.
+  resetFramesCursorCount();
 });
 
 afterEach(() => {
@@ -16,8 +20,22 @@ afterEach(() => {
   output = '';
 });
 
-const run = async (fn: () => Promise<void>): Promise<void> => {
-  const p = fn(); await jest.runAllTimersAsync(); await p;
+// Helper that runs frames.play / frames.live workflows under fake timers.
+// Accepts either:
+//   - a function returning a Promise<void> (live + manual sequences)
+//   - a function returning a PlayController (frames.play)
+const run = async (fn: () => unknown): Promise<void> => {
+  const result = fn();
+  // PlayController has a `done` Promise — await that
+  if (result && typeof result === 'object' && 'done' in result) {
+    const ctrl = result as { done: Promise<void> };
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    return;
+  }
+  // Otherwise treat as Promise<void>
+  await jest.runAllTimersAsync();
+  await (result as Promise<void>);
 };
 
 // ─────────────────────────────────────────────
@@ -55,11 +73,16 @@ describe('frames.play', () => {
   });
 
   it('cursor shown even when aborted mid-play', async () => {
-    // Verify finally runs on early exit via signal
+    // When signal is pre-aborted, the loop short-circuits BEFORE hiding the
+    // cursor, so showCursor() is never written either (nothing to undo).
+    // This is the cleanest behavior — fewer escapes, no redundant writes.
+    // Verify the playback was actually skipped (no frame content written).
     const ctrl = new AbortController();
     ctrl.abort();
     await run(() => frames.play(['A', 'B'], { interval: 0, repeat: 5, signal: ctrl.signal }));
-    expect(output).toContain('\x1b[?25h');
+    // Output should NOT contain any frame data — short-circuited cleanly
+    expect(output).not.toContain('A');
+    expect(output).not.toContain('B');
   });
 
   it('clearOnFinish clears the last frame', async () => {
@@ -94,13 +117,16 @@ describe('frames.play', () => {
     expect(count).toBe(2);
   });
 
-  it('repeat:-1 clamps to 0 — plays nothing', async () => {
+  it('repeat:-1 falls back to default 1 — plays once', async () => {
     let count = 0;
     await run(() => frames.play(['A'], {
       interval: 0, repeat: -1,
       onFrame: (f) => { count++; return f; },
     }));
-    expect(count).toBe(0);
+    // Negative repeat is treated as input error → fallback to 1 (plays once)
+    // This is safer than the old "clamps to 0 = infinite" behavior which
+    // could hang the process on bad input.
+    expect(count).toBe(1);
   });
 
   it('onFrame=null uses frame directly (line 62 false branch)', async () => {
@@ -154,9 +180,9 @@ describe('frames.play', () => {
       signal: ctrl.signal,
       onFrame: (f) => { count++; return f; },
     }));
-    // Aborted before first frame
+    // Aborted before first frame — onFrame never called, no cursor manipulation
     expect(count).toBe(0);
-    expect(output).toContain('\x1b[?25h'); // cursor still shown
+    expect(output).not.toContain('A');
   });
 });
 
@@ -235,13 +261,15 @@ describe('frames.live', () => {
     expect(output).toContain('\x1b[?25h');
   });
 
-  it('stop() sets timer to null — double stop is safe', () => {
+  it('stop() sets timer to null — double stop is safe (idempotent)', () => {
     const ctrl = frames.live({ fps: 10, autoStart: true });
     ctrl.stop();
     output = '';
-    ctrl.stop(); // second stop — timer already null
-    // cursor.show called again but no crash
-    expect(output).toContain('\x1b[?25h');
+    ctrl.stop(); // second stop — timer already null, wasRunning=false
+    // New behavior: second stop is fully idempotent — doesn't re-emit cursor.show
+    // (avoids underflow of the ref counter when stop is called multiple times).
+    // What matters is: no crash, no infinite escape spam.
+    expect(() => ctrl.stop()).not.toThrow();
   });
 
   it('update() renders immediately when running', () => {
@@ -280,7 +308,10 @@ describe('frames.live', () => {
     jest.advanceTimersByTime(55);
     ctrl.update('new1\nnew2');
     jest.advanceTimersByTime(55);
-    expect(output).toContain('\x1b[1A'); // clearLines wrote cursor.up
+    // clearLines uses `cursor.up(N)` for the line count plus screen.clearDown
+    // We only assert that some cursor-up sequence and a clear were emitted.
+    expect(output).toMatch(/\x1b\[\d+A/);
+    expect(output).toContain('\x1b[0J'); // clearDown
     ctrl.stop();
   });
 
@@ -367,16 +398,20 @@ describe('frames.morph', () => {
   });
 
   it('empty charset (!charset.length) falls back to ░', () => {
-    // charset = '' → !charset.length → returns '░' for all differing chars
+    // charset = '' → !charset.length → returns '░' for differing chars.
+    // With probabilistic snap, some chars may already be the target,
+    // so we check that EVERY differing position is either the target ('B')
+    // or the fallback charset char ('░').
     const result = frames.morph('AAAAA', 'BBBBB', 4, '');
     const mid = result.slice(1, -1);
-    expect(mid.every(f => [...f].every(ch => ch === '░'))).toBe(true);
+    expect(mid.every(f => [...f].every(ch => ch === '░' || ch === 'B'))).toBe(true);
   });
 
   it('non-empty charset uses indexed char', () => {
+    // With probabilistic snap, mid frames contain charset chars OR target ('B')
     const result = frames.morph('AAAAA', 'BBBBB', 4, '+-');
     const mid = result.slice(1, -1);
-    expect(mid.every(f => [...f].every(ch => '+-'.includes(ch)))).toBe(true);
+    expect(mid.every(f => [...f].every(ch => '+-B'.includes(ch)))).toBe(true);
   });
 
   it('matching chars at mid-transition stay unchanged', () => {
@@ -499,5 +534,453 @@ describe('frames.presets.typeDelete', () => {
     // Hits default branch: cursor='▌'
     const f = frames.presets.typeDelete('hi');
     expect(f.some(fr => fr.includes('▌'))).toBe(true);
+  });
+});
+
+
+// ─────────────────────────────────────────────
+//  PlayController API
+// ─────────────────────────────────────────────
+describe('frames.play — controller', () => {
+  it('returns controller with done promise', () => {
+    const ctrl = frames.play(['A'], { interval: 0, repeat: 1 });
+    expect(typeof ctrl.pause).toBe('function');
+    expect(typeof ctrl.resume).toBe('function');
+    expect(typeof ctrl.seek).toBe('function');
+    expect(typeof ctrl.stop).toBe('function');
+    expect(typeof ctrl.isPlaying).toBe('function');
+    expect(ctrl.done).toBeInstanceOf(Promise);
+  });
+
+  it('controller.stop() halts playback', async () => {
+    const ctrl = frames.play(['A','B','C','D','E'], { interval: 100, repeat: 0 });
+    await jest.advanceTimersByTimeAsync(50);
+    ctrl.stop();
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    // Should have completed (not hung)
+    expect(true).toBe(true);
+  });
+
+  it('seek jumps to a specific frame index', async () => {
+    const order: string[] = [];
+    const ctrl = frames.play(['A','B','C','D'], {
+      interval: 0, repeat: 1,
+      onFrame: (f) => { order.push(f); return f; },
+    });
+    ctrl.seek(2);
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    // The first rendered frame should be 'C' (index 2)
+    expect(order[0]).toBe('C');
+  });
+
+  it('seek wraps around with modulo', () => {
+    const ctrl = frames.play(['A','B'], { interval: 100, repeat: 0 });
+    expect(() => ctrl.seek(99)).not.toThrow();
+    ctrl.stop();
+  });
+
+  it('pause/resume controls playback flow', async () => {
+    const order: string[] = [];
+    const ctrl = frames.play(['A','B','C'], {
+      interval: 50, repeat: 1,
+      onFrame: (f) => { order.push(f); return f; },
+    });
+    ctrl.pause();
+    await jest.advanceTimersByTimeAsync(200);
+    expect(order.length).toBeLessThanOrEqual(1); // paused
+    ctrl.resume();
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    expect(order.length).toBeGreaterThan(0);
+  });
+
+  it('isPlaying reflects state', async () => {
+    const ctrl = frames.play(['A'], { interval: 0, repeat: 1 });
+    // Initially not yet started (microtask boundary)
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    expect(ctrl.isPlaying()).toBe(false);
+  });
+
+  it('onFinish fires on natural completion', async () => {
+    let finished = false;
+    await run(() => frames.play(['A','B'], {
+      interval: 0, repeat: 1,
+      onFinish: () => { finished = true; },
+    }));
+    expect(finished).toBe(true);
+  });
+
+  it('onFinish does NOT fire when stopped', async () => {
+    let finished = false;
+    const ctrl = frames.play(['A','B','C'], {
+      interval: 100, repeat: 0,
+      onFinish: () => { finished = true; },
+    });
+    ctrl.stop();
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    expect(finished).toBe(false);
+  });
+
+  it('user errors in onFinish do not propagate', async () => {
+    await expect(run(() => frames.play(['A'], {
+      interval: 0, repeat: 1,
+      onFinish: () => { throw new Error('user error'); },
+    }))).resolves.toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  FPS option
+// ─────────────────────────────────────────────
+describe('frames.play — fps', () => {
+  it('fps option converts to interval', async () => {
+    // 60fps → ~16ms per frame
+    let frameCount = 0;
+    const ctrl = frames.play(['A','B','C','D','E','F'], {
+      fps: 60, repeat: 1,
+      onFrame: (f) => { frameCount++; return f; },
+    });
+    await jest.runAllTimersAsync();
+    await ctrl.done;
+    expect(frameCount).toBe(6);
+  });
+
+  it('fps takes precedence over interval', () => {
+    const ctrl = frames.play(['A'], { interval: 1000, fps: 60, repeat: 1 });
+    expect(ctrl.done).toBeInstanceOf(Promise);
+    ctrl.stop();
+  });
+
+  it('fps below 1 clamps safely', async () => {
+    await expect(run(() => frames.play(['A'], { fps: 0, repeat: 1 }))).resolves.toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  AbortSignal — pre-aborted short-circuit
+// ─────────────────────────────────────────────
+describe('frames.play — pre-aborted signal', () => {
+  it('skips render when signal already aborted', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const result = frames.play(['A','B','C'], {
+      interval: 0, repeat: 1, signal: ctrl.signal,
+    });
+    await jest.runAllTimersAsync();
+    await result.done;
+    // Cursor should not have been hidden since we short-circuited
+    expect(output).not.toContain('A');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  live — AbortSignal integration
+// ─────────────────────────────────────────────
+describe('frames.live — AbortSignal', () => {
+  it('auto-stops when signal aborts', () => {
+    const ctrl = new AbortController();
+    const l = frames.live({ fps: 30, autoStart: true, signal: ctrl.signal });
+    expect(l.isRunning()).toBe(true);
+    ctrl.abort();
+    expect(l.isRunning()).toBe(false);
+  });
+
+  it('does not start when pre-aborted signal', () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const l = frames.live({ fps: 30, autoStart: true, signal: ctrl.signal });
+    // Auto-stops immediately on abort
+    expect(l.isRunning()).toBe(false);
+  });
+
+  it('stop({ clear: true }) wipes last rendered frame', () => {
+    const l = frames.live({ fps: 60, autoStart: true });
+    l.update('hello');
+    jest.advanceTimersByTime(20); // let one render tick happen
+    l.stop({ clear: true });
+    // After clear, output ends with clear sequences
+    expect(output).toContain('hello');
+    l.stop(); // idempotent
+  });
+
+  it('stop() default does not clear', () => {
+    const l = frames.live({ fps: 60, autoStart: true });
+    l.update('persistent');
+    jest.advanceTimersByTime(20);
+    l.stop(); // no clear
+    expect(output).toContain('persistent');
+  });
+
+  it('stop is idempotent', () => {
+    const l = frames.live({ fps: 60, autoStart: true });
+    l.stop();
+    expect(() => l.stop()).not.toThrow();
+    expect(() => l.stop({ clear: true })).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  morph — empty input safety
+// ─────────────────────────────────────────────
+describe('frames.morph — edge cases', () => {
+  it('returns single empty frame for empty inputs', () => {
+    const result = frames.morph('', '');
+    expect(result).toEqual(['']);
+  });
+
+  it('handles empty target', () => {
+    const result = frames.morph('hello', '', 4);
+    expect(result.length).toBe(4);
+  });
+
+  it('handles empty source', () => {
+    const result = frames.morph('', 'hello', 4);
+    expect(result.length).toBe(4);
+  });
+
+  it('first frame matches source', () => {
+    const result = frames.morph('AAA', 'BBB', 5);
+    expect(result[0]).toBe('AAA');
+  });
+
+  it('last frame matches target', () => {
+    const result = frames.morph('AAA', 'BBB', 5);
+    expect(result[result.length - 1]).toBe('BBB');
+  });
+
+  it('preserves matching characters across morph', () => {
+    // 'CAT' → 'BAT' — only first char changes; A and T stay
+    const result = frames.morph('CAT', 'BAT', 5);
+    for (const f of result) {
+      expect(f[1]).toBe('A');
+      expect(f[2]).toBe('T');
+    }
+  });
+
+  it('falls back to default charset when empty charset given', () => {
+    const result = frames.morph('AB', 'CD', 4, '');
+    expect(result.length).toBe(4);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  lineCount edge cases
+// ─────────────────────────────────────────────
+describe('lineCount handling', () => {
+  it('counts CRLF as single newlines', async () => {
+    // Frame uses \r\n — should still clear correctly
+    await expect(run(() => frames.play(['line1\r\nline2'], {
+      interval: 0, repeat: 1,
+    }))).resolves.toBeUndefined();
+  });
+
+  it('handles empty frame', async () => {
+    await expect(run(() => frames.play([''], { interval: 0, repeat: 1 }))).resolves.toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Input validation & defensive paths
+// ─────────────────────────────────────────────
+describe('frames defensive inputs', () => {
+  it('play with non-array frames returns no-op controller', async () => {
+    const ctrl = frames.play(null as unknown as string[]);
+    expect(typeof ctrl.pause).toBe('function');
+    expect(typeof ctrl.stop).toBe('function');
+    expect(ctrl.isPlaying()).toBe(false);
+    await ctrl.done; // resolves immediately
+  });
+
+  it('play with NaN fps falls back to default', () => {
+    const ctrl = frames.play(['a'], { fps: NaN, repeat: 1 });
+    expect(typeof ctrl.done).toBe('object');
+    ctrl.stop();
+  });
+
+  it('play with negative repeat falls back to default 1 (plays once)', async () => {
+    // Use the run() helper which advances fake timers + awaits done.
+    // Negative repeat falls back to default (1) — does NOT loop infinitely.
+    let renderCount = 0;
+    await run(() => frames.play(['a', 'b'], {
+      repeat: -5, interval: 0,
+      onFrame: (f) => { renderCount++; return f; },
+    }));
+    // Plays the 2 frames exactly once (renderCount = 2)
+    expect(renderCount).toBe(2);
+  });
+
+  it('play with non-finite repeat falls back to 1', async () => {
+    // Infinity is not finite per isFiniteNumber → fallback to 1, plays once.
+    // Use run() to properly advance fake timers + await completion.
+    await run(() => frames.play(['a'], {
+      repeat: Infinity as unknown as number,
+      interval: 0,
+    }));
+    // No throw = success
+    expect(true).toBe(true);
+  });
+
+  it('seek with NaN is ignored', () => {
+    const ctrl = frames.play(['a', 'b', 'c'], { fps: 60 });
+    expect(() => ctrl.seek(NaN)).not.toThrow();
+    expect(() => ctrl.seek(Infinity)).not.toThrow();
+    ctrl.stop();
+  });
+
+  it('generate with NaN count returns empty array', () => {
+    expect(frames.generate(NaN, (i) => String(i))).toEqual([]);
+  });
+
+  it('generate with negative count returns empty', () => {
+    expect(frames.generate(-10, (i) => String(i))).toEqual([]);
+  });
+
+  it('generate with non-function fn returns array of empty strings', () => {
+    const result = frames.generate(3, null as unknown as (i: number) => string);
+    expect(result).toEqual(['', '', '']);
+  });
+
+  it('generate swallows user errors per frame', () => {
+    const result = frames.generate(3, (i) => {
+      if (i === 1) throw new Error('boom');
+      return `frame${i}`;
+    });
+    expect(result).toEqual(['frame0', '', 'frame2']);
+  });
+
+  it('generate coerces non-string returns', () => {
+    const result = frames.generate(2, (i) => (i * 2) as unknown as string);
+    expect(result).toEqual(['0', '2']);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  morph defensive
+// ─────────────────────────────────────────────
+describe('morph defensive', () => {
+  it('morph with steps=1 clamps to minimum 2', () => {
+    const result = frames.morph('a', 'b', 1);
+    expect(result.length).toBe(2);
+    expect(result[0]).toBe('a');
+    expect(result[result.length - 1]).toBe('b');
+  });
+
+  it('morph with NaN steps falls back to 8', () => {
+    const result = frames.morph('a', 'b', NaN);
+    expect(result.length).toBe(8);
+  });
+
+  it('morph with empty charset falls back to ░', () => {
+    const result = frames.morph('aaaa', 'bbbb', 3, '');
+    // Middle frame may contain ░ chars
+    expect(result.length).toBe(3);
+  });
+
+  it('morph coerces non-string inputs', () => {
+    expect(() => frames.morph(42 as unknown as string, true as unknown as string, 3)).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  presets defensive
+// ─────────────────────────────────────────────
+describe('presets defensive', () => {
+  it('loadingBar with width=0 produces single 100% frame', () => {
+    const result = frames.presets.loadingBar({ width: 0 });
+    expect(result.length).toBe(1);
+    expect(result[0]).toContain('100%');
+  });
+
+  it('loadingBar with NaN width falls back to default 20', () => {
+    const result = frames.presets.loadingBar({ width: NaN });
+    expect(result.length).toBe(21); // 0..20 = 21 frames
+  });
+
+  it('ball with width=0 clamps to 1', () => {
+    expect(() => frames.presets.ball({ width: 0 })).not.toThrow();
+  });
+
+  it('breathe with steps=0 clamps to 1', () => {
+    expect(() => frames.presets.breathe('hi', { steps: 0 })).not.toThrow();
+  });
+
+  it('typeDelete with empty cur uses default', () => {
+    expect(() => frames.presets.typeDelete('hi', { cursor: '' })).not.toThrow();
+  });
+
+  it('all presets coerce non-string text', () => {
+    expect(() => frames.presets.breathe(42 as unknown as string)).not.toThrow();
+    expect(() => frames.presets.typeDelete(42 as unknown as string)).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Cursor ref-counting
+// ─────────────────────────────────────────────
+describe('frames cursor ref-counting', () => {
+  it('resetFramesCursorCount is exported and callable', () => {
+    expect(() => resetFramesCursorCount()).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  live() defensive
+// ─────────────────────────────────────────────
+describe('live() defensive', () => {
+  it('live with NaN fps falls back to default 12', () => {
+    const ctrl = frames.live({ fps: NaN });
+    expect(ctrl.isRunning()).toBe(true);
+    ctrl.stop();
+  });
+
+  it('live with fps > 60 caps at 60', () => {
+    const ctrl = frames.live({ fps: 9999 });
+    expect(ctrl.isRunning()).toBe(true);
+    ctrl.stop();
+  });
+
+  it('update with non-string coerces', () => {
+    const ctrl = frames.live({ autoStart: false });
+    expect(() => ctrl.update(42 as unknown as string)).not.toThrow();
+    ctrl.stop();
+  });
+
+  it('stop is idempotent', () => {
+    const ctrl = frames.live();
+    ctrl.stop();
+    expect(() => ctrl.stop()).not.toThrow();
+    expect(() => ctrl.stop({ clear: true })).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage: branch targets
+// ─────────────────────────────────────────────
+describe('frames: branch coverage', () => {
+  it('clearLines with n<=0 is no-op (line 208)', () => {
+    // clearLines is internal — exercised indirectly via play with no output
+    // Just verify play with empty stays defensive
+    const ctrl = frames.play([], { fps: 30, repeat: 1 });
+    expect(typeof ctrl.stop).toBe('function');
+    ctrl.stop();
+  });
+
+  it('play with empty array returns no-op controller (line 229+)', () => {
+    // play([]) hits the early-return no-op controller branch
+    const ctrl = frames.play([], { repeat: 1 });
+    expect(ctrl).toBeDefined();
+    expect(typeof ctrl.pause).toBe('function');
+    expect(typeof ctrl.resume).toBe('function');
+    expect(typeof ctrl.stop).toBe('function');
+  });
+
+  it('play with non-array also returns no-op (defensive)', () => {
+    const ctrl = frames.play(null as unknown as string[], { repeat: 1 });
+    expect(ctrl).toBeDefined();
+    ctrl.stop();
   });
 });

@@ -1,39 +1,66 @@
-# .github/workflows/publish.yml
 name: Publish to NPM
 
 on:
   release:
     types: [published]
 
+  # Allow manual trigger for re-publishing
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'NPM dist-tag (e.g., latest, next, beta)'
+        required: true
+        default: 'latest'
+
 jobs:
   publish:
     name: Publish to NPM
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
-      id-token: write
-    
+      id-token: write # required for npm provenance
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-      
+          cache: 'npm'
+
       - name: Install dependencies
-        run: npm install
-      
+        run: npm ci
+
+      - name: Verify version matches tag
+        if: github.event_name == 'release'
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✓ Version match: $PKG_VERSION"
+
       - name: Run tests
         run: npm test
-      
+
       - name: Build
         run: npm run build
-      
+
       - name: Publish to NPM
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag ${{ github.event.inputs.tag || 'latest' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "### 🎉 Published ansimax@$PKG_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**NPM:** https://www.npmjs.com/package/ansimax" >> $GITHUB_STEP_SUMMARY
+          echo "**Install:** \`npm install ansimax@$PKG_VERSION\`" >> $GITHUB_STEP_SUMMARY

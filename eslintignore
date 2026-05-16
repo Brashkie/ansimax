@@ -1,0 +1,7 @@
+dist/
+coverage/
+node_modules/
+examples/
+*.d.ts
+*.config.js
+*.config.ts

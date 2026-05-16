@@ -15,8 +15,11 @@ declare namespace NodeJS {
       write(str: string): boolean;
       columns?: number;
       rows?: number;
-      isTTY?: boolean;        // ← was missing — needed by colors/index.ts
+      isTTY?: boolean;
+      once(event: string, listener: (...args: any[]) => void): void;
+      on(event: string, listener: (...args: any[]) => void): void;
     };
+    platform: string;
     stdin: {
       isTTY?: boolean;
       setRawMode?(mode: boolean): void;
@@ -26,8 +29,16 @@ declare namespace NodeJS {
       removeListener(event: string, listener: (...args: any[]) => void): void;
       isPaused(): boolean;
     };
+    stderr: {
+      write(str: string): boolean;
+      isTTY?: boolean;
+    };
     env: Record<string, string | undefined>;
+    platform: string;
     exit(code?: number): never;
+    on(event: string, listener: (...args: any[]) => void): void;
+    once(event: string, listener: (...args: any[]) => void): void;
+    off(event: string, listener: (...args: any[]) => void): void;
   }
 }
 
@@ -59,4 +70,12 @@ declare class AbortSignal {
 declare class AbortController {
   readonly signal: AbortSignal;
   abort(reason?: unknown): void;
+}
+
+// node:os module — used in ansi.ts for Windows version detection
+declare module 'node:os' {
+  function release(): string;
+  const _default: { release: typeof release };
+  export default _default;
+  export { release };
 }

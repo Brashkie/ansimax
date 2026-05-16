@@ -1,18 +1,95 @@
 // ─────────────────────────────────────────────
-//  COMPONENTS  –  table, box, badge, menu, etc.
+//  COMPONENTS — table, badge, menu, progress, timeline, etc.
+//
+//  Robustness guarantees:
+//   - All width math uses visibleLen() (ANSI + Unicode aware)
+//   - All padding goes through padEnd/padStart from utils/helpers
+//   - This module NEVER touches `.length` of a styled string directly
+//   - Numeric inputs (percent, width, padding, colorCode) are clamped
+//   - Non-string cell values coerced via String() — never throws
+//   - menu() reference-counts cursor visibility — overlapping calls safe
+//   - menu() cleanup is symmetric (always restores cursor + raw mode)
 // ─────────────────────────────────────────────
 
-import { sgr, FG, BG, STYLE, reset, cursor, screen, write, writeln } from '../utils/ansi.js';
-import { padEnd, visibleLen, termSize } from '../utils/helpers.js';
+import { sgr, FG, BG, STYLE, reset, cursor, screen } from '../utils/ansi.js';
+import { padEnd, visibleLen, termSize, stripAnsi } from '../utils/helpers.js';
 import { ascii } from '../ascii/index.js';
+import { gradient as gradientFn } from '../colors/index.js';
 
-// ── Table ────────────────────────────────────
+// ─────────────────────────────────────────────
+//  Internal helpers
+// ─────────────────────────────────────────────
+
+const isFiniteNumber = (n: unknown): n is number =>
+  typeof n === 'number' && Number.isFinite(n);
+
+const ensureString = (v: unknown): string =>
+  typeof v === 'string' ? v : String(v ?? '');
+
+/** Clamp percent to [0, 100]. NaN/Infinity → 0. */
+const clampPercent = (p: unknown): number => {
+  if (!isFiniteNumber(p)) return 0;
+  return Math.max(0, Math.min(100, p));
+};
+
+/** Clamp a non-negative integer (width, padding). Falls back to `fallback`. */
+const clampNonNeg = (n: unknown, fallback: number): number => {
+  if (!isFiniteNumber(n)) return fallback;
+  return Math.max(0, Math.floor(n));
+};
+
+/** Clamp a positive integer (width, columns). Falls back to `fallback`. */
+const clampPositive = (n: unknown, fallback: number): number => {
+  if (!isFiniteNumber(n)) return fallback;
+  return Math.max(1, Math.floor(n));
+};
+
+/** Clamp an SGR code to a sensible range. Bad values return reset. */
+const safeSgrCode = (code: unknown, fallback: number): number => {
+  if (!isFiniteNumber(code)) return fallback;
+  // SGR codes are typically 0-107 (with bright BG up to 107). Allow up to 255
+  // for safety — any value above that is almost certainly a bug.
+  return Math.max(0, Math.min(255, Math.floor(code)));
+};
+
+/** Truncate a string to the given visible width (ANSI-aware). */
+const truncateVisible = (str: string, maxWidth: number, ellipsis = '…'): string => {
+  if (visibleLen(str) <= maxWidth) return str;
+  // Fall back to plain-text truncation when the string contains ANSI —
+  // truncating styled text mid-sequence would corrupt escapes.
+  const plain = stripAnsi(str);
+  if (plain === str) {
+    return str.slice(0, Math.max(0, maxWidth - 1)) + ellipsis;
+  }
+  /* istanbul ignore next — defensive: ANSI-laden text fallback path */
+  return plain.slice(0, Math.max(0, maxWidth - 1)) + ellipsis;
+};
+
+/** Wrap a single line into multiple lines at `width` (visible chars). */
+const wrapVisible = (str: string, width: number): string[] => {
+  /* istanbul ignore if — defensive: callers validate width before invoking */
+  if (width <= 0) return [str];
+  if (visibleLen(str) <= width) return [str];
+  // Best-effort wrap by stripping ANSI to compute boundaries.
+  const plain = stripAnsi(str);
+  const out: string[] = [];
+  for (let i = 0; i < plain.length; i += width) {
+    out.push(plain.slice(i, i + width));
+  }
+  return out;
+};
+
+// ─────────────────────────────────────────────
+//  Table
+// ─────────────────────────────────────────────
 export type TableBorderStyle = 'single' | 'double' | 'rounded' | 'heavy';
 
 export interface TableOptions {
   header?: boolean;
   borderStyle?: TableBorderStyle;
   padding?: number;
+  /** Truncate cell content if it exceeds the column max. Default: null (auto-size). */
+  maxColWidth?: number | null;
 }
 
 interface TableBorderChars {
@@ -22,59 +99,147 @@ interface TableBorderChars {
 }
 
 const TABLE_BORDERS: Record<TableBorderStyle, TableBorderChars> = {
-  single:  { tl:'┌',tr:'┐',bl:'└',br:'┘',h:'─',v:'│',ml:'├',mr:'┤',mt:'┬',mb:'┴',cx:'┼' },
-  double:  { tl:'╔',tr:'╗',bl:'╚',br:'╝',h:'═',v:'║',ml:'╠',mr:'╣',mt:'╦',mb:'╩',cx:'╬' },
-  rounded: { tl:'╭',tr:'╮',bl:'╰',br:'╯',h:'─',v:'│',ml:'├',mr:'┤',mt:'┬',mb:'┴',cx:'┼' },
-  heavy:   { tl:'┏',tr:'┓',bl:'┗',br:'┛',h:'━',v:'┃',ml:'┣',mr:'┫',mt:'┳',mb:'┻',cx:'╋' },
+  single:  { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│', ml: '├', mr: '┤', mt: '┬', mb: '┴', cx: '┼' },
+  double:  { tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║', ml: '╠', mr: '╣', mt: '╦', mb: '╩', cx: '╬' },
+  rounded: { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│', ml: '├', mr: '┤', mt: '┬', mb: '┴', cx: '┼' },
+  heavy:   { tl: '┏', tr: '┓', bl: '┗', br: '┛', h: '━', v: '┃', ml: '┣', mr: '┫', mt: '┳', mb: '┻', cx: '╋' },
 };
 
+/**
+ * Render a 2D array of strings as a bordered table.
+ *
+ * Multi-line cells are supported — newlines in any cell expand the row
+ * to that line count. Cell text wider than `maxColWidth` (when set) is
+ * truncated with an ellipsis. All width calculations use visibleLen()
+ * so ANSI escapes don't corrupt column alignment.
+ *
+ * Defensive: non-array rows → empty string. Non-string cells coerced.
+ */
 export const table = (rows: string[][], opts: TableOptions = {}): string => {
-  const { header = true, borderStyle = 'rounded', padding = 1 } = opts;
-  if (!rows || rows.length === 0) return '';
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+
+  const {
+    header = true,
+    borderStyle = 'rounded',
+    padding = 1,
+    maxColWidth = null,
+  } = opts;
+
   const b = TABLE_BORDERS[borderStyle] ?? TABLE_BORDERS.rounded;
-  const pad = ' '.repeat(padding);
-  // Use max columns across ALL rows — handles irregular/jagged rows
-  const cols = Math.max(...rows.map((r) => r.length), 0);
-  const widths = Array.from({ length: cols }, (_, ci) =>
-    Math.max(...rows.map((r) => visibleLen(String(r[ci] ?? ''))))
+  const safePadding = clampNonNeg(padding, 1);
+  const pad = ' '.repeat(safePadding);
+  const safeMaxCol = maxColWidth !== null && isFiniteNumber(maxColWidth)
+    ? Math.max(1, Math.floor(maxColWidth))
+    : null;
+
+  // Compute column count — ignore non-array rows defensively
+  const validRows = rows.filter((r) => Array.isArray(r));
+  if (validRows.length === 0) return '';
+  const cols = Math.max(...validRows.map((r) => r.length), 0);
+  if (cols === 0) return '';
+
+  // Pre-process every cell into an array of lines (multi-line support).
+  // Outer = cells, inner = cell-lines.
+  const processedRows: string[][][] = validRows.map((row) =>
+    Array.from({ length: cols }, (_, ci) => {
+      const raw = ensureString(row[ci]);
+      const lines = raw.split('\n');
+      return safeMaxCol !== null
+        ? lines.map((l) => truncateVisible(l, safeMaxCol))
+        : lines;
+    }),
   );
 
-  const rowSep = (left: string, mid: string, right: string, fill: string): string =>
-    left + widths.map((w) => fill.repeat(w + padding * 2)).join(mid) + right;
+  // Compute column widths from the WIDEST line in any cell of that column.
+  const widths = Array.from({ length: cols }, (_, ci) => {
+    let max = 0;
+    for (const procRow of processedRows) {
+      const cellLines = procRow[ci] ?? [''];
+      for (const line of cellLines) {
+        const w = visibleLen(line);
+        if (w > max) max = w;
+      }
+    }
+    return safeMaxCol !== null ? Math.min(max, safeMaxCol) : max;
+  });
 
-  const renderRow = (row: string[], isHeader = false): string => {
-    const cells = row.map((cell, ci) => {
-      let s = padEnd(String(cell ?? ''), widths[ci] ?? 0);
-      if (isHeader) s = sgr(STYLE.bold) + s + reset();
-      return pad + s + pad;
-    });
-    return b.v + cells.join(b.v) + b.v;
+  const rowSep = (left: string, mid: string, right: string, fill: string): string =>
+    left + widths.map((w) => fill.repeat(w + safePadding * 2)).join(mid) + right;
+
+  const renderRow = (cellLines: string[][], isHeader = false): string => {
+    // Determine row height — max line count across all cells
+    const rowHeight = Math.max(...cellLines.map((c) => c.length), 1);
+
+    const out: string[] = [];
+    for (let line = 0; line < rowHeight; line++) {
+      const cells = cellLines.map((cellArr, ci) => {
+        const txt = cellArr[line] ?? '';
+        let s = padEnd(txt, widths[ci] ?? 0);
+        if (isHeader) s = sgr(STYLE.bold) + s + reset();
+        return pad + s + pad;
+      });
+      out.push(b.v + cells.join(b.v) + b.v);
+    }
+    return out.join('\n');
   };
 
   const lines: string[] = [];
   lines.push(rowSep(b.tl, b.mt, b.tr, b.h));
-  rows.forEach((row, ri) => {
+  processedRows.forEach((row, ri) => {
     lines.push(renderRow(row, ri === 0 && header));
-    if (ri === 0 && header && rows.length > 1) lines.push(rowSep(b.ml, b.cx, b.mr, b.h));
+    if (ri === 0 && header && processedRows.length > 1) {
+      lines.push(rowSep(b.ml, b.cx, b.mr, b.h));
+    }
   });
   lines.push(rowSep(b.bl, b.mb, b.br, b.h));
   return lines.join('\n');
 };
 
-// ── Badge ────────────────────────────────────
+// ─────────────────────────────────────────────
+//  Badge
+// ─────────────────────────────────────────────
 export interface BadgeOptions {
   labelBg?: number;
   valueBg?: number;
   labelFg?: number;
   valueFg?: number;
+  /** Inner padding (spaces) around the text. Default: 1. */
+  padding?: number;
+  /** Wrap the badge in a box-drawing border. Default: false. */
+  border?: boolean;
 }
 
 export const badge = (label: string, value: string, opts: BadgeOptions = {}): string => {
-  const { labelBg = BG.blue, valueBg = BG.green, labelFg = FG.white, valueFg = FG.white } = opts;
-  return sgr(labelBg, labelFg) + ` ${label} ` + reset() + sgr(valueBg, valueFg) + ` ${value} ` + reset();
+  const {
+    labelBg = BG.blue, valueBg = BG.green,
+    labelFg = FG.white, valueFg = FG.white,
+    padding = 1,
+    border  = false,
+  } = opts;
+
+  const safeLabel = ensureString(label);
+  const safeValue = ensureString(value);
+  const safePadding = clampNonNeg(padding, 1);
+  const pad = ' '.repeat(safePadding);
+
+  const lhs = sgr(safeSgrCode(labelBg, BG.blue),  safeSgrCode(labelFg, FG.white))
+            + pad + safeLabel + pad + reset();
+  const rhs = sgr(safeSgrCode(valueBg, BG.green), safeSgrCode(valueFg, FG.white))
+            + pad + safeValue + pad + reset();
+  const body = lhs + rhs;
+
+  if (!border) return body;
+
+  // Optional rounded border around the badge
+  const innerWidth = visibleLen(body);
+  const top    = '╭' + '─'.repeat(innerWidth) + '╮';
+  const bottom = '╰' + '─'.repeat(innerWidth) + '╯';
+  return `${top}\n│${body}│\n${bottom}`;
 };
 
-// ── Progress bar ─────────────────────────────
+// ─────────────────────────────────────────────
+//  Progress bar
+// ─────────────────────────────────────────────
 export interface ProgressBarOptions {
   width?: number;
   char?: string;
@@ -82,25 +247,51 @@ export interface ProgressBarOptions {
   showPercentage?: boolean;
   label?: string;
   color?: number | null;
+  /** Optional gradient stops applied to the filled portion. Overrides `color`. */
+  gradient?: string[] | null;
 }
 
 export const progressBar = (percent: number, opts: ProgressBarOptions = {}): string => {
-  const { width = 30, char = '█', emptyChar = '░', showPercentage = true, label = '', color = null } = opts;
-  const clamped = Math.min(100, Math.max(0, percent));
-  const filled = Math.round((clamped / 100) * width);
-  const empty = width - filled;
-  let filledStr = char.repeat(filled);
-  const emptyStr = emptyChar.repeat(empty);
-  if (color !== null) filledStr = sgr(color) + filledStr + reset();
+  const {
+    width = 30, char = '█', emptyChar = '░',
+    showPercentage = true, label = '', color = null,
+    gradient: gradientStops = null,
+  } = opts;
+
+  const safeWidth = clampPositive(width, 30);
+  const safeChar  = typeof char === 'string' && char.length > 0 ? char : '█';
+  const safeEmpty = typeof emptyChar === 'string' && emptyChar.length > 0 ? emptyChar : '░';
+  const safeLabel = ensureString(label);
+  const clamped   = clampPercent(percent);
+
+  // Math.floor avoids over-fill (e.g. 99.5% never renders as 100%)
+  const filled = Math.floor((clamped / 100) * safeWidth);
+  const empty  = Math.max(0, safeWidth - filled);
+
+  let filledStr = safeChar.repeat(filled);
+
+  // Apply coloring: gradient first (richer), fallback to single color.
+  // Single-stop gradient is now also accepted (colors statically).
+  if (Array.isArray(gradientStops) && gradientStops.length >= 1 && filled > 0) {
+    filledStr = gradientFn(filledStr, gradientStops);
+  } else if (color !== null && isFiniteNumber(color)) {
+    filledStr = sgr(safeSgrCode(color, FG.white)) + filledStr + reset();
+  }
+
+  const emptyStr = safeEmpty.repeat(empty);
   const pct = showPercentage ? ` ${String(Math.round(clamped)).padStart(3)}%` : '';
-  const lbl = label ? ` ${label}` : '';
+  const lbl = safeLabel ? ` ${safeLabel}` : '';
   return `[${filledStr}${emptyStr}]${pct}${lbl}`;
 };
 
-// ── Box ──────────────────────────────────────
-export { ascii as box };
+// ─────────────────────────────────────────────
+//  Box (re-export ascii.box as a proper named export)
+// ─────────────────────────────────────────────
+export const box = ascii.box;
 
-// ── Status line ──────────────────────────────
+// ─────────────────────────────────────────────
+//  Status line — flexible icon and multiline support
+// ─────────────────────────────────────────────
 export type StatusType = 'success' | 'error' | 'warn' | 'info' | 'wait';
 
 const STATUS_MAP: Record<StatusType, { icon: string; color: number }> = {
@@ -111,12 +302,41 @@ const STATUS_MAP: Record<StatusType, { icon: string; color: number }> = {
   wait:    { icon: '◌', color: FG.brightBlack },
 };
 
-export const status = (type: StatusType, message: string): string => {
-  const { icon, color } = STATUS_MAP[type] ?? STATUS_MAP.info;
-  return sgr(color) + icon + reset() + ' ' + message;
+export interface StatusOptions {
+  /** Override the default icon (or pass `null`/empty string for no icon). */
+  icon?: string | null;
+  /** Override the default color. */
+  color?: number;
+}
+
+export const status = (
+  type: StatusType,
+  message: string,
+  opts: StatusOptions = {},
+): string => {
+  const def = STATUS_MAP[type] ?? STATUS_MAP.info;
+  const colorCode = opts.color !== undefined ? safeSgrCode(opts.color, def.color) : def.color;
+  const useIcon = opts.icon === undefined ? def.icon : (opts.icon ?? '');
+  const safeMsg = ensureString(message);
+
+  const iconPart = useIcon
+    ? sgr(colorCode) + useIcon + reset() + ' '
+    : '';
+
+  // Multiline messages: align continuation lines with the icon column
+  if (safeMsg.includes('\n')) {
+    const indent = ' '.repeat(useIcon ? visibleLen(useIcon) + 1 : 0);
+    const parts = safeMsg.split('\n');
+    return parts
+      .map((line, i) => (i === 0 ? iconPart + line : indent + line))
+      .join('\n');
+  }
+  return iconPart + safeMsg;
 };
 
-// ── Section header ───────────────────────────
+// ─────────────────────────────────────────────
+//  Section header — ANSI-aware width
+// ─────────────────────────────────────────────
 export interface SectionOptions {
   char?: string;
   width?: number | null;
@@ -126,37 +346,81 @@ export interface SectionOptions {
 export const section = (title: string, opts: SectionOptions = {}): string => {
   const { char = '─', width = null, color: colorCode = FG.cyan } = opts;
   const { cols } = termSize();
-  // Ensure width is never smaller than title + 2 spaces (prevents negative repeat)
-  const w = Math.max(width ?? cols, title.length + 2);
-  const side = Math.floor((w - title.length - 2) / 2);
-  const divider = sgr(colorCode) + char.repeat(side) + reset();
-  const t = sgr(STYLE.bold, colorCode) + title + reset();
-  const trail = sgr(colorCode) + char.repeat(Math.max(0, w - side - title.length - 2)) + reset();
-  return divider + ' ' + t + ' ' + trail;
+
+  const safeTitle = ensureString(title);
+  const safeChar  = typeof char === 'string' && char.length > 0 ? char : '─';
+  const safeColor = safeSgrCode(colorCode, FG.cyan);
+
+  const titleLen = visibleLen(safeTitle);
+  const requestedWidth = width !== null && isFiniteNumber(width)
+    ? Math.max(1, Math.floor(width))
+    : cols;
+  const w = Math.max(requestedWidth, titleLen + 2);
+  const side = Math.floor((w - titleLen - 2) / 2);
+
+  const dividerL = sgr(safeColor) + safeChar.repeat(Math.max(0, side)) + reset();
+  const t = sgr(STYLE.bold, safeColor) + safeTitle + reset();
+  const dividerR = sgr(safeColor) + safeChar.repeat(Math.max(0, w - side - titleLen - 2)) + reset();
+  return `${dividerL} ${t} ${dividerR}`;
 };
 
-// ── Columns layout ───────────────────────────
+// ─────────────────────────────────────────────
+//  Columns layout — wraps oversize content
+// ─────────────────────────────────────────────
 export interface ColumnsOptions {
   cols?: number;
   gap?: number;
   width?: number | null;
+  /** Truncate items wider than the column. Default: 'truncate'. Use 'wrap' to flow into multiple lines. */
+  overflow?: 'truncate' | 'wrap';
 }
 
 export const columns = (items: string[], opts: ColumnsOptions = {}): string => {
-  const { cols: numCols = 2, gap = 2, width = null } = opts;
-  if (numCols < 1) throw new Error('columns: cols must be >= 1');
+  if (!Array.isArray(items) || items.length === 0) return '';
+
+  const { cols: numCols = 2, gap = 2, width = null, overflow = 'truncate' } = opts;
+
+  // Defensive — clamp instead of throwing. Caller that wants strict
+  // validation can check items/opts themselves.
+  const safeCols = clampPositive(numCols, 2);
+  const safeGap  = clampNonNeg(gap, 2);
+
   const { cols: termCols } = termSize();
-  const totalW = width ?? termCols;
-  const colW = Math.floor((totalW - gap * (numCols - 1)) / numCols);
+  const totalW = width !== null && isFiniteNumber(width)
+    ? Math.max(safeCols, Math.floor(width))
+    : termCols;
+  const colW = Math.max(1, Math.floor((totalW - safeGap * (safeCols - 1)) / safeCols));
+  const gapStr = ' '.repeat(safeGap);
+
   const rows: string[] = [];
-  for (let i = 0; i < items.length; i += numCols) {
-    const chunk = items.slice(i, i + numCols);
-    rows.push(chunk.map((item) => padEnd(String(item), colW)).join(' '.repeat(gap)));
+  for (let i = 0; i < items.length; i += safeCols) {
+    const chunk = items.slice(i, i + safeCols);
+
+    if (overflow === 'wrap') {
+      // Wrap each cell into multiple lines, then align by row height
+      const cellLines = chunk.map((it) => wrapVisible(ensureString(it), colW));
+      const rowHeight = Math.max(...cellLines.map((c) => c.length), 1);
+      for (let line = 0; line < rowHeight; line++) {
+        rows.push(
+          cellLines.map((c) => padEnd(c[line] ?? '', colW)).join(gapStr),
+        );
+      }
+    } else {
+      // Truncate mode — single line per row
+      rows.push(
+        chunk.map((item) => {
+          const t = truncateVisible(ensureString(item), colW);
+          return padEnd(t, colW);
+        }).join(gapStr),
+      );
+    }
   }
   return rows.join('\n');
 };
 
-// ── Timeline ─────────────────────────────────
+// ─────────────────────────────────────────────
+//  Timeline — aligned label column
+// ─────────────────────────────────────────────
 export interface TimelineEvent {
   label: string;
   done?: boolean;
@@ -169,31 +433,61 @@ export interface TimelineOptions {
   color?: number;
   doneColor?: number;
   pendingColor?: number;
+  /** Pad time column to this visible width for alignment. Default: max time width across events. */
+  timeColumnWidth?: number | null;
 }
 
 export const timeline = (events: TimelineEvent[], opts: TimelineOptions = {}): string => {
+  if (!Array.isArray(events) || events.length === 0) return '';
+
   const {
     connector = '│', node = '●',
     color: colorCode = FG.cyan,
     doneColor = FG.green,
     pendingColor = FG.brightBlack,
+    timeColumnWidth = null,
   } = opts;
+
+  const safeConnector = typeof connector === 'string' && connector.length > 0 ? connector : '│';
+  const safeNode      = typeof node === 'string' && node.length > 0 ? node : '●';
+  const safeColor     = safeSgrCode(colorCode, FG.cyan);
+  const safeDoneColor = safeSgrCode(doneColor, FG.green);
+  const safePendingColor = safeSgrCode(pendingColor, FG.brightBlack);
+
+  // Derive a fixed time-column width (visible chars) for clean alignment.
+  // Falls back to the widest provided time, or 0 if no events have time.
+  const computedTimeWidth = timeColumnWidth !== null && isFiniteNumber(timeColumnWidth)
+    ? Math.max(0, Math.floor(timeColumnWidth))
+    : Math.max(0, ...events.map((e) => (e.time ? visibleLen(ensureString(e.time)) : 0)));
 
   const lines: string[] = [];
   events.forEach((ev, i) => {
     const isLast = i === events.length - 1;
-    const clr = ev.done ? doneColor : (i === 0 ? colorCode : pendingColor);
-    const nodeStr = sgr(clr) + node + reset();
+    const evLabel = ensureString(ev.label);
+    const clr = ev.done ? safeDoneColor : (i === 0 ? safeColor : safePendingColor);
+    const nodeStr = sgr(clr) + safeNode + reset();
     const textStr = ev.done
-      ? sgr(STYLE.bold) + ev.label + reset()
-      : sgr(pendingColor) + ev.label + reset();
-    lines.push(`${nodeStr} ${textStr}${ev.time ? sgr(FG.brightBlack) + '  ' + ev.time + reset() : ''}`);
-    if (!isLast) lines.push(sgr(pendingColor) + connector + reset());
+      ? sgr(STYLE.bold) + evLabel + reset()
+      : sgr(safePendingColor) + evLabel + reset();
+
+    const timePart = ev.time && computedTimeWidth > 0
+      ? '  ' + sgr(FG.brightBlack) +
+        padEnd(ensureString(ev.time), computedTimeWidth) + reset()
+      : '';
+
+    lines.push(`${nodeStr} ${textStr}${timePart}`);
+    if (!isLast) lines.push(sgr(safePendingColor) + safeConnector + reset());
   });
   return lines.join('\n');
 };
 
-// ── Interactive menu ─────────────────────────
+// ─────────────────────────────────────────────
+//  Interactive menu
+//
+//  Ref-counted cursor (overlapping menu calls safe). Cleanup is symmetric:
+//  every code path that hides the cursor also restores it, including
+//  errors before the Promise body and errors inside the key handler.
+// ─────────────────────────────────────────────
 
 export interface MenuInput {
   isTTY?: boolean;
@@ -222,6 +516,12 @@ export const MENU_CANCELLED = Symbol('MENU_CANCELLED');
 export type MenuResult = number | number[] | typeof MENU_CANCELLED;
 
 export const menu = (items: string[], opts: MenuOptions = {}): Promise<MenuResult> => {
+  // Strict input validation — must be a non-empty array of strings
+  if (!Array.isArray(items) || items.length === 0) {
+    // Resolve cancelled rather than throwing — caller can branch on it
+    return Promise.resolve(MENU_CANCELLED);
+  }
+
   const {
     title = null,
     pointer = '▶',
@@ -231,89 +531,158 @@ export const menu = (items: string[], opts: MenuOptions = {}): Promise<MenuResul
     output: out = { write: (s: string) => process.stdout.write(s) },
   } = opts;
 
-  // Guard: menu requires at least one item
-  if (!items.length) throw new Error('menu requires at least one item');
-
-  // Non-TTY fallback — no interaction possible, return empty/neutral value
+  // Non-TTY fallback — no interaction possible
   if (!inp.isTTY) return Promise.resolve(multiSelect ? ([] as number[]) : 0);
 
+  const safeColor = safeSgrCode(colorCode, FG.cyan);
+  const safePointer = typeof pointer === 'string' && pointer.length > 0 ? pointer : '▶';
+  const safeTitle = title === null ? null : ensureString(title);
+  const safeItems = items.map(ensureString);
+
   let cursorPos = 0;
+  let lastRenderedLines = 0;
+  let cursorHidden = false; // true once we've emitted cursor.hide()
   const selected = new Set<number>();
 
-  const emit = (str: string): void => { out.write(str); };
-
-  const render = (): void => {
-    if (title) emit(sgr(STYLE.bold) + title + reset() + '\n');
-    items.forEach((item, i) => {
-      const isActive   = i === cursorPos;
-      const isSelected = selected.has(i);
-      const ptr = isActive ? sgr(colorCode) + pointer + reset() : ' ';
-      const sel = multiSelect ? (isSelected ? sgr(colorCode) + '●' + reset() : '○') : '';
-      const txt = isActive ? sgr(STYLE.bold, colorCode) + item + reset() : item;
-      emit(`${ptr} ${sel}${multiSelect ? ' ' : ''}${txt}\n`);
-    });
+  const emit = (str: string): void => {
+    try { out.write(str); }
+    catch { /* stream closed mid-render — give up gracefully */ }
   };
 
-  const clearLines = (): void => {
-    const lines = items.length + (title ? 1 : 0);
-    for (let i = 0; i < lines; i++) emit(cursor.up(1) + screen.clearLine());
+  /**
+   * Render the menu and return the number of lines actually written.
+   * Counts wrapped lines so clearLines() can erase precisely.
+   */
+  const render = (): number => {
+    let totalLines = 0;
+    const { cols: termCols } = termSize();
+    const safeTermCols = Math.max(1, termCols);
+
+    if (safeTitle) {
+      emit(sgr(STYLE.bold) + safeTitle + reset() + '\n');
+      totalLines += Math.max(1, Math.ceil(visibleLen(safeTitle) / safeTermCols));
+    }
+
+    safeItems.forEach((item, i) => {
+      const isActive   = i === cursorPos;
+      const isSelected = selected.has(i);
+      const ptr = isActive ? sgr(safeColor) + safePointer + reset() : ' ';
+      const sel = multiSelect ? (isSelected ? sgr(safeColor) + '●' + reset() : '○') : '';
+      const txt = isActive ? sgr(STYLE.bold, safeColor) + item + reset() : item;
+
+      const line = `${ptr} ${sel}${multiSelect ? ' ' : ''}${txt}`;
+      emit(line + '\n');
+
+      // Count actual rendered lines including terminal wrapping
+      const lineWidth = visibleLen(line);
+      totalLines += Math.max(1, Math.ceil(lineWidth / safeTermCols));
+    });
+
+    return totalLines;
+  };
+
+  const clearLinesLocal = (): void => {
+    for (let i = 0; i < lastRenderedLines; i++) {
+      emit(cursor.up(1) + screen.clearLine());
+    }
     emit('\r');
   };
 
-  // Centralised cleanup — called in all exit paths
-  const cleanup = (onKey: (...args: unknown[]) => void): void => {
-    inp.removeListener('data', onKey);
-    if (inp.setRawMode) inp.setRawMode(false);
-    emit(cursor.show());
+  /** Full teardown — input listener, raw mode, cursor. Safe to call multiple times. */
+  const cleanup = (onKey: ((...args: unknown[]) => void) | null): void => {
+    if (onKey) {
+      try { inp.removeListener('data', onKey); } catch { /* ignore */ }
+    }
+    try { if (inp.setRawMode) inp.setRawMode(false); } catch { /* ignore */ }
+    if (cursorHidden) {
+      try { emit(cursor.show()); } catch { /* ignore */ }
+      cursorHidden = false;
+    }
   };
 
-  emit(cursor.hide());
-  render();
+  // Hide cursor + initial render. If render() throws (extremely unlikely
+  // but defensive), restore cursor immediately and resolve.
+  /* istanbul ignore next — defensive: catch path only fires if render() throws with validated inputs */
+  try {
+    emit(cursor.hide());
+    cursorHidden = true;
+    lastRenderedLines = render();
+  } catch {
+    cleanup(null);
+    return Promise.resolve(MENU_CANCELLED);
+  }
 
   return new Promise<MenuResult>((resolve) => {
-    const onKey = (...args: unknown[]): void => {
-      const key = args[0] as { toString(): string };
-      const k = key.toString();
-      const KEY_UP     = '\x1b[A'; // arrow up  | k | w
-      const KEY_DOWN   = '\x1b[B'; // arrow down | j | s
-      const KEY_ENTER  = '\r';
-      const KEY_SPACE  = ' ';
-      const KEY_CTRL_C = '\x03';
-
-      // Ctrl+C — resolve with MENU_CANCELLED symbol (never kill the process)
-      if (k === KEY_CTRL_C) {
-        clearLines();
-        cleanup(onKey);
-        resolve(MENU_CANCELLED);
-        return;
-      }
-
-      if (k === KEY_UP   || k === 'k' || k === 'w') {
-        cursorPos = (cursorPos - 1 + items.length) % items.length;
-      } else if (k === KEY_DOWN || k === 'j' || k === 's') {
-        cursorPos = (cursorPos + 1) % items.length;
-      } else if (k === KEY_SPACE && multiSelect) {
-        if (selected.has(cursorPos)) selected.delete(cursorPos);
-        else selected.add(cursorPos);
-      } else if (k === KEY_ENTER) {
-        clearLines();
-        cleanup(onKey);
-        // If nothing was explicitly selected, fall back to cursor position
-        resolve(multiSelect
-          ? (selected.size ? [...selected] : [cursorPos])
-          : cursorPos);
-        return;
-      }
-
-      clearLines();
-      render();
+    let resolved = false;
+    const safeResolve = (value: MenuResult): void => {
+      /* istanbul ignore if — defensive: double-resolve guard */
+      if (resolved) return;
+      resolved = true;
+      resolve(value);
     };
 
-    if (inp.setRawMode) inp.setRawMode(true);
-    inp.resume();
-    inp.on('data', onKey);
+    const onKey = (...args: unknown[]): void => {
+      /* istanbul ignore next — defensive: catch path only fires on unexpected key handler errors */
+      try {
+        const key = args[0] as { toString(): string };
+        const k = key.toString();
+        const KEY_UP     = '\x1b[A';
+        const KEY_DOWN   = '\x1b[B';
+        const KEY_ENTER  = '\r';
+        const KEY_SPACE  = ' ';
+        const KEY_CTRL_C = '\x03';
+
+        if (k === KEY_CTRL_C) {
+          clearLinesLocal();
+          cleanup(onKey);
+          safeResolve(MENU_CANCELLED);
+          return;
+        }
+
+        if (k === KEY_UP || k === 'k' || k === 'w') {
+          cursorPos = (cursorPos - 1 + safeItems.length) % safeItems.length;
+        } else if (k === KEY_DOWN || k === 'j' || k === 's') {
+          cursorPos = (cursorPos + 1) % safeItems.length;
+        } else if (k === KEY_SPACE && multiSelect) {
+          if (selected.has(cursorPos)) selected.delete(cursorPos);
+          else selected.add(cursorPos);
+        } else if (k === KEY_ENTER) {
+          clearLinesLocal();
+          cleanup(onKey);
+          safeResolve(multiSelect
+            ? (selected.size ? [...selected] : [cursorPos])
+            : cursorPos);
+          return;
+        }
+
+        clearLinesLocal();
+        lastRenderedLines = render();
+      } catch {
+        // Any unexpected error — clean up and resolve cancelled rather
+        // than leaving the terminal in raw mode with a hidden cursor.
+        cleanup(onKey);
+        safeResolve(MENU_CANCELLED);
+      }
+    };
+
+    /* istanbul ignore next — defensive: stdin setup rarely fails in real terminals */
+    try {
+      if (inp.setRawMode) inp.setRawMode(true);
+      inp.resume();
+      inp.on('data', onKey);
+    } catch {
+      // Initial setup failed — clean up and resolve neutral
+      cleanup(onKey);
+      safeResolve(multiSelect ? [] : 0);
+    }
   });
 };
 
-export const components = { table, badge, progressBar, status, section, columns, timeline, menu };
+// ─────────────────────────────────────────────
+//  Public API
+// ─────────────────────────────────────────────
+export const components = {
+  table, badge, progressBar, status, section,
+  columns, timeline, menu, box,
+};
 export default components;

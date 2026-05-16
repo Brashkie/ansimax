@@ -4,49 +4,124 @@
 // ─────────────────────────────────────────────
 
 // ── Core modules ──
-export { color, gradient, rainbow, presets as colorPresets, compose, setNoColor, isNoColor, resetNoColor } from './colors/index.js';
-export type { ColorFn } from './colors/index.js';
+export {
+  color, gradient, rainbow, presets as colorPresets, presetNames,
+  compose, chain, colorLevel,
+  setNoColor, isNoColor, resetNoColor,
+  registerPreset, listPresets, clearColorCache,
+  stripAnsi as stripAnsiColors,
+} from './colors/index.js';
+export type { ColorFn, PresetName, ColorChain, GradientOptions } from './colors/index.js';
 
-export { animate } from './animations/index.js';
+export { animate, canAnimate, resetCursorRefCount } from './animations/index.js';
 export type {
   TypewriterOptions, FadeOptions, SlideOptions,
   PulseOptions, WaveOptions, GlitchOptions, RevealOptions,
+  ParallelStep, ParallelOptions, AnimationHooks,
 } from './animations/index.js';
 
-export { ascii } from './ascii/index.js';
-export type { BoxStyle, BoxOptions, BannerOptions, DividerOptions, LogoOptions } from './ascii/index.js';
+export { ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize } from './ascii/index.js';
+export type {
+  BoxStyle, BoxOptions, BannerOptions, DividerOptions, LogoOptions,
+  Glyph, FontMap, FontName, RegisterFontOptions, StreamOptions, Dimensions,
+} from './ascii/index.js';
 
-export { loader } from './loaders/index.js';
-export type { SpinnerType, SpinOptions, ProgressOptions, Task, TaskResult } from './loaders/index.js';
+export { loader, resetLoaderCursorCount } from './loaders/index.js';
+export type {
+  SpinnerType, SpinOptions, ProgressOptions, ProgressAnimateOptions,
+  Task, TaskResult, TasksOptions,
+  DotsOptions, CustomOptions, CountdownOptions,
+  MultiLoader, MultiLoaderItem,
+  StopFn,
+} from './loaders/index.js';
 export { SPINNERS } from './loaders/index.js';
 
-export { frames } from './frames/index.js';
-export type { PlayOptions, LiveController } from './frames/index.js';
-
-export { components } from './components/index.js';
+export { frames, resetFramesCursorCount } from './frames/index.js';
 export type {
-  TableOptions, BadgeOptions, ProgressBarOptions,
-  StatusType, SectionOptions, ColumnsOptions,
+  PlayOptions, PlayController, LiveOptions, LiveController, FrameCallback,
+  LoadingBarOptions, BallOptions, BreatheOptions, TypeDeleteOptions,
+} from './frames/index.js';
+
+export { components, box, MENU_CANCELLED } from './components/index.js';
+export type {
+  TableOptions, TableBorderStyle,
+  BadgeOptions, ProgressBarOptions,
+  StatusType, StatusOptions,
+  SectionOptions, ColumnsOptions,
   TimelineEvent, TimelineOptions,
   MenuOptions, MenuResult, MenuInput, MenuOutput,
 } from './components/index.js';
 
-export { themes } from './themes/index.js';
-export type { Theme } from './themes/index.js';
+export {
+  trees, tree, renderTree, renderTreeStream, measureTree, walkTree,
+  findInTree, countNodes, mapTree, filterTree,
+} from './trees/index.js';
+export type {
+  TreeStyle, TreeData, TreeNode, RenderOptions as TreeRenderOptions,
+  TreeDimensions, WalkVisitor,
+} from './trees/index.js';
 
-export { images, createCanvas, renderPixelArt, gradientRect, SPRITES } from './images/index.js';
-export type { Canvas } from './images/index.js';
+export { themes, createTheme, clearThemeColorCache } from './themes/index.js';
+export type { Theme, ThemeInstance, ThemeStyleName, ThemeChangeListener, BannerOpts as ThemeBannerOpts } from './themes/index.js';
 
-export { configure, getConfig, getSpeedMultiplier } from './configure.js';
-export type { AnsimaxConfig, ColorMode, AnimationSpeed } from './configure.js';
+export { images, createCanvas, renderPixelArt, gradientRect, SPRITES, clearAnsiCache, flipHorizontal, flipVertical, rotate90 } from './images/index.js';
+export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
+
+export {
+  configure, getConfig, getSpeedMultiplier, resetConfig,
+  onConfigChange, onConfigKeyChange, getConfigValue,
+  pauseListeners, resumeListeners, withConfig,
+  DEFAULTS as CONFIG_DEFAULTS,
+} from './configure.js';
+export type {
+  AnsimaxConfig, ColorMode, AnimationSpeed, ConfigChangeListener,
+  ConfigKey, ConfigKeyListener, ConfigureOptions,
+} from './configure.js';
 
 // ── Utils (public) ──
-export { sleep, write, writeln, cursor, screen, supportsColor, fgRgb, bgRgb, sgr, reset } from './utils/ansi.js';
+export {
+  sleep, sleepFrame, FRAME_MS,
+  write, writeAsync, writeln, writeErr, writelnErr,
+  cursor, screen, hideCursor, showCursor,
+  getTerminalWidth, getTerminalHeight,
+  DEFAULT_TERM_COLS, DEFAULT_TERM_ROWS,
+  supportsColor, supportsColorLevel, resetColorSupportCache,
+  stripAnsi as stripAnsiCodes,
+  fgRgb, bgRgb, fg256, bg256, sgr, reset,
+  ESC, CSI, OSC, ST, BEL, FG, BG, STYLE,
+  createOutputBuffer,
+  // OSC primitives
+  setTitle, link, bell,
+} from './utils/ansi.js';
+export type {
+  ColorSupport, ColorLevel, AnsiCode, EraseMode, SleepOptions,
+  OutputBuffer, WriteAsyncOptions,
+} from './utils/ansi.js';
 export {
   termSize, hexToRgb, rgbToHex, stripAnsi, visibleLen, clamp, lerpColor,
-  isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, center, wordWrap, lerp, rgbTo256,
+  isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, padBoth, center, wordWrap, lerp, rgbTo256,
+  // Unicode-aware width
+  charWidth, graphemes,
+  // ANSI-safe slicing + wrapping
+  sliceAnsi, wrapAnsi,
+  // Multi-stop gradient
+  gradientColor,
+  // Resize listener
+  onResize,
+  // Frame-rate helpers
+  debounce, throttle,
+  requestTerminalFrame, cancelTerminalFrame, nextTick,
+  // Memoization
+  memoize,
+  // Frame diffing
+  diffLines,
+  // New utilities
+  once, escapeRegex, safeJson,
 } from './utils/helpers.js';
-export type { RGB } from './utils/helpers.js';
+export type {
+  RGB, ResizeListener, OnResizeOptions, FrameHandle,
+  LineDiff, DiffType, DebounceOptions, MemoizeOptions,
+} from './utils/helpers.js';
 
 // ── Default export: full API object ──
 import { color }      from './colors/index.js';
@@ -55,9 +130,10 @@ import { ascii }      from './ascii/index.js';
 import { loader }     from './loaders/index.js';
 import { frames }     from './frames/index.js';
 import { components } from './components/index.js';
+import { trees }      from './trees/index.js';
 import { themes }     from './themes/index.js';
 import { images }     from './images/index.js';
 import { configure }  from './configure.js';
 
-const ansimax = { color, animate, ascii, loader, frames, components, themes, images, configure };
+const ansimax = { color, animate, ascii, loader, frames, components, trees, themes, images, configure };
 export default ansimax;

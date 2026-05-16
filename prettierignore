@@ -1,0 +1,7 @@
+dist/
+coverage/
+node_modules/
+*.log
+.github/
+package-lock.json
+CHANGELOG.md

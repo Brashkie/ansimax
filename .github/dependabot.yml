@@ -1,29 +1,62 @@
-#.github/dependabot.yml
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  # NPM dependencies
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/Lima"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/Lima'
     open-pull-requests-limit: 10
     reviewers:
-      - "Brashkie"
+      - 'Brashkie'
     assignees:
-      - "Brashkie"
+      - 'Brashkie'
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: 'chore'
+      prefix-development: 'chore'
+      include: 'scope'
     labels:
-      - "dependencies"
-      - "automated"
-    
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      - 'dependencies'
+      - 'automated'
+    # Group related updates together to reduce PR noise
+    groups:
+      typescript:
+        patterns:
+          - 'typescript'
+          - '@types/*'
+          - 'ts-jest'
+          - 'tsup'
+      eslint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+          - 'prettier'
+      jest:
+        patterns:
+          - 'jest'
+          - '@types/jest'
+    ignore:
+      # Major version updates require manual review
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "github-actions"
+      - 'dependencies'
+      - 'github-actions'
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+    groups:
+      actions:
+        patterns:
+          - '*'

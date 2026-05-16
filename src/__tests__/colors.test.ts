@@ -1,10 +1,25 @@
-import { color, gradient, rainbow, presets, compose, setNoColor, isNoColor, resetNoColor } from '../colors/index.js';
+import {
+  color, gradient, rainbow, presets, presetNames, compose,
+  setNoColor, isNoColor, resetNoColor,
+  chain, colorLevel, stripAnsi as stripAnsiColors,
+  registerPreset, listPresets, clearColorCache,
+  __internal,
+  type ColorFn,
+} from '../colors/index.js';
 import { stripAnsi } from '../utils/helpers.js';
+import { resetColorSupportCache } from '../utils/ansi.js';
 
 // Force colors ON for all tests (Jest has no TTY so auto-detect suppresses colors)
-beforeEach(() => setNoColor(false));
-// Restore auto-detect after each test
-afterEach(() => resetNoColor());
+beforeEach(() => {
+  process.env['FORCE_COLOR'] = '3';
+  resetColorSupportCache();
+  setNoColor(false);
+});
+afterEach(() => {
+  delete process.env['FORCE_COLOR'];
+  resetColorSupportCache();
+  resetNoColor();
+});
 
 // ─────────────────────────────────────────────
 //  Basic named colors
@@ -296,8 +311,12 @@ describe('gradient', () => {
     expect(stripAnsi(gradient('X', ['#ff0000', '#00ff00']))).toBe('X');
   });
 
-  it('returns text unchanged with fewer than 2 stops', () => {
-    expect(gradient('hello', ['#ff0000'])).toBe('hello');
+  it('single stop colors text statically (new behavior — better UX)', () => {
+    // Pre-v1.1.0 returned 'hello' unchanged. Now it colors with the
+    // single stop — consistent with CSS single-stop linear-gradient().
+    const r = gradient('hello', ['#ff0000']);
+    expect(stripAnsi(r)).toBe('hello');
+    expect(r).toContain('\x1b[38;2;255;0;0m');
   });
 
   it('returns text unchanged if empty', () => {
@@ -309,12 +328,14 @@ describe('gradient', () => {
     expect(gradient('abc', ['#ff0000', '#0000ff'])).toBe('abc');
   });
 
-  it('filters out invalid hex stops gracefully', () => {
-    // 'banana' is invalid → only 1 valid stop → returns plain text
-    expect(gradient('hi', ['#ff0000', 'banana'])).toBe('hi');
+  it('one valid + one invalid → falls back to single-stop coloring', () => {
+    // Only 1 valid hex → static color (new behavior)
+    const r = gradient('hi', ['#ff0000', 'banana']);
+    expect(stripAnsi(r)).toBe('hi');
+    expect(r).toContain('\x1b[38;2;255;0;0m');
   });
 
-  it('two invalid stops → plain text', () => {
+  it('two invalid stops → plain text (no valid colors)', () => {
     expect(gradient('hi', ['zzz', 'banana'])).toBe('hi');
   });
 
@@ -323,8 +344,15 @@ describe('gradient', () => {
     expect(r).toContain('\x1b[38;2;');
   });
 
-  it('all-spaces string → plain text', () => {
+  it('all-spaces string with valid 2-stop gradient → text unchanged (no visible chars)', () => {
     expect(gradient('   ', ['#ff0000', '#0000ff'])).toBe('   ');
+  });
+
+  it('all-spaces string with single stop colors the whole span', () => {
+    // Single stop wraps the entire input including spaces
+    const r = gradient('   ', ['#ff0000']);
+    expect(stripAnsi(r)).toBe('   ');
+    expect(r).toContain('\x1b[38;2;255;0;0m');
   });
 });
 
@@ -358,7 +386,7 @@ describe('presets', () => {
 
   for (const name of names) {
     it(`${name} produces colored output and preserves text`, () => {
-      const r = presets[name]('test');
+      const r = presets[name]!('test');
       expect(stripAnsi(r)).toBe('test');
       expect(r).toContain('\x1b[38;2;');
     });
@@ -367,7 +395,7 @@ describe('presets', () => {
   it('all presets return plain text when noColor enabled', () => {
     setNoColor(true);
     for (const name of names) {
-      expect(presets[name]('x')).toBe('x');
+      expect(presets[name]!('x')).toBe('x');
     }
   });
 });
@@ -404,5 +432,826 @@ describe('compose', () => {
   it('returns plain text when noColor enabled', () => {
     setNoColor(true);
     expect(compose(color.bold, color.red)('hi')).toBe('hi');
+  });
+});
+
+
+// ─────────────────────────────────────────────
+//  compose with marker-based extraction (robustness)
+// ─────────────────────────────────────────────
+describe('compose — robust extraction', () => {
+  beforeEach(() => setNoColor(false));
+
+  it('handles many composed functions cleanly', () => {
+    const fn = compose(color.bold, color.italic, color.underline, color.red);
+    const result = fn('TEXT');
+    // Should have all 4 opens, single text, single reset
+    expect(stripAnsi(result)).toBe('TEXT');
+    // Exactly one reset at the end
+    const resetCount = (result.match(/\x1b\[0m/g) ?? []).length;
+    expect(resetCount).toBe(1);
+  });
+
+  it('compose with empty fn list returns text unchanged', () => {
+    const fn = compose();
+    expect(fn('hello')).toBe('hello');
+  });
+
+  it('compose with single fn behaves like the fn itself', () => {
+    const single = compose(color.red);
+    const direct = color.red('test');
+    // Both should produce the red color escape with text
+    expect(stripAnsi(single('test'))).toBe(stripAnsi(direct));
+  });
+
+  it('extractOpen handles NO_COLOR mode gracefully', () => {
+    setNoColor(true);
+    const open = __internal.extractOpen(color.red);
+    expect(open).toBe(''); // no escapes when suppressed
+    setNoColor(false);
+  });
+
+  it('extractOpen returns the actual open sequence', () => {
+    setNoColor(false);
+    const open = __internal.extractOpen(color.red);
+    expect(open).toContain('\x1b[');
+    expect(open).toContain('m');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  colorLevel + adaptive degradation
+// ─────────────────────────────────────────────
+describe('colorLevel and adaptive rendering', () => {
+  beforeEach(() => {
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  afterEach(() => {
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('colorLevel returns 0 when NO_COLOR override active', () => {
+    setNoColor(true);
+    expect(colorLevel()).toBe(0);
+    setNoColor(false);
+  });
+
+  it('colorLevel returns numeric value 0-3', () => {
+    setNoColor(false);
+    const level = colorLevel();
+    expect([0, 1, 2, 3]).toContain(level);
+  });
+
+  it('rgbTo256 converts greyscale to grey ramp', () => {
+    expect(__internal.rgbTo256(128, 128, 128)).toBeGreaterThanOrEqual(232);
+    expect(__internal.rgbTo256(128, 128, 128)).toBeLessThanOrEqual(255);
+  });
+
+  it('rgbTo256 converts colors to 6×6×6 cube', () => {
+    const idx = __internal.rgbTo256(255, 0, 0);
+    expect(idx).toBeGreaterThanOrEqual(16);
+    expect(idx).toBeLessThanOrEqual(231);
+  });
+
+  it('rgbToBasicFg picks nearest of 8 ANSI colors', () => {
+    expect(__internal.rgbToBasicFg(255, 0, 0)).toBe(31); // red
+    expect(__internal.rgbToBasicFg(0, 255, 0)).toBe(32); // green
+    expect(__internal.rgbToBasicFg(0, 0, 255)).toBe(34); // blue
+  });
+
+  it('rgbToBasicBg returns FG code + 10', () => {
+    expect(__internal.rgbToBasicBg(255, 0, 0)).toBe(41); // bg red
+  });
+});
+
+// ─────────────────────────────────────────────
+//  stripAnsi re-export
+// ─────────────────────────────────────────────
+describe('stripAnsi from colors module', () => {
+  it('strips color escapes', () => {
+    setNoColor(false);
+    const colored = color.red('hello');
+    expect(stripAnsiColors(colored)).toBe('hello');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Gradient — preserveAnsi option
+// ─────────────────────────────────────────────
+describe('gradient preserveAnsi', () => {
+  beforeEach(() => setNoColor(false));
+
+  it('default mode does not preserve existing ANSI', () => {
+    const input = color.bold('HI');
+    const result = gradient(input, ['#ff0000', '#0000ff']);
+    // Default: ANSI preserved verbatim if input contains ESC
+    // (since default is preserveAnsi: false but we check for ESC)
+    expect(stripAnsi(result)).toContain('HI');
+  });
+
+  it('preserveAnsi: true keeps existing escapes', () => {
+    const input = color.bold('HI');
+    const result = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    // Bold escape should still be present
+    expect(result).toContain('\x1b[1m');
+    expect(stripAnsi(result)).toContain('HI');
+  });
+
+  it('plain text uses fast path', () => {
+    const result = gradient('plain', ['#ff0000', '#00ff00']);
+    expect(stripAnsi(result)).toBe('plain');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Presets — strict typing
+// ─────────────────────────────────────────────
+describe('preset typing', () => {
+  it('presetNames lists all preset keys', () => {
+    expect(presetNames).toContain('sunset');
+    expect(presetNames).toContain('ocean');
+    expect(presetNames).toContain('fire');
+    expect(presetNames.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('every preset is callable', () => {
+    setNoColor(false);
+    for (const name of presetNames) {
+      const fn = presets[name]!;
+      const result = fn('test');
+      expect(stripAnsi(result)).toBe('test');
+    }
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Chainable API
+// ─────────────────────────────────────────────
+describe('chain API', () => {
+  beforeEach(() => setNoColor(false));
+
+  it('chain.red().bold().apply produces colored bold text', () => {
+    const result = chain().red().bold().apply('Hi');
+    expect(stripAnsi(result)).toBe('Hi');
+    expect(result).toContain('\x1b[31m');
+    expect(result).toContain('\x1b[1m');
+  });
+
+  it('chain composes single reset at the end', () => {
+    const result = chain().red().bold().underline().apply('X');
+    const resetCount = (result.match(/\x1b\[0m/g) ?? []).length;
+    expect(resetCount).toBe(1);
+  });
+
+  it('chain.fn() returns a reusable ColorFn', () => {
+    const errorStyle = chain().red().bold().fn();
+    const a = errorStyle('one');
+    const b = errorStyle('two');
+    expect(stripAnsi(a)).toBe('one');
+    expect(stripAnsi(b)).toBe('two');
+  });
+
+  it('chain with no methods applies text unchanged', () => {
+    const result = chain().apply('plain');
+    expect(result).toBe('plain');
+  });
+
+  it('chain.hex applies hex colors', () => {
+    const result = chain().hex('#ff0000').bold().apply('hex');
+    expect(stripAnsi(result)).toBe('hex');
+  });
+
+  it('chain.rgb applies rgb colors', () => {
+    const result = chain().rgb(255, 100, 0).apply('rgb');
+    expect(stripAnsi(result)).toBe('rgb');
+  });
+
+  it('chain.bgHex applies background hex', () => {
+    const result = chain().bgHex('#0000ff').apply('bg');
+    expect(stripAnsi(result)).toBe('bg');
+  });
+
+  it('chain in NO_COLOR mode produces plain text', () => {
+    setNoColor(true);
+    const result = chain().red().bold().apply('Hi');
+    expect(result).toBe('Hi');
+    setNoColor(false);
+  });
+
+  it('chain is immutable — each call returns new chain', () => {
+    const base = chain().red();
+    const a = base.bold().apply('A');
+    const b = base.italic().apply('B');
+    // Both should work independently
+    expect(stripAnsi(a)).toBe('A');
+    expect(stripAnsi(b)).toBe('B');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  __internal — test hooks
+// ─────────────────────────────────────────────
+describe('__internal hooks', () => {
+  it('exposes safeHex', () => {
+    expect(__internal.safeHex('#ff0000')).toEqual({ r: 255, g: 0, b: 0 });
+    expect(__internal.safeHex('not-a-color')).toBeNull();
+  });
+
+  it('safeHex handles whitespace', () => {
+    expect(__internal.safeHex('  #ff0000  ')).toEqual({ r: 255, g: 0, b: 0 });
+  });
+
+  it('safeHex handles non-string input', () => {
+    expect(__internal.safeHex(null)).toBeNull();
+    expect(__internal.safeHex(undefined)).toBeNull();
+  });
+
+  it('safeHex accepts 3-digit hex', () => {
+    expect(__internal.safeHex('#f00')).toEqual({ r: 255, g: 0, b: 0 });
+  });
+
+  it('exposes isNoColor', () => {
+    expect(typeof __internal.isNoColor()).toBe('boolean');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage push: chain — every method
+// ─────────────────────────────────────────────
+describe('chain — comprehensive method coverage', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  // Foreground color methods
+  it('chain.black()', () => {
+    expect(stripAnsi(chain().black().apply('x'))).toBe('x');
+  });
+  it('chain.green()', () => {
+    expect(stripAnsi(chain().green().apply('x'))).toBe('x');
+  });
+  it('chain.yellow()', () => {
+    expect(stripAnsi(chain().yellow().apply('x'))).toBe('x');
+  });
+  it('chain.blue()', () => {
+    expect(stripAnsi(chain().blue().apply('x'))).toBe('x');
+  });
+  it('chain.magenta()', () => {
+    expect(stripAnsi(chain().magenta().apply('x'))).toBe('x');
+  });
+  it('chain.cyan()', () => {
+    expect(stripAnsi(chain().cyan().apply('x'))).toBe('x');
+  });
+  it('chain.white()', () => {
+    expect(stripAnsi(chain().white().apply('x'))).toBe('x');
+  });
+  it('chain.gray()', () => {
+    expect(stripAnsi(chain().gray().apply('x'))).toBe('x');
+  });
+
+  // Bright variants
+  it('chain.brightRed()', () => {
+    expect(stripAnsi(chain().brightRed().apply('x'))).toBe('x');
+  });
+  it('chain.brightGreen()', () => {
+    expect(stripAnsi(chain().brightGreen().apply('x'))).toBe('x');
+  });
+  it('chain.brightYellow()', () => {
+    expect(stripAnsi(chain().brightYellow().apply('x'))).toBe('x');
+  });
+  it('chain.brightBlue()', () => {
+    expect(stripAnsi(chain().brightBlue().apply('x'))).toBe('x');
+  });
+
+  // Style methods
+  it('chain.dim()', () => {
+    expect(stripAnsi(chain().dim().apply('x'))).toBe('x');
+  });
+  it('chain.italic()', () => {
+    expect(stripAnsi(chain().italic().apply('x'))).toBe('x');
+  });
+  it('chain.underline()', () => {
+    expect(stripAnsi(chain().underline().apply('x'))).toBe('x');
+  });
+  it('chain.inverse()', () => {
+    expect(stripAnsi(chain().inverse().apply('x'))).toBe('x');
+  });
+  it('chain.strikethrough()', () => {
+    expect(stripAnsi(chain().strikethrough().apply('x'))).toBe('x');
+  });
+
+  // Custom color methods
+  it('chain.bgRgb()', () => {
+    expect(stripAnsi(chain().bgRgb(255, 0, 0).apply('x'))).toBe('x');
+  });
+  it('chain.bgRgb clamps inputs', () => {
+    expect(stripAnsi(chain().bgRgb(999, -50, 128).apply('x'))).toBe('x');
+  });
+  it('chain.hex with invalid hex returns text unchanged', () => {
+    expect(chain().hex('not-a-hex').apply('x')).toBe('x');
+  });
+  it('chain.bgHex with invalid hex returns text unchanged', () => {
+    expect(chain().bgHex('not-a-hex').apply('x')).toBe('x');
+  });
+  it('chain.bgHex with valid hex applies background', () => {
+    expect(stripAnsi(chain().bgHex('#0000ff').apply('x'))).toBe('x');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage push: adaptive degradation across all levels
+// ─────────────────────────────────────────────
+describe('adaptive degradation — all color levels', () => {
+  beforeEach(() => {
+    resetColorSupportCache();
+    resetNoColor();
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    delete process.env['NO_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('level 0 (NO_COLOR) — adaptiveFg returns empty string', () => {
+    setNoColor(true);
+    // hex fn applies adaptiveFg internally — when level 0, returns text unchanged
+    expect(color.hex('#ff0000')('test')).toBe('test');
+  });
+
+  it('level 0 (NO_COLOR) — adaptiveBg returns empty string', () => {
+    setNoColor(true);
+    expect(color.bgHex('#ff0000')('test')).toBe('test');
+  });
+
+  it('level 1 (basic) — degrades RGB to nearest of 8 ANSI colors', () => {
+    process.env['FORCE_COLOR'] = '1';
+    resetColorSupportCache();
+    const result = color.rgb(255, 0, 0)('test');
+    // Should use basic SGR codes, not truecolor
+    expect(result).toContain('\x1b[31m'); // red
+    expect(result).not.toContain('\x1b[38;2;');
+  });
+
+  it('level 1 (basic) — bg degrades to nearest of 8 BG colors', () => {
+    process.env['FORCE_COLOR'] = '1';
+    resetColorSupportCache();
+    const result = color.bgRgb(0, 255, 0)('test');
+    expect(result).toContain('\x1b[42m'); // bg green
+  });
+
+  it('level 2 (256) — degrades RGB to 256 palette index', () => {
+    process.env['FORCE_COLOR'] = '2';
+    resetColorSupportCache();
+    const result = color.rgb(128, 128, 128)('test');
+    expect(result).toContain('\x1b[38;5;');
+    expect(result).not.toContain('\x1b[38;2;');
+  });
+
+  it('level 2 (256) — bg degrades to 256 palette index', () => {
+    process.env['FORCE_COLOR'] = '2';
+    resetColorSupportCache();
+    const result = color.bgRgb(50, 50, 200)('test');
+    expect(result).toContain('\x1b[48;5;');
+  });
+
+  it('level 3 (truecolor) — emits full 24-bit RGB', () => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    const result = color.rgb(123, 45, 67)('test');
+    expect(result).toContain('\x1b[38;2;123;45;67m');
+  });
+
+  // Internal helpers — exercise rgbTo256 grayscale ramps
+  it('rgbTo256 returns 16 for very dark grey (cr < 8)', () => {
+    expect(__internal.rgbTo256(5, 5, 5)).toBe(16);
+  });
+  it('rgbTo256 returns 231 for very light grey (cr > 248)', () => {
+    expect(__internal.rgbTo256(250, 250, 250)).toBe(231);
+  });
+  it('rgbTo256 returns mid-range grey ramp for medium grey', () => {
+    const idx = __internal.rgbTo256(128, 128, 128);
+    expect(idx).toBeGreaterThanOrEqual(232);
+    expect(idx).toBeLessThanOrEqual(255);
+  });
+
+  // Cover the basic-fg distance loop with a non-canonical color
+  it('rgbToBasicFg picks nearest for off-palette color', () => {
+    // Pure white-ish off-grey
+    expect([30, 31, 32, 33, 34, 35, 36, 37]).toContain(__internal.rgbToBasicFg(200, 100, 50));
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage push: gradient — preserveAnsi single visible char
+// ─────────────────────────────────────────────
+describe('gradient edge cases', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('preserveAnsi:true with single visible char (visible=1 path)', () => {
+    const input = '\x1b[1mA\x1b[0m';
+    const result = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    expect(result).toContain('A');
+  });
+
+  it('preserveAnsi:true with all spaces returns text unchanged', () => {
+    const input = '\x1b[1m   \x1b[0m';
+    const result = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    expect(stripAnsi(result)).toBe('   ');
+  });
+
+  it('preserveAnsi:true preserves multiple ANSI tokens mid-text', () => {
+    const input = 'A\x1b[31mB\x1b[0mC';
+    const result = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    expect(stripAnsi(result)).toBe('ABC');
+  });
+
+  it('plain mode with empty visible chars (all spaces)', () => {
+    const result = gradient('   ', ['#ff0000', '#0000ff']);
+    expect(result).toBe('   ');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coercion of non-string text input
+// ─────────────────────────────────────────────
+describe('text coercion', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('color.red(42) coerces number to string', () => {
+    expect(stripAnsi(color.red(42 as unknown as string))).toBe('42');
+  });
+
+  it('color.bold(true) coerces boolean to string', () => {
+    expect(stripAnsi(color.bold(true as unknown as string))).toBe('true');
+  });
+
+  it('color.red(null) coerces to empty string', () => {
+    expect(stripAnsi(color.red(null as unknown as string))).toBe('');
+  });
+
+  it('color.red(undefined) coerces to empty string', () => {
+    expect(stripAnsi(color.red(undefined as unknown as string))).toBe('');
+  });
+
+  it('color.rgb(...)({}) coerces object', () => {
+    const fn = color.rgb(255, 0, 0);
+    expect(stripAnsi(fn({} as unknown as string))).toBe('[object Object]');
+  });
+
+  it('compose with non-string text coerces', () => {
+    const fn = compose(color.red, color.bold);
+    expect(stripAnsi(fn(42 as unknown as string))).toBe('42');
+  });
+
+  it('chain.apply with non-string coerces', () => {
+    expect(stripAnsi(chain().red().apply(99))).toBe('99');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Numeric edge cases
+// ─────────────────────────────────────────────
+describe('clampRgb / clamp256 with NaN/Infinity', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+  });
+
+  it('color.rgb with NaN clamps to 0', () => {
+    const result = color.rgb(NaN, 100, 200)('test');
+    expect(result).toContain('\x1b[38;2;0;100;200m');
+  });
+
+  it('color.rgb with Infinity clamps to 255', () => {
+    const result = color.rgb(Infinity, 50, -50)('test');
+    expect(result).toContain('\x1b[38;2;255;50;0m');
+  });
+
+  it('color.color256 with NaN clamps to 0', () => {
+    const result = color.color256(NaN)('test');
+    expect(result).toContain('\x1b[38;5;0m');
+  });
+
+  it('color.color256 with negative clamps to 0', () => {
+    const result = color.color256(-50)('test');
+    expect(result).toContain('\x1b[38;5;0m');
+  });
+
+  it('color.color256 with > 255 clamps to 255', () => {
+    const result = color.color256(999)('test');
+    expect(result).toContain('\x1b[38;5;255m');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Adaptive escape cache
+// ─────────────────────────────────────────────
+describe('adaptive escape cache', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    clearColorCache();
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    clearColorCache();
+  });
+
+  it('clearColorCache does not throw', () => {
+    expect(() => clearColorCache()).not.toThrow();
+  });
+
+  it('repeated rgb calls return identical escape sequences', () => {
+    const a = color.rgb(100, 150, 200)('test');
+    const b = color.rgb(100, 150, 200)('test');
+    expect(a).toBe(b); // Cache returns same string
+  });
+
+  it('cache survives across many distinct colors', () => {
+    // Exercise > cache_max distinct colors to test eviction
+    for (let i = 0; i < 600; i++) {
+      color.rgb(i % 256, 100, 100)('x');
+    }
+    // No throw, no memory blowup
+    expect(true).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  compose error tolerance
+// ─────────────────────────────────────────────
+describe('compose error tolerance', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('filters out non-functions silently', () => {
+    const result = compose(
+      color.red,
+      null as unknown as ColorFn,
+      undefined as unknown as ColorFn,
+      'not a function' as unknown as ColorFn,
+      color.bold,
+    )('test');
+    // Still works with the valid functions
+    expect(stripAnsi(result)).toBe('test');
+    expect(result).toContain('\x1b[31m'); // red
+    expect(result).toContain('\x1b[1m');  // bold
+  });
+
+  it('returns text when all fns are invalid', () => {
+    const result = compose(
+      null as unknown as ColorFn,
+      undefined as unknown as ColorFn,
+    )('test');
+    expect(result).toBe('test');
+  });
+
+  it('swallows fn that throws on extraction', () => {
+    const bad: ColorFn = () => { throw new Error('boom'); };
+    const result = compose(color.red, bad, color.bold)('test');
+    // Bad fn is skipped (extractOpen returns ''), good ones still apply
+    expect(stripAnsi(result)).toBe('test');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Gradient edge cases
+// ─────────────────────────────────────────────
+describe('gradient defensive paths', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('null stops returns text unchanged', () => {
+    expect(gradient('hello', null as unknown as string[])).toBe('hello');
+  });
+
+  it('undefined stops returns text unchanged', () => {
+    expect(gradient('hello', undefined as unknown as string[])).toBe('hello');
+  });
+
+  it('empty stops array returns text unchanged', () => {
+    expect(gradient('hello', [])).toBe('hello');
+  });
+
+  it('all invalid hex stops returns text unchanged', () => {
+    // Note: 'bad' is actually a valid 3-digit hex (b/a/d are all hex digits)!
+    // We use clearly non-hex strings to exercise the empty-colors branch.
+    const result = gradient('hello', ['nope', 'foul', 'wrong']);
+    expect(result.length).toBe(5);
+    expect(stripAnsi(result)).toBe('hello');
+    expect(result).toBe('hello');
+  });
+
+  it('single valid color renders text colored with it', () => {
+    const result = gradient('hello', ['#ff0000']);
+    // Should be colored (not just plain text)
+    expect(result).toContain('\x1b[38;2;255;0;0m');
+    expect(stripAnsi(result)).toBe('hello');
+  });
+
+  it('mixed valid/invalid stops uses only valid ones', () => {
+    const result = gradient('test', ['nope', '#ff0000', 'bad', '#00ff00']);
+    // 2 valid colors → real gradient
+    expect(result.length).toBeGreaterThan('test'.length);
+  });
+
+  it('non-string text coerces', () => {
+    expect(stripAnsi(gradient(42 as unknown as string, ['#ff0000', '#0000ff']))).toBe('42');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  registerPreset
+// ─────────────────────────────────────────────
+describe('registerPreset', () => {
+  beforeEach(() => {
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    setNoColor(false);
+  });
+  afterEach(() => {
+    delete process.env['FORCE_COLOR'];
+    resetColorSupportCache();
+    resetNoColor();
+  });
+
+  it('registers a custom preset accessible via color.<name>', () => {
+    registerPreset('mango', ['#ff5e3a', '#ff9500']);
+    expect(listPresets()).toContain('mango');
+  });
+
+  it('rejects empty name', () => {
+    expect(() => registerPreset('', ['#ff0000', '#00ff00'])).toThrow(TypeError);
+  });
+
+  it('rejects non-string name', () => {
+    expect(() =>
+      registerPreset(42 as unknown as string, ['#ff0000', '#00ff00']),
+    ).toThrow(TypeError);
+  });
+
+  it('rejects non-array stops', () => {
+    expect(() =>
+      registerPreset('test', 'not-an-array' as unknown as string[]),
+    ).toThrow(TypeError);
+  });
+
+  it('rejects empty stops', () => {
+    expect(() => registerPreset('test', [])).toThrow(TypeError);
+  });
+
+  it('rejects names that conflict with built-in methods', () => {
+    expect(() => registerPreset('red', ['#ff0000', '#00ff00'])).toThrow(/conflicts/);
+    expect(() => registerPreset('bold', ['#ff0000', '#00ff00'])).toThrow(/conflicts/);
+    expect(() => registerPreset('rainbow', ['#ff0000', '#00ff00'])).toThrow(/conflicts/);
+  });
+
+  it('listPresets includes built-ins + custom', () => {
+    const before = listPresets().length;
+    registerPreset('mycustom1', ['#ff0000', '#00ff00']);
+    expect(listPresets().length).toBe(before + 1);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage: branch targets
+// ─────────────────────────────────────────────
+describe('colors: branch coverage targets', () => {
+  it('clampRgb handles Infinity → 255 (line 58/64)', () => {
+    // Infinity in RGB component goes through clampByte/clamp256 Infinity branch
+    const out = color.rgb(Infinity, Infinity, Infinity)('x');
+    expect(typeof out).toBe('string');
+  });
+
+  it('clampRgb handles -Infinity → 0 (line 59/65)', () => {
+    const out = color.rgb(-Infinity, -Infinity, -Infinity)('x');
+    expect(typeof out).toBe('string');
+  });
+
+  it('clampRgb handles NaN → 0 (line 57/63)', () => {
+    const out = color.rgb(NaN, NaN, NaN)('x');
+    expect(typeof out).toBe('string');
+  });
+
+  it('registerPreset creates an invokable preset function (line 431)', () => {
+    registerPreset('branch-test-preset', ['#ff0000', '#0000ff']);
+    // registerPreset adds the fn to `presets`, NOT to `color` directly
+    // Access via gradient() with the registered stops, or via presets[name]
+    const fn = presets['branch-test-preset'];
+    expect(typeof fn).toBe('function');
+    if (!fn) throw new Error('preset fn missing');
+    const out = fn('hello');
+    expect(stripAnsi(out)).toBe('hello');
+    // Also verify listPresets includes it
+    expect(listPresets()).toContain('branch-test-preset');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage: more branch targets
+// ─────────────────────────────────────────────
+describe('colors: more branches', () => {
+  it('clamp256 with Infinity returns 255 (line 65)', () => {
+    // Trigger via color.color256 with Infinity — internally clamps
+    expect(typeof color.color256(Infinity)('x')).toBe('string');
+  });
+
+  it('clamp256 with -Infinity returns 0 (line 66)', () => {
+    expect(typeof color.color256(-Infinity)('x')).toBe('string');
+  });
+
+  it('clamp256 with NaN returns 0', () => {
+    expect(typeof color.color256(NaN)('x')).toBe('string');
+  });
+
+  it('extractOpen with non-function returns empty string (line 231)', () => {
+    // compose with a non-function entry exercises extractOpen typeof !== 'function'
+    const fn = compose(color.red, null as unknown as ColorFn, color.bold);
+    const out = fn('hi');
+    // Should still produce a result (red+bold), null entry filtered/skipped
+    expect(typeof out).toBe('string');
+  });
+
+  it('gradient with malformed embedded ANSI escape (line 353)', () => {
+    // Text containing a bare \x1b that doesn't form a valid CSI escape.
+    // Triggers the `else { out += ch }` branch in the gradient wrap.
+    const out = gradient('a\x1bb', ['#ff0000', '#0000ff']);
+    expect(out.length).toBeGreaterThan(0);
+  });
+});
+
+describe('colors: gradient with spaces (line 353)', () => {
+  it('gradient preserves spaces uncolored', () => {
+    const out = gradient('hello world', ['#ff0000', '#0000ff']);
+    expect(stripAnsi(out)).toBe('hello world');
+    expect(out).toContain(' '); // spaces preserved
+  });
+});
+
+describe('colors: gradient ANSI-aware space branch (line 354)', () => {
+  it('gradient on text with embedded ANSI + spaces preserves spaces', () => {
+    // Trigger _gradientAnsiAware path: preserveAnsi:true + text with ANSI + spaces
+    const input = '\x1b[1mhello world\x1b[0m'; // bold ANSI escape with space
+    const out = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    expect(stripAnsi(out)).toContain('hello world');
+    // Space must be preserved
+    expect(stripAnsi(out)).toContain(' ');
+  });
+
+  it('gradient with preserveAnsi:true and only spaces+ANSI', () => {
+    // Triggers ch === ' ' branch in _gradientAnsiAware (line 354 `out += ch`)
+    const input = '\x1b[1ma b c\x1b[0m';
+    const out = gradient(input, ['#ff0000', '#0000ff'], { preserveAnsi: true });
+    expect(stripAnsi(out)).toBe('a b c');
   });
 });

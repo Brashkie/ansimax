@@ -1,5 +1,6 @@
 import {
   table, badge, progressBar, status, section, columns, timeline, menu,
+  MENU_CANCELLED,
   type MenuResult, type MenuInput, type MenuOutput,
 } from '../components/index.js';
 import { stripAnsi } from '../utils/helpers.js';
@@ -291,12 +292,14 @@ describe('menu with injected I/O', () => {
   };
 
   // ── Guard ───────────────────────────────────
-  it('throws when items is empty', () => {
-    // menu() throws synchronously when items is empty — not a rejected promise
-    expect(() => menu([], {
+  it('returns MENU_CANCELLED when items is empty (defensive)', async () => {
+    // menu() now returns MENU_CANCELLED for empty items rather than throwing —
+    // safer for callers that may receive runtime-generated lists.
+    const result = await menu([], {
       input:  fakeInput  as unknown as MenuInput,
       output: fakeOutput as MenuOutput,
-    })).toThrow('at least one item');
+    });
+    expect(result).toBe(MENU_CANCELLED);
   });
 
   // ── Non-TTY fallback ────────────────────────
@@ -445,13 +448,21 @@ describe('table — renderRow default isHeader=false branch', () => {
   });
 });
 
-describe('columns — numCols < 1 throws (branch I)', () => {
-  it('cols:0 throws', () => {
-    expect(() => columns(['a'], { cols: 0 })).toThrow('cols must be >= 1');
+describe('columns — numCols < 1 clamps to default (defensive)', () => {
+  it('cols:0 clamps to default (no throw)', () => {
+    expect(() => columns(['a'], { cols: 0 })).not.toThrow();
+    const result = columns(['a'], { cols: 0 });
+    expect(typeof result).toBe('string');
   });
 
-  it('cols:-1 throws', () => {
-    expect(() => columns(['a'], { cols: -1 })).toThrow('cols must be >= 1');
+  it('cols:-1 clamps to default (no throw)', () => {
+    expect(() => columns(['a'], { cols: -1 })).not.toThrow();
+    const result = columns(['a'], { cols: -1 });
+    expect(typeof result).toBe('string');
+  });
+
+  it('cols:NaN clamps to default (no throw)', () => {
+    expect(() => columns(['a'], { cols: NaN })).not.toThrow();
   });
 });
 
@@ -496,9 +507,11 @@ describe('menu — default process.stdin/stdout branches', () => {
     Object.defineProperty(process, 'stdin', { value: origIsTTY !== undefined ? process.stdin : fakeInput, configurable: true });
   });
 
-  it('throws synchronously with default stdin when items empty', () => {
-    // menu() throws before checking isTTY — covers line 235 with default opts
-    expect(() => menu([])).toThrow('menu requires at least one item');
+  it('resolves to MENU_CANCELLED with default stdin when items empty', async () => {
+    // menu() now returns MENU_CANCELLED for empty items rather than throwing —
+    // covered with default opts (no input/output provided)
+    const result = await menu([]);
+    expect(result).toBe(MENU_CANCELLED);
   });
 });
 

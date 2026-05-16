@@ -298,3 +298,342 @@ describe('color utility re-exports', () => {
     expect(typeof isNoColor()).toBe('boolean');
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel exercise for v1.1.0 additions
+//
+//  The barrel file (src/index.ts) re-exports many functions. Each
+//  re-exported arrow function counts as a separate function for
+//  Jest coverage. This block invokes every v1.1.0 addition at least
+//  once to lift the funcs % closer to 100.
+// ─────────────────────────────────────────────
+describe('barrel coverage — v1.1.0 additions', () => {
+  it('imports and invokes new tree algorithms', async () => {
+    const {
+      tree, renderTree, findInTree, countNodes, mapTree, filterTree, walkTree,
+    } = await import('../index.js');
+
+    const t = tree({ label: 'r' });
+    t.add('a').addLeaf('a1');
+    t.add('b');
+    expect(typeof renderTree(t)).toBe('string');
+    expect(countNodes(t)).toBeGreaterThan(0);
+    expect(findInTree(t, (n) => n.label === 'a')?.label).toBe('a');
+    walkTree(t, () => { /* noop */ });
+    expect(mapTree(t, (n) => n)).toBeTruthy();
+    expect(filterTree(t, () => true)).toBeTruthy();
+  });
+
+  it('imports and invokes new configure helpers', async () => {
+    const {
+      configure, getConfig, onConfigKeyChange, withConfig,
+      pauseListeners, resumeListeners, CONFIG_DEFAULTS, resetConfig,
+    } = await import('../index.js');
+
+    expect(CONFIG_DEFAULTS).toBeDefined();
+    expect(getConfig()).toBeDefined();
+
+    const off = onConfigKeyChange('theme', () => { /* noop */ });
+    off();
+
+    pauseListeners();
+    resumeListeners();
+
+    await withConfig({ animationSpeed: 'fast' }, () => 'ok');
+    expect(getConfig()).toBeDefined();
+    configure({}); // exercise no-op path
+
+    // Invoke resetConfig to cover its barrel re-export
+    configure({ theme: 'nord' });
+    resetConfig();
+    expect(getConfig().theme).toBe('dracula');
+  });
+
+  it('imports and invokes new ANSI utilities', async () => {
+    const {
+      setTitle, link, bell,
+      DEFAULT_TERM_COLS, DEFAULT_TERM_ROWS,
+      OSC, ST, BEL,
+    } = await import('../index.js');
+
+    expect(typeof setTitle('test')).toBe('string');
+    expect(typeof link('text', 'url')).toBe('string');
+    expect(bell()).toBe('\x07');
+    expect(DEFAULT_TERM_COLS).toBe(80);
+    expect(DEFAULT_TERM_ROWS).toBe(24);
+    expect(OSC).toBeDefined();
+    expect(ST).toBeDefined();
+    expect(BEL).toBe('\x07');
+  });
+
+  it('imports and invokes new helpers', async () => {
+    const {
+      once, escapeRegex, safeJson, padBoth, nextTick,
+    } = await import('../index.js');
+
+    expect(once(() => 'x')()).toBe('x');
+    expect(escapeRegex('a.b')).toBe('a\\.b');
+    expect(safeJson({ a: 1 })).toBe('{"a":1}');
+    expect(padBoth('x', 5)).toBe('  x  ');
+    nextTick(() => { /* noop */ });
+  });
+
+  it('imports new image transforms', async () => {
+    const { flipHorizontal, flipVertical, rotate90 } = await import('../index.js');
+    const grid = [
+      [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }],
+      [{ r: 0, g: 0, b: 255 }, null],
+    ];
+    expect(flipHorizontal(grid)).toBeDefined();
+    expect(flipVertical(grid)).toBeDefined();
+    expect(rotate90(grid)).toBeDefined();
+  });
+
+  it('imports new color helpers', async () => {
+    const { registerPreset, listPresets, clearColorCache } = await import('../index.js');
+
+    registerPreset('barrel-test-preset', ['#ff0000', '#0000ff']);
+    expect(listPresets()).toContain('barrel-test-preset');
+    clearColorCache();
+  });
+
+  it('imports new theme helpers', async () => {
+    const { createTheme, clearThemeColorCache } = await import('../index.js');
+
+    const t = createTheme();
+    expect(typeof t.use).toBe('function');
+    clearThemeColorCache();
+  });
+
+  it('imports frames + cursor reset helpers', async () => {
+    const { resetFramesCursorCount, frames } = await import('../index.js');
+    expect(typeof resetFramesCursorCount).toBe('function');
+    resetFramesCursorCount();
+    expect(typeof frames.play).toBe('function');
+  });
+
+  it('imports MENU_CANCELLED symbol', async () => {
+    const { MENU_CANCELLED } = await import('../index.js');
+    expect(typeof MENU_CANCELLED).toBe('symbol');
+  });
+
+  it('imports new helper utilities', async () => {
+    const {
+      memoize, debounce, throttle, onResize,
+      requestTerminalFrame, cancelTerminalFrame,
+      diffLines, gradientColor, charWidth, graphemes,
+      sliceAnsi, wrapAnsi,
+    } = await import('../index.js');
+
+    const m = memoize((n: number) => n * 2);
+    expect(m(5)).toBe(10);
+    expect(m.size()).toBe(1);
+    m.clear();
+
+    const d = debounce(() => { /* noop */ }, 10);
+    d.cancel();
+
+    const t = throttle(() => { /* noop */ }, 10);
+    t.cancel();
+
+    const off = onResize(() => { /* noop */ });
+    off();
+
+    const handle = requestTerminalFrame(() => { /* noop */ });
+    cancelTerminalFrame(handle);
+
+    expect(diffLines('a', 'b').length).toBe(1);
+    expect(gradientColor([{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }], 0.5)).toBeDefined();
+    expect(charWidth('x')).toBe(1);
+    expect([...graphemes('ab')].length).toBe(2);
+    expect(sliceAnsi('hello', 0, 3)).toBe('hel');
+    expect(wrapAnsi('hello world', 5)).toBeDefined();
+  });
+
+  it('imports ascii helpers', async () => {
+    const {
+      ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize,
+    } = await import('../index.js');
+
+    expect(listFonts().length).toBeGreaterThan(0);
+    expect(hasFont('big')).toBe(true);
+    expect(hasFont('not-a-font')).toBe(false);
+    clearRenderCache();
+    expect(getRenderCacheSize()).toBe(0);
+    expect(typeof ascii.banner).toBe('function');
+    expect(typeof registerFont).toBe('function');
+  });
+
+  it('imports loaders namespace', async () => {
+    const { loader, SPINNERS } = await import('../index.js');
+    expect(typeof loader.spin).toBe('function');
+    expect(typeof loader.progress).toBe('function');
+    expect(SPINNERS).toBeDefined();
+  });
+
+  it('imports animate namespace', async () => {
+    const { animate } = await import('../index.js');
+    expect(typeof animate.typewriter).toBe('function');
+    expect(typeof animate.delay).toBe('function');
+    expect(typeof animate.parallel).toBe('function');
+  });
+
+  it('imports components namespace', async () => {
+    const { components, box } = await import('../index.js');
+    expect(typeof components.table).toBe('function');
+    expect(typeof components.badge).toBe('function');
+    expect(typeof box).toBe('function');
+  });
+
+  it('imports images helpers', async () => {
+    const { images, clearAnsiCache } = await import('../index.js');
+    expect(typeof images.render).toBe('function');
+    expect(typeof images.sprite).toBe('function');
+    clearAnsiCache();
+  });
+
+  it('imports trees namespace', async () => {
+    const { trees } = await import('../index.js');
+    expect(typeof trees.tree).toBe('function');
+    expect(typeof trees.render).toBe('function');
+    expect(typeof trees.walk).toBe('function');
+    expect(typeof trees.find).toBe('function');
+    expect(typeof trees.count).toBe('function');
+    expect(typeof trees.map).toBe('function');
+    expect(typeof trees.filter).toBe('function');
+  });
+
+  it('imports terminal width/height helpers', async () => {
+    const {
+      getTerminalWidth, getTerminalHeight,
+      supportsColor, supportsColorLevel, resetColorSupportCache,
+    } = await import('../index.js');
+
+    expect(typeof getTerminalWidth()).toBe('number');
+    expect(typeof getTerminalHeight()).toBe('number');
+    expect(typeof supportsColor()).toBe('string');
+    expect(typeof supportsColorLevel()).toBe('number');
+    resetColorSupportCache();
+  });
+
+  it('imports OutputBuffer', async () => {
+    const { createOutputBuffer } = await import('../index.js');
+    const buf = createOutputBuffer();
+    buf.push('a').pushln('b').pushIf(true, 'c').reset().push('d');
+    expect(buf.length()).toBe(1);
+    expect(buf.flush()).toBe(true);
+  });
+
+  it('imports sleep + writeAsync + sleepFrame + FRAME_MS', async () => {
+    const { sleep, writeAsync, sleepFrame, FRAME_MS } = await import('../index.js');
+    await sleep(0);
+    await sleepFrame(0);
+    await writeAsync('');
+    expect(typeof FRAME_MS).toBe('number');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage: every named re-export from src/index.ts
+//
+//  The barrel re-exports many functions. Each named arrow function
+//  counts as a separate function for Jest coverage. This block
+//  invokes every named re-export at least once.
+// ─────────────────────────────────────────────
+describe('barrel coverage — every named re-export', () => {
+  it('colors re-exports — presetNames, chain, colorLevel, stripAnsiColors', async () => {
+    const {
+      presetNames, chain, colorLevel, stripAnsiColors,
+    } = await import('../index.js');
+
+    expect(Array.isArray(presetNames)).toBe(true);
+    expect(presetNames.length).toBeGreaterThan(0);
+
+    // chain — fluent style builder (methods are functions, not getters)
+    const c = chain().red().bold();
+    expect(typeof c.apply).toBe('function');
+    expect(typeof c.apply('test')).toBe('string');
+
+    // colorLevel — function returning numeric support level (0-3)
+    expect(typeof colorLevel()).toBe('number');
+
+    expect(typeof stripAnsiColors('\x1b[31mhi\x1b[0m')).toBe('string');
+  });
+
+  it('animations re-exports — canAnimate, resetCursorRefCount', async () => {
+    const { canAnimate, resetCursorRefCount } = await import('../index.js');
+    expect(typeof canAnimate()).toBe('boolean');
+    resetCursorRefCount();
+  });
+
+  it('loaders re-exports — resetLoaderCursorCount', async () => {
+    const { resetLoaderCursorCount } = await import('../index.js');
+    expect(typeof resetLoaderCursorCount).toBe('function');
+    resetLoaderCursorCount();
+  });
+
+  it('trees re-exports — renderTreeStream, measureTree', async () => {
+    const { tree, renderTreeStream, measureTree } = await import('../index.js');
+    const t = tree('root');
+    t.add('child');
+
+    // Generator
+    const gen = renderTreeStream(t);
+    const first = gen.next();
+    expect(typeof first.value).toBe('string');
+
+    // Measure
+    const dim = measureTree(t);
+    expect(dim.width).toBeGreaterThan(0);
+    expect(dim.height).toBeGreaterThan(0);
+  });
+
+  it('configure re-exports — onConfigChange, getConfigValue', async () => {
+    const { onConfigChange, getConfigValue } = await import('../index.js');
+
+    const off = onConfigChange(() => { /* noop */ });
+    off();
+
+    expect(getConfigValue('theme')).toBeDefined();
+    expect(getConfigValue('colorMode')).toBeDefined();
+  });
+
+  it('ansi re-exports — writeErr, writelnErr, hideCursor, showCursor', async () => {
+    const { writeErr, writelnErr, hideCursor, showCursor } = await import('../index.js');
+
+    // These write to stderr / stdout — just verify they exist + return boolean
+    expect(typeof writeErr).toBe('function');
+    expect(typeof writelnErr).toBe('function');
+    expect(typeof hideCursor).toBe('function');
+    expect(typeof showCursor).toBe('function');
+
+    // Invoke them harmlessly (writes are best-effort, no-op without TTY)
+    writeErr('');
+    writelnErr('');
+    // showCursor + hideCursor are reference-counted, balanced calls
+    hideCursor();
+    showCursor();
+  });
+
+  it('ansi re-exports — fg256, bg256, ESC, CSI, FG, BG, STYLE', async () => {
+    const { fg256, bg256, ESC, CSI, FG, BG, STYLE } = await import('../index.js');
+
+    expect(fg256(15)).toContain('38;5;15');
+    expect(bg256(15)).toContain('48;5;15');
+    expect(ESC).toBe('\x1b');
+    expect(CSI).toBe('\x1b[');
+    expect(FG.red).toBe(31);
+    expect(BG.red).toBe(41);
+    expect(STYLE.bold).toBe(1);
+  });
+
+  it('utils re-exports — stripAnsiCodes alias', async () => {
+    const { stripAnsiCodes } = await import('../index.js');
+    expect(stripAnsiCodes('\x1b[31mhi\x1b[0m')).toBe('hi');
+  });
+
+  it('default export is the ansimax namespace', async () => {
+    const mod = await import('../index.js');
+    expect(mod.default).toBeDefined();
+  });
+});

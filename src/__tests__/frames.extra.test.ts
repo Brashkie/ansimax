@@ -22,11 +22,11 @@ afterEach(() => {
 // ─────────────────────────────────────────────
 describe('frames.play extra', () => {
   it('clearOnFinish writes cursor sequences', async () => {
-    const promise = frames.play(['A'], { interval: 0, repeat: 1, clearOnFinish: true });
+    const promise = frames.play(['A'], { interval: 0, repeat: 1, clearOnFinish: true }).done;
     await jest.runAllTimersAsync();
     await promise;
     // clearLines writes cursor.up sequences
-    expect(output).toContain('\x1b[1A');
+    expect(output).toMatch(/\x1b\[\d+A/);
   });
 
   it('repeat:0 flag is detected as infinite loop', () => {
@@ -40,7 +40,7 @@ describe('frames.play extra', () => {
   });
 
   it('multi-line frame counts lines correctly', async () => {
-    const promise = frames.play(['line1\nline2\nline3'], { interval: 0, repeat: 1 });
+    const promise = frames.play(['line1\nline2\nline3'], { interval: 0, repeat: 1 }).done;
     await jest.runAllTimersAsync();
     await promise;
     expect(output).toContain('line1');
@@ -49,7 +49,7 @@ describe('frames.play extra', () => {
   });
 
   it('frame ending with newline does not add extra newline', async () => {
-    const promise = frames.play(['hello\n'], { interval: 0, repeat: 1 });
+    const promise = frames.play(['hello\n'], { interval: 0, repeat: 1 }).done;
     await jest.runAllTimersAsync();
     await promise;
     expect(output).toContain('hello');
@@ -132,7 +132,7 @@ describe('frames.live', () => {
     ctrl.update('line1\nline2');
     jest.advanceTimersByTime(55);
     // clearLines writes cursor.up
-    expect(output).toContain('\x1b[1A');
+    expect(output).toMatch(/\x1b\[\d+A/);
     ctrl.stop();
   });
 });
