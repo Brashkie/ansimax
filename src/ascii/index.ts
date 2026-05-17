@@ -578,7 +578,10 @@ const banner = (text: string, opts: BannerOptions = {}): string => {
 const box = (text: string, opts: BoxOptions = {}): string => {
   const safe = ensureString(text, 'box(text)');
   const { padding = 1, borderStyle = 'rounded', width = null } = opts;
-  const safePadding = Math.max(0, Math.floor(padding));
+  // Defensive: padding must be a finite number. If user passes an object,
+  // string, NaN, etc., fall back to the default (1).
+  const padNum = typeof padding === 'number' && Number.isFinite(padding) ? padding : 1;
+  const safePadding = Math.max(0, Math.floor(padNum));
   const b = BOX_STYLES[borderStyle] ?? BOX_STYLES.rounded;
 
   const lines = safe.split('\n');

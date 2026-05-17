@@ -598,7 +598,33 @@ export const menu = (items: string[], opts: MenuOptions = {}): Promise<MenuResul
       try { emit(cursor.show()); } catch { /* ignore */ }
       cursorHidden = false;
     }
+    // Remove the process-level safety net handlers
+    /* istanbul ignore next — defensive: cleanup of process handlers */
+    try {
+      process.off('SIGINT', emergencyCleanup);
+      process.off('SIGTERM', emergencyCleanup);
+      process.off('exit', emergencyCleanup);
+    } catch { /* ignore */ }
   };
+
+  // Emergency cleanup — runs if the process is killed mid-menu (Ctrl+C, etc).
+  // Restores the cursor synchronously since stdout is still valid.
+  /* istanbul ignore next — defensive: only fires on SIGINT/SIGTERM/exit */
+  const emergencyCleanup = (): void => {
+    if (cursorHidden) {
+      try { out.write(cursor.show()); } catch { /* ignore */ }
+      cursorHidden = false;
+    }
+    try { if (inp.setRawMode) inp.setRawMode(false); } catch { /* ignore */ }
+  };
+
+  // Register safety net BEFORE hiding cursor
+  /* istanbul ignore next — defensive: process handlers won't fire in tests */
+  try {
+    process.once('SIGINT', emergencyCleanup);
+    process.once('SIGTERM', emergencyCleanup);
+    process.once('exit', emergencyCleanup);
+  } catch { /* ignore */ }
 
   // Hide cursor + initial render. If render() throws (extremely unlikely
   // but defensive), restore cursor immediately and resolve.

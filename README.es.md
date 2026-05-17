@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.1.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -15,6 +15,27 @@ _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles
 [![Bundle](https://img.shields.io/badge/bundle-%3C100kb-brightgreen.svg?style=flat-square)](#)
 
 [English](README.md) · **Español**
+
+</div>
+
+---
+
+<div align="center">
+
+### 🎬 Vista previa
+
+<table>
+  <tr>
+    <td align="center">
+      <strong>Animaciones</strong><br/>
+      <img src="media/animations.gif" alt="Demo de animaciones de Ansimax" width="420"/>
+    </td>
+    <td align="center">
+      <strong>Loaders</strong><br/>
+      <img src="media/loaders.gif" alt="Demo de loaders de Ansimax" width="420"/>
+    </td>
+  </tr>
+</table>
 
 </div>
 
@@ -248,7 +269,7 @@ components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' });
 
-components.badge('VERSION', 'v1.1.0');
+components.badge('VERSION', 'v1.1.1');
 components.badge('BUILD',   'passing');
 ```
 
@@ -336,21 +357,33 @@ tenantA.register('custom', miDef);  // no se filtra a tenantB
 
 ## 📚 Ejemplos
 
-Siete ejemplos de calidad de producción se publican en el paquete npm y son ejecutables directamente. Los encuentras en [`/examples`](./examples) después de instalar:
+Once ejemplos de calidad de producción se publican en el paquete npm y son ejecutables directamente. Los encuentras en [`/examples`](./examples) después de instalar:
 
 | Archivo | Qué demuestra |
 |---|---|
-| `trees-basic.ts` | Ejemplo mínimo de árboles — API builder + algoritmos |
-| `01-cli-installer.ts` | Instalador estilo npm-create — banner + tareas jerárquicas + íconos de estado + caja resumen |
-| `02-live-dashboard.ts` | Dashboard en tiempo real — `frames.live` + tabla de servicios + barras con gradiente + `onResize` + limpieza SIGINT |
-| `03-pixel-art-game.ts` | Sprite de cohete rebotando — canvas + alpha blending + gradiente + contador de FPS + loop con corrección de drift |
-| `04-interactive-deploy.ts` | Menú + multi-select + `loader.multi` + `createTheme` + `onConfigChange` |
-| `05-tree-visualizations.ts` | Árboles de filesystem + dependencias + JSON + decisión (`walk` + `measure` extra) |
-| `06-everything-together.ts` | Showcase completo — cada módulo ejercitado en un demo cohesivo |
+| `01-quick-smoke.ts` | Test rápido de humo — verifica que cada import principal funciona |
+| `02-colors-gradients.ts` | Toda función de color, tipos de gradiente, presets, compose, API chain |
+| `03-ascii-banners.ts` | Banners (`big`/`small`), 6 estilos de caja, divisores, compositor de logos |
+| `04-trees.ts` | Tree builder + API data-plana, 4 estilos, palettes, algoritmos (walk/find/map/filter) |
+| `05-components.ts` | Tablas, badges, status, secciones, columnas, timelines, barras de progreso |
+| `06-pixel-art.ts` | Sprites, canvas personalizado, gradient rects con dither, transforms (flip/rotate) |
+| `07-animations.ts` | typewriter, fadeIn/Out, slide, pulse, wave, glitch, reveal |
+| `08-loaders.ts` | Estilos de spinner, progreso animado, tareas jerárquicas, cuenta regresiva |
+| `09-themes.ts` | Los 8 temas integrados, listeners, registro de temas personalizados, aislamiento por instancia |
+| `10-everything.ts` | Showcase completo — cada módulo ejercitado en un demo cohesivo |
+| `all-in-one.mjs` | Demo completo en **ESM** (JS puro con `import`) — sin necesidad de TypeScript |
+| `all-in-one.cjs` | Demo completo en **CommonJS** (JS puro con `require`) — sin necesidad de TypeScript |
 
 Ejecuta cualquier ejemplo con:
 ```bash
-npx tsx examples/06-everything-together.ts
+# Ejemplos en TypeScript
+npx tsx examples/10-everything.ts
+
+# JS puro — ESM
+node examples/all-in-one.mjs
+
+# JS puro — CommonJS
+node examples/all-in-one.cjs
 ```
 
 ---
@@ -604,13 +637,24 @@ ansimax/
 │   ├── trees/          Builder de árboles + algoritmos
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
-├── examples/           7 ejemplos de calidad de producción
+├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
 └── __tests__/          16 test suites, 1700+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.1.1 — Fixes de bugs + ejemplos limpios
+
+Release patch que arregla dos bugs encontrados en testing real de v1.1.0, más una carpeta de ejemplos refrescada.
+
+- 🐛 **Fix de crash en `box()`** con `padding: { x, y }` — ahora cae graciosamente al default para padding no-numérico (también maneja NaN, Infinity, strings)
+- 🐛 **Fix de leak de cursor en `components.menu()`** al salir abruptamente (Ctrl+C, SIGTERM) — handlers de cleanup de emergencia ahora restauran el cursor incluso cuando el proceso se mata mid-menu
+- 📚 **Nuevos ejemplos** — 10 ejemplos en TypeScript + 2 variantes en JS puro (`all-in-one.mjs` para ESM, `all-in-one.cjs` para CommonJS)
+- 📖 **READMEs actualizados** — GIFs de preview en el header, GIF de showcase completo en el footer
+
+Sin cambios en la API — drop-in replacement para `1.1.0`.
 
 ### v1.1.0 — Hardening exhaustivo + nuevas features
 
@@ -673,6 +717,18 @@ Si Ansimax te ahorra tiempo, por favor dale estrella al repo en [GitHub](https:/
 ## 👨‍💻 Autor
 
 **Brashkie** · [@Brashkie](https://github.com/Brashkie)
+
+---
+
+## 🎬 Showcase completo
+
+<div align="center">
+
+<img src="media/all-ansimax.gif" alt="Showcase completo de Ansimax — todo en acción" width="720"/>
+
+_Todas las funciones en acción — typewriter, gradientes, banners ASCII, árboles, tablas, spinners, temas y pixel art_
+
+</div>
 
 ---
 

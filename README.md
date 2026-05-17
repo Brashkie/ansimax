@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.1.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -15,6 +15,27 @@ _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • C
 [![Bundle](https://img.shields.io/badge/bundle-%3C100kb-brightgreen.svg?style=flat-square)](#)
 
 **English** · [Español](README.es.md)
+
+</div>
+
+---
+
+<div align="center">
+
+### 🎬 Preview
+
+<table>
+  <tr>
+    <td align="center">
+      <strong>Animations</strong><br/>
+      <img src="media/animations.gif" alt="Ansimax animations demo" width="420"/>
+    </td>
+    <td align="center">
+      <strong>Loaders</strong><br/>
+      <img src="media/loaders.gif" alt="Ansimax loaders demo" width="420"/>
+    </td>
+  </tr>
+</table>
 
 </div>
 
@@ -248,7 +269,7 @@ components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' });
 
-components.badge('VERSION', 'v1.1.0');
+components.badge('VERSION', 'v1.1.1');
 components.badge('BUILD',   'passing');
 ```
 
@@ -336,21 +357,33 @@ tenantA.register('custom', myDef);  // doesn't leak to tenantB
 
 ## 📚 Examples
 
-Seven production-grade examples ship in the npm package and are runnable directly. Find them in [`/examples`](./examples) once you install:
+Eleven production-grade examples ship in the npm package and are runnable directly. Find them in [`/examples`](./examples) once you install:
 
 | File | What it demonstrates |
 |---|---|
-| `trees-basic.ts` | Minimal trees example — builder API + algorithms |
-| `01-cli-installer.ts` | npm-create style installer — banner + hierarchical tasks + status icons + summary box |
-| `02-live-dashboard.ts` | Real-time dashboard — `frames.live` + service table + gradient bars + `onResize` + SIGINT cleanup |
-| `03-pixel-art-game.ts` | Bouncing rocket sprite — canvas + alpha blending + gradient + FPS counter + drift-corrected loop |
-| `04-interactive-deploy.ts` | Menu + multi-select + `loader.multi` + `createTheme` + `onConfigChange` |
-| `05-tree-visualizations.ts` | Filesystem + dependency + JSON + decision trees (`walk` + `measure` bonus) |
-| `06-everything-together.ts` | Comprehensive showcase — every module exercised in one cohesive demo |
+| `01-quick-smoke.ts` | Quick smoke test — verifies every major import works |
+| `02-colors-gradients.ts` | Every color fn, gradient types, presets, compose, chain API |
+| `03-ascii-banners.ts` | Banners (`big`/`small`), 6 box styles, dividers, logo composer |
+| `04-trees.ts` | Tree builder + plain-data API, 4 styles, palettes, algorithms (walk/find/map/filter) |
+| `05-components.ts` | Tables, badges, status, sections, columns, timelines, progress bars |
+| `06-pixel-art.ts` | Sprites, custom canvas, gradient rects with dither, transforms (flip/rotate) |
+| `07-animations.ts` | typewriter, fadeIn/Out, slide, pulse, wave, glitch, reveal |
+| `08-loaders.ts` | spinner styles, animated progress, hierarchical tasks, countdown |
+| `09-themes.ts` | All 8 built-in themes, listeners, custom theme registration, per-instance isolation |
+| `10-everything.ts` | Comprehensive showcase — every module exercised in one cohesive demo |
+| `all-in-one.mjs` | Full demo in **ESM** (plain JS with `import`) — no TypeScript needed |
+| `all-in-one.cjs` | Full demo in **CommonJS** (plain JS with `require`) — no TypeScript needed |
 
 Run any example with:
 ```bash
-npx tsx examples/06-everything-together.ts
+# TypeScript examples
+npx tsx examples/10-everything.ts
+
+# Plain JS — ESM
+node examples/all-in-one.mjs
+
+# Plain JS — CommonJS
+node examples/all-in-one.cjs
 ```
 
 ---
@@ -604,13 +637,24 @@ ansimax/
 │   ├── trees/          Tree builder + algorithms
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
-├── examples/           7 production-grade examples
+├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
 └── __tests__/          16 test suites, 1700+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.1.1 — Bug fixes + cleaner examples
+
+Patch release fixing two bugs from real-world v1.1.0 testing, plus a refreshed examples folder.
+
+- 🐛 **Fixed `box()` crash** with `padding: { x, y }` — now gracefully falls back to default for non-numeric padding (also handles NaN, Infinity, strings)
+- 🐛 **Fixed `components.menu()` cursor leak** on abrupt exit (Ctrl+C, SIGTERM) — emergency cleanup handlers now restore the cursor even when the process is killed mid-menu
+- 📚 **New examples** — 10 TypeScript examples + 2 plain JS variants (`all-in-one.mjs` for ESM, `all-in-one.cjs` for CommonJS)
+- 📖 **READMEs updated** — preview GIFs in the header, comprehensive showcase GIF in the footer
+
+No API changes — drop-in replacement for `1.1.0`.
 
 ### v1.1.0 — Comprehensive hardening + new features
 
@@ -673,6 +717,18 @@ If Ansimax saves you time, please star the repo on [GitHub](https://github.com/B
 ## 👨‍💻 Author
 
 **Brashkie** · [@Brashkie](https://github.com/Brashkie)
+
+---
+
+## 🎬 Full showcase
+
+<div align="center">
+
+<img src="media/all-ansimax.gif" alt="Ansimax full showcase — everything in action" width="720"/>
+
+_All features in action — typewriter, gradients, ASCII banners, trees, tables, spinners, themes, and pixel art_
+
+</div>
 
 ---
 

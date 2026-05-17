@@ -148,3 +148,5 @@ docs-site/.cache/
 
 # Local CLI test output
 .test-output/
+# Never commit npm credentials
+.npmrc
