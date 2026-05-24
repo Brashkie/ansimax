@@ -72,13 +72,13 @@ const validateTheme = (t: unknown): void => {
   const obj = t as Record<string, unknown>;
 
   if (typeof obj.name !== 'string' || (obj.name as string).length === 0) {
-    throw new Error('Theme must have a non-empty "name" string.');
+    throw new TypeError('Theme must have a non-empty "name" string.');
   }
 
   for (const key of REQUIRED_COLOR_KEYS) {
     const value = obj[key];
     if (typeof value !== 'string' || !HEX_RE.test(value)) {
-      throw new Error(
+      throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → ${key}: ${JSON.stringify(value)}. ` +
         `Expected #RGB or #RRGGBB.`,
       );
@@ -91,21 +91,21 @@ const validateTheme = (t: unknown): void => {
     if (value === undefined) continue;
     /* istanbul ignore next — defensive: built-in themes always have valid hex */
     if (typeof value !== 'string' || !HEX_RE.test(value)) {
-      throw new Error(
+      throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → ${key}: ${JSON.stringify(value)}.`,
       );
     }
   }
 
   if (!Array.isArray(obj.gradient) || obj.gradient.length < 2) {
-    throw new Error(
+    throw new TypeError(
       `Theme "${obj.name as string}" must define a "gradient" array with at least 2 colors.`,
     );
   }
   for (let i = 0; i < obj.gradient.length; i++) {
     const stop = obj.gradient[i];
     if (typeof stop !== 'string' || !HEX_RE.test(stop)) {
-      throw new Error(
+      throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → gradient[${i}]: ${JSON.stringify(stop)}.`,
       );
     }
@@ -540,8 +540,8 @@ export const themes: ThemeInstance = {
   use(name) {
     const t = _globalRegistry.get(name);
     if (!t) {
-      throw new Error(
-        `Theme "${name}" not found. Available: ${[..._globalRegistry.keys()].join(', ')}`,
+      throw new RangeError(
+        `Theme "${name}" not found. Available themes: ${[..._globalRegistry.keys()].join(', ')}`,
       );
     }
     const old = _globalActive;

@@ -1,6 +1,15 @@
 // ─────────────────────────────────────────────
-//  ANSIMAX  v1.0.0
-//  La librería definitiva para CLIs impresionantes
+//  ANSIMAX  v1.1.2
+//  The ultimate CLI rendering library for Node.js
+//
+//  Re-exports the public API of every module:
+//    - Named exports for individual functions/classes/types
+//    - Default export `ansimax` aggregating module namespaces
+//
+//  All types are re-exported with their canonical names. Some legacy
+//  aliases (e.g. `stripAnsiColors`, `stripAnsiCodes`) point to the same
+//  underlying `stripAnsi` function and are kept for backwards-compat;
+//  prefer `stripAnsi` (imported from `'ansimax'`) in new code.
 // ─────────────────────────────────────────────
 
 // ── Core modules ──
@@ -117,8 +126,7 @@ export {
   diffLines,
   // New utilities
   once, escapeRegex, safeJson,
-} from './utils/helpers.js';
-export type {
+} from './utils/helpers.js';export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,
   LineDiff, DiffType, DebounceOptions, MemoizeOptions,
 } from './utils/helpers.js';

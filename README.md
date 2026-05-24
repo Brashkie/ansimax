@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.1.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -50,14 +50,14 @@ npm install ansimax
 ```
 
 ```ts
-import { color, gradient, ascii, loader } from 'ansimax';
+import { color, gradient, ascii, loader, sleep } from 'ansimax';
 
 console.log(ascii.banner('hello', {
   colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9', '#8be9fd']),
 }));
 
 const stop = loader.spin('Building project', { color: '#bd93f9' });
-await someAsyncWork();
+await sleep(1500);
 stop('Build complete', true);
 ```
 
@@ -123,14 +123,14 @@ yarn add ansimax
 ## ⚡ 30-second example
 
 ```ts
-import { color, gradient, loader, ascii } from 'ansimax';
+import { color, gradient, loader, ascii, sleep } from 'ansimax';
 
 console.log(ascii.banner('deploy', {
   colorFn: (t) => gradient(t, ['#ff6b6b', '#feca57', '#48dbfb']),
 }));
 
 const stop = loader.spin('Building project', { color: '#bd93f9' });
-await someAsyncWork();
+await sleep(1500);             // simulate async work
 stop('Build complete', true);  // ✓ + success color
 
 console.log(color.green('✓') + ' Ready in ' + color.bold('1.4s'));
@@ -187,12 +187,19 @@ console.log(themes.primary('cyberpunk primary'));
 <img src="media/colors.png" alt="Colors and gradients" />
 
 ```ts
-import { color, gradient } from 'ansimax';
+import { color, gradient, rainbow } from 'ansimax';
 
-color.red('red');   color.green('green');  color.blue('blue');
-color.bold(text);   color.italic(text);    color.underline(text);
-gradient('fire to ocean', ['#ff6b6b', '#feca57', '#48dbfb']);
-color.rainbow('built-in rainbow preset');
+// Basic colors
+console.log(color.red('red'), color.green('green'), color.blue('blue'));
+
+// Style modifiers
+console.log(color.bold('bold'), color.italic('italic'), color.underline('underlined'));
+
+// Multi-stop gradient
+console.log(gradient('fire to ocean', ['#ff6b6b', '#feca57', '#48dbfb']));
+
+// Built-in rainbow preset
+console.log(rainbow('built-in rainbow preset'));
 ```
 
 ### ASCII Art
@@ -202,13 +209,13 @@ color.rainbow('built-in rainbow preset');
 ```ts
 import { ascii, gradient } from 'ansimax';
 
-ascii.banner('HELLO', {
+console.log(ascii.banner('HELLO', {
   font: 'big',
   align: 'center',
   colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9']),
-});
+}));
 
-ascii.box('Rainbow box!', { padding: 1, borderStyle: 'rounded' });
+console.log(ascii.box('Rainbow box!', { padding: 1, borderStyle: 'rounded' }));
 ```
 
 ### Trees
@@ -235,7 +242,7 @@ console.log(project.render({
 <img src="media/pixel_art.png" alt="Pixel art" />
 
 ```ts
-import { images, createCanvas, gradientRect } from 'ansimax';
+import { images, createCanvas, gradientRect, SPRITES } from 'ansimax';
 
 // Built-in sprite
 console.log(images.sprite('heart'));
@@ -251,7 +258,8 @@ console.log(gradientRect({
 const c = createCanvas(40, 10);
 c.fill({ r: 18, g: 18, b: 38 });
 c.drawCircle(20, 5, 4, { r: 255, g: 200, b: 0 }, true);
-c.drawSprite(2, 2, images.sprites.star!.pixels);
+const starSprite = SPRITES.star;
+if (starSprite) c.drawSprite(2, 2, starSprite.pixels);
 c.print();
 ```
 
@@ -262,15 +270,15 @@ c.print();
 ```ts
 import { components, color } from 'ansimax';
 
-components.table([
+console.log(components.table([
   ['Module',     'Status',                'Coverage'],
   ['colors',     color.green('● ready'),  '100%'],
   ['animations', color.green('● ready'),  '100%'],
   ['loaders',    color.green('● ready'),  '100%'],
-], { borderStyle: 'rounded' });
+], { borderStyle: 'rounded' }));
 
-components.badge('VERSION', 'v1.1.1');
-components.badge('BUILD',   'passing');
+console.log(components.badge('VERSION', 'v1.1.2'));
+console.log(components.badge('BUILD',   'passing'));
 ```
 
 ### Timeline
@@ -278,22 +286,24 @@ components.badge('BUILD',   'passing');
 <img src="media/timeline.png" alt="Timeline" />
 
 ```ts
-components.timeline([
+import { components } from 'ansimax';
+
+console.log(components.timeline([
   { label: 'Project init',   done: true,  time: '10:00' },
   { label: 'Build pipeline', done: true,  time: '10:15' },
   { label: 'Run tests',      done: false, time: '10:32' },
   { label: 'Deploy to npm',  done: false },
-]);
+]));
 ```
 
 ### Loaders & Progress
 
 ```ts
-import { loader } from 'ansimax';
+import { loader, sleep } from 'ansimax';
 
 // Spinner with success/failure
 const stop = loader.spin('Loading...', { color: '#bd93f9' });
-await work();
+await sleep(1500);
 stop('Done!', true);   // ✓ green icon
 
 // Animated progress bar
@@ -303,18 +313,22 @@ await loader.progressAnimate(100, 'Downloading', {
 
 // Hierarchical tasks with parallel execution
 await loader.tasks([
-  { text: 'Build', fn: async () => build(), subtasks: [
-    { text: 'TypeScript', fn: async () => tsc() },
-    { text: 'Bundle',     fn: async () => bundle() },
-  ]},
-  { text: 'Test',  fn: async () => test() },
+  {
+    text: 'Build',
+    fn: async () => await sleep(500),
+    subtasks: [
+      { text: 'TypeScript', fn: async () => await sleep(800) },
+      { text: 'Bundle',     fn: async () => await sleep(600) },
+    ],
+  },
+  { text: 'Test', fn: async () => await sleep(700) },
 ], { parallel: true });
 ```
 
 ### Animations
 
 ```ts
-import { animate, gradient } from 'ansimax';
+import { animate, gradient, sleep } from 'ansimax';
 
 await animate.typewriter('Welcome to the deployment wizard...', {
   speed: 30,
@@ -325,9 +339,9 @@ await animate.fadeIn('Loading complete', { duration: 600 });
 
 // Race steps against a timeout — never hang
 await animate.parallel([
-  async () => await checkNetwork(),
-  async () => await checkDatabase(),
-  async () => await checkAuth(),
+  async () => await sleep(500),   // simulated network check
+  async () => await sleep(700),   // simulated database check
+  async () => await sleep(400),   // simulated auth check
 ], { timeout: 5000 });
 ```
 
@@ -340,7 +354,7 @@ import { themes, createTheme } from 'ansimax';
 
 // Built-in themes
 themes.use('dracula');
-themes.primary('hello');
+console.log(themes.primary('hello'));
 
 // Listen for changes
 const off = themes.onChange((newTheme, oldTheme) => {
@@ -350,7 +364,27 @@ const off = themes.onChange((newTheme, oldTheme) => {
 // Multi-tenant: each instance fully isolated
 const tenantA = createTheme('nord');
 const tenantB = createTheme('matrix');
-tenantA.register('custom', myDef);  // doesn't leak to tenantB
+
+// Define a custom theme and register it ONLY in tenantA
+tenantA.register('custom', {
+  name: 'Custom',
+  primary:   '#ff5e5e',
+  secondary: '#5e5eff',
+  accent:    '#5eff5e',
+  success:   '#10b981',
+  warning:   '#fbbf24',
+  error:     '#ef4444',
+  info:      '#06b6d4',
+  muted:     '#6b7280',
+  bg:        '#1e293b',
+  surface:   '#334155',
+  text:      '#f1f5f9',
+  gradient:  ['#ff5e5e', '#5eff5e', '#5e5eff'],
+});
+
+console.log('tenantA themes include custom?', tenantA.list().includes('custom'));
+console.log('tenantB themes include custom?', tenantB.list().includes('custom'));
+//                                            ↑ false — full isolation
 ```
 
 ---
@@ -421,11 +455,11 @@ const off = onConfigKeyChange('theme', (newTheme, oldTheme) => {
 
 // Temporary override + auto-restore on completion or throw
 await withConfig({ animationSpeed: 'fast' }, async () => {
-  await runDemo();
+  // ...your fast-mode code here...
 });
 
 // Strict mode catches config typos
-configure({ unknwnKey: 'x' }, { strict: true });  // throws RangeError
+// configure({ unknwnKey: 'x' }, { strict: true });  // throws RangeError
 ```
 
 ---
@@ -644,6 +678,17 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.1.2 — Maturity & robustness
+
+Patch release focused on quality refinements — no API changes.
+
+- 🛡️ **`process.setMaxListeners` defensive bump** — prevents `MaxListenersExceededWarning` in HMR / nodemon / ts-node-dev setups where ansimax modules re-register cursor-restore handlers
+- 🧪 **Uniform `TypeError` for theme validation** — `themes.register()` now consistently throws `TypeError` for structural / type errors (was a mix of `Error` and `TypeError`)
+- 🎯 **`themes.use()` throws `RangeError`** for unknown theme names (was `Error`) — better semantic match for "value out of allowed set"
+- 📝 **Cleaner barrel re-exports** — header comment now documents legacy aliases and recommends canonical names
+
+Drop-in replacement for `1.1.1`.
 
 ### v1.1.1 — Bug fixes + cleaner examples
 

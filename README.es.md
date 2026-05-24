@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.1.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -50,14 +50,14 @@ npm install ansimax
 ```
 
 ```ts
-import { color, gradient, ascii, loader } from 'ansimax';
+import { color, gradient, ascii, loader, sleep } from 'ansimax';
 
 console.log(ascii.banner('hola', {
   colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9', '#8be9fd']),
 }));
 
 const stop = loader.spin('Construyendo proyecto', { color: '#bd93f9' });
-await algunaTareaAsync();
+await sleep(1500);
 stop('Build completado', true);
 ```
 
@@ -123,14 +123,14 @@ yarn add ansimax
 ## ⚡ Ejemplo en 30 segundos
 
 ```ts
-import { color, gradient, loader, ascii } from 'ansimax';
+import { color, gradient, loader, ascii, sleep } from 'ansimax';
 
 console.log(ascii.banner('deploy', {
   colorFn: (t) => gradient(t, ['#ff6b6b', '#feca57', '#48dbfb']),
 }));
 
 const stop = loader.spin('Construyendo proyecto', { color: '#bd93f9' });
-await algunaTareaAsync();
+await sleep(1500);             // simula trabajo asíncrono
 stop('Build completado', true);  // ✓ + color de éxito
 
 console.log(color.green('✓') + ' Listo en ' + color.bold('1.4s'));
@@ -187,12 +187,19 @@ console.log(themes.primary('primary de cyberpunk'));
 <img src="media/colors.png" alt="Colores y gradientes" />
 
 ```ts
-import { color, gradient } from 'ansimax';
+import { color, gradient, rainbow } from 'ansimax';
 
-color.red('rojo');   color.green('verde');  color.blue('azul');
-color.bold(texto);   color.italic(texto);    color.underline(texto);
-gradient('fuego a océano', ['#ff6b6b', '#feca57', '#48dbfb']);
-color.rainbow('preset rainbow integrado');
+// Colores básicos
+console.log(color.red('rojo'), color.green('verde'), color.blue('azul'));
+
+// Modificadores de estilo
+console.log(color.bold('negrita'), color.italic('itálica'), color.underline('subrayado'));
+
+// Gradiente multi-stop
+console.log(gradient('fuego a océano', ['#ff6b6b', '#feca57', '#48dbfb']));
+
+// Preset rainbow integrado
+console.log(rainbow('preset rainbow integrado'));
 ```
 
 ### ASCII Art
@@ -202,13 +209,13 @@ color.rainbow('preset rainbow integrado');
 ```ts
 import { ascii, gradient } from 'ansimax';
 
-ascii.banner('HOLA', {
+console.log(ascii.banner('HOLA', {
   font: 'big',
   align: 'center',
   colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9']),
-});
+}));
 
-ascii.box('¡Caja arcoiris!', { padding: 1, borderStyle: 'rounded' });
+console.log(ascii.box('¡Caja arcoiris!', { padding: 1, borderStyle: 'rounded' }));
 ```
 
 ### Árboles
@@ -235,7 +242,7 @@ console.log(proyecto.render({
 <img src="media/pixel_art.png" alt="Pixel art" />
 
 ```ts
-import { images, createCanvas, gradientRect } from 'ansimax';
+import { images, createCanvas, gradientRect, SPRITES } from 'ansimax';
 
 // Sprite integrado
 console.log(images.sprite('heart'));
@@ -251,7 +258,8 @@ console.log(gradientRect({
 const c = createCanvas(40, 10);
 c.fill({ r: 18, g: 18, b: 38 });
 c.drawCircle(20, 5, 4, { r: 255, g: 200, b: 0 }, true);
-c.drawSprite(2, 2, images.sprites.star!.pixels);
+const starSprite = SPRITES.star;
+if (starSprite) c.drawSprite(2, 2, starSprite.pixels);
 c.print();
 ```
 
@@ -262,15 +270,15 @@ c.print();
 ```ts
 import { components, color } from 'ansimax';
 
-components.table([
+console.log(components.table([
   ['Módulo',     'Estado',                'Cobertura'],
   ['colors',     color.green('● listo'),  '100%'],
   ['animations', color.green('● listo'),  '100%'],
   ['loaders',    color.green('● listo'),  '100%'],
-], { borderStyle: 'rounded' });
+], { borderStyle: 'rounded' }));
 
-components.badge('VERSION', 'v1.1.1');
-components.badge('BUILD',   'passing');
+console.log(components.badge('VERSION', 'v1.1.2'));
+console.log(components.badge('BUILD',   'passing'));
 ```
 
 ### Timeline
@@ -278,22 +286,24 @@ components.badge('BUILD',   'passing');
 <img src="media/timeline.png" alt="Timeline" />
 
 ```ts
-components.timeline([
+import { components } from 'ansimax';
+
+console.log(components.timeline([
   { label: 'Init del proyecto', done: true,  time: '10:00' },
   { label: 'Pipeline de build', done: true,  time: '10:15' },
   { label: 'Correr tests',      done: false, time: '10:32' },
   { label: 'Deploy a npm',      done: false },
-]);
+]));
 ```
 
 ### Loaders y Progreso
 
 ```ts
-import { loader } from 'ansimax';
+import { loader, sleep } from 'ansimax';
 
 // Spinner con éxito/fallo
 const stop = loader.spin('Cargando...', { color: '#bd93f9' });
-await tarea();
+await sleep(1500);
 stop('¡Listo!', true);   // ✓ ícono verde
 
 // Barra de progreso animada
@@ -303,18 +313,22 @@ await loader.progressAnimate(100, 'Descargando', {
 
 // Tareas jerárquicas con ejecución paralela
 await loader.tasks([
-  { text: 'Build', fn: async () => build(), subtasks: [
-    { text: 'TypeScript', fn: async () => tsc() },
-    { text: 'Bundle',     fn: async () => bundle() },
-  ]},
-  { text: 'Test',  fn: async () => test() },
+  {
+    text: 'Build',
+    fn: async () => await sleep(500),
+    subtasks: [
+      { text: 'TypeScript', fn: async () => await sleep(800) },
+      { text: 'Bundle',     fn: async () => await sleep(600) },
+    ],
+  },
+  { text: 'Test', fn: async () => await sleep(700) },
 ], { parallel: true });
 ```
 
 ### Animaciones
 
 ```ts
-import { animate, gradient } from 'ansimax';
+import { animate, gradient, sleep } from 'ansimax';
 
 await animate.typewriter('Bienvenido al wizard de deployment...', {
   speed: 30,
@@ -325,9 +339,9 @@ await animate.fadeIn('Carga completa', { duration: 600 });
 
 // Carrera de pasos contra timeout — nunca se cuelga
 await animate.parallel([
-  async () => await checkNetwork(),
-  async () => await checkDatabase(),
-  async () => await checkAuth(),
+  async () => await sleep(500),   // simulación de chequeo de red
+  async () => await sleep(700),   // simulación de chequeo de base de datos
+  async () => await sleep(400),   // simulación de chequeo de auth
 ], { timeout: 5000 });
 ```
 
@@ -340,7 +354,7 @@ import { themes, createTheme } from 'ansimax';
 
 // Temas built-in
 themes.use('dracula');
-themes.primary('hola');
+console.log(themes.primary('hola'));
 
 // Escuchar cambios
 const off = themes.onChange((nuevo, anterior) => {
@@ -350,7 +364,27 @@ const off = themes.onChange((nuevo, anterior) => {
 // Multi-tenant: cada instancia totalmente aislada
 const tenantA = createTheme('nord');
 const tenantB = createTheme('matrix');
-tenantA.register('custom', miDef);  // no se filtra a tenantB
+
+// Definir un tema personalizado y registrarlo SÓLO en tenantA
+tenantA.register('custom', {
+  name: 'Custom',
+  primary:   '#ff5e5e',
+  secondary: '#5e5eff',
+  accent:    '#5eff5e',
+  success:   '#10b981',
+  warning:   '#fbbf24',
+  error:     '#ef4444',
+  info:      '#06b6d4',
+  muted:     '#6b7280',
+  bg:        '#1e293b',
+  surface:   '#334155',
+  text:      '#f1f5f9',
+  gradient:  ['#ff5e5e', '#5eff5e', '#5e5eff'],
+});
+
+console.log('tenantA incluye custom?', tenantA.list().includes('custom'));
+console.log('tenantB incluye custom?', tenantB.list().includes('custom'));
+//                                     ↑ false — aislamiento total
 ```
 
 ---
@@ -421,11 +455,11 @@ const off = onConfigKeyChange('theme', (nuevo, anterior) => {
 
 // Override temporal + restauración automática al completar o lanzar
 await withConfig({ animationSpeed: 'fast' }, async () => {
-  await correrDemo();
+  // ...tu código en modo fast aquí...
 });
 
 // Modo strict captura typos en config
-configure({ unknwnKey: 'x' }, { strict: true });  // lanza RangeError
+// configure({ unknwnKey: 'x' }, { strict: true });  // lanza RangeError
 ```
 
 ---
@@ -644,6 +678,17 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.1.2 — Madurez y robustez
+
+Release patch enfocado en refinamientos de calidad — sin cambios en la API.
+
+- 🛡️ **Bump defensivo de `process.setMaxListeners`** — previene `MaxListenersExceededWarning` en setups con HMR / nodemon / ts-node-dev donde los módulos de ansimax re-registran handlers de restauración de cursor
+- 🧪 **`TypeError` uniforme para validación de themes** — `themes.register()` ahora arroja consistentemente `TypeError` para errores estructurales / de tipo (antes era mezcla de `Error` y `TypeError`)
+- 🎯 **`themes.use()` arroja `RangeError`** para nombres de tema desconocidos (antes `Error`) — mejor match semántico con "valor fuera del set permitido"
+- 📝 **Re-exports más limpios en el barrel** — comentario de header ahora documenta aliases legacy y recomienda nombres canónicos
+
+Drop-in replacement para `1.1.1`.
 
 ### v1.1.1 — Fixes de bugs + ejemplos limpios
 

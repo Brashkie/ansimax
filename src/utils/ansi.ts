@@ -122,6 +122,16 @@ const _isTestEnv = (): boolean => (
 
 /* istanbul ignore next — cursor restore body fires only on real exit/SIGINT/SIGTERM */
 const _installCursorRestoreImpl = (): void => {
+  // Bump max listeners defensively. Ansimax modules (animations, frames,
+  // loaders, ansi) each register SIGINT/SIGTERM/exit handlers. With Node's
+  // default cap of 10, hot-reload setups (Vite HMR, nodemon, ts-node-dev)
+  // can hit the limit and emit MaxListenersExceededWarning. Bumping to 20
+  // gives plenty of headroom without hiding real leaks.
+  try {
+    const current = process.getMaxListeners?.() ?? 10;
+    if (current < 20) process.setMaxListeners?.(20);
+  } catch { /* ignore — process API not available in some sandboxes */ }
+
   const restore = (): void => {
     try { safeStreamWrite(process.stdout, cursor.show()); }
     catch { /* nothing we can do at exit time */ }

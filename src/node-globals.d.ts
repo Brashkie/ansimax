@@ -39,6 +39,8 @@ declare namespace NodeJS {
     on(event: string, listener: (...args: any[]) => void): void;
     once(event: string, listener: (...args: any[]) => void): void;
     off(event: string, listener: (...args: any[]) => void): void;
+    getMaxListeners?(): number;
+    setMaxListeners?(n: number): void;
   }
 }
 

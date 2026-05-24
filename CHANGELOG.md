@@ -3,6 +3,56 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] — maturity & robustness
+
+Patch release focused on maturity: better error semantics, defensive
+defaults, and cleaner type re-exports. No API breaking changes — every
+1.1.1 program runs identically.
+
+### Fixed
+
+- **CI: `jest.config.js` syntax error.** The config file used `export default {}`
+  (ESM syntax), which crashed in Node CommonJS context — including in
+  GitHub Actions runners. Fixed by switching to `module.exports = {}` to
+  match `useESM: false` in the ts-jest configuration. Tests now run
+  correctly across Linux, macOS, and Windows runners.
+
+### Improved
+
+- **`process.setMaxListeners` defensive bump.** Ansimax modules
+  (`animations`, `frames`, `loaders`, `utils/ansi`) each register
+  `SIGINT` / `SIGTERM` / `exit` handlers for crash-safe cursor
+  restoration. With Node's default cap of 10, hot-reload setups
+  (Vite HMR, nodemon, ts-node-dev) could occasionally emit
+  `MaxListenersExceededWarning`. We now bump the cap to 20 on first
+  install — silently and safely, only if the current limit is lower.
+  Production apps unaffected.
+- **Uniform `TypeError` for theme validation.** `themes.register()`
+  now throws `TypeError` for any structural / type issue (missing
+  fields, non-string `name`, invalid hex), matching the rest of the
+  validation surface. Previously it threw a mix of `Error` and
+  `TypeError`, which made `try / catch` filtering inconsistent.
+- **`themes.use()` throws `RangeError`** for unknown theme names
+  (was `Error`). `RangeError` better reflects "value out of allowed
+  set" semantics — same standard library convention as `Array(-1)`.
+  Error message now also says "Available themes:" instead of
+  "Available:" for clarity.
+- **Cleaner type re-exports in the barrel.** Added a header comment
+  explaining the legacy aliases (`stripAnsiColors`, `stripAnsiCodes`)
+  and recommending `stripAnsi` for new code. Version string in the
+  barrel header updated from the stale `v1.0.0` to `v1.1.2`.
+
+### Notes
+
+- All 1848 tests pass; 4 new tests cover the error-type guarantees.
+- The error-type changes are technically observable via `instanceof`
+  checks, but `RangeError` and `TypeError` both extend `Error`, so any
+  `catch (e: Error)` block keeps working. We classify this as a
+  non-breaking quality-of-life improvement.
+- No new dependencies — still zero runtime deps.
+
+---
+
 ## [1.1.1] — bug fixes + improved examples
 
 Patch release with two bug fixes from real-world testing of v1.1.0, plus

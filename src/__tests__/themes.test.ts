@@ -1012,3 +1012,52 @@ describe('coverage: success color fallback', () => {
     themes.unregister('no-success-global');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.1.2 — Error type uniformity
+// ─────────────────────────────────────────────
+describe('themes: v1.1.2 error types', () => {
+  it('themes.use("nonexistent") throws RangeError', () => {
+    expect(() => themes.use('definitely-not-a-theme-xyz')).toThrow(RangeError);
+  });
+
+  it('themes.use error includes "Available themes:" in message', () => {
+    expect(() => themes.use('nope')).toThrow(/Available themes:/);
+  });
+
+  it('themes.register with invalid name throws TypeError', () => {
+    expect(() => themes.register('test-no-name', {
+      // Missing required `name` field
+      primary: '#ff0000',
+      secondary: '#0000ff',
+      accent: '#00ff00',
+      success: '#00ff00',
+      warning: '#ffff00',
+      error: '#ff0000',
+      info: '#0000ff',
+      muted: '#808080',
+      bg: '#000000',
+      surface: '#111111',
+      text: '#ffffff',
+      gradient: ['#ff0000', '#0000ff'],
+    } as unknown as Parameters<typeof themes.register>[1])).toThrow(TypeError);
+  });
+
+  it('themes.register with invalid hex throws TypeError', () => {
+    expect(() => themes.register('bad-hex', {
+      name: 'Bad',
+      primary: 'not-a-hex',
+      secondary: '#0000ff',
+      accent: '#00ff00',
+      success: '#00ff00',
+      warning: '#ffff00',
+      error: '#ff0000',
+      info: '#0000ff',
+      muted: '#808080',
+      bg: '#000000',
+      surface: '#111111',
+      text: '#ffffff',
+      gradient: ['#ff0000', '#0000ff'],
+    })).toThrow(TypeError);
+  });
+});
