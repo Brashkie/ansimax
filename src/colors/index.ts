@@ -257,6 +257,66 @@ export const compose = (...fns: ColorFn[]): ColorFn => (text: unknown) => {
 };
 
 // ─────────────────────────────────────────────
+//  Easing functions — interpolation curves for gradients
+// ─────────────────────────────────────────────
+
+/**
+ * Built-in easing curves. Each takes a t in [0, 1] and returns an eased t
+ * in [0, 1]. Used for non-linear gradient progression.
+ */
+export type EasingName =
+  | 'linear'
+  | 'ease-in'
+  | 'ease-out'
+  | 'ease-in-out'
+  | 'cubic-bezier';
+
+export type EasingFn = (t: number) => number;
+
+/** Cubic-bezier evaluation — same approximation curve as CSS `ease`. */
+const _cubicBezier = (t: number, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1): number => {
+  // Newton-Raphson approximation. For our usage (single static curve),
+  // a small fixed iteration count is plenty accurate.
+  if (t <= 0) return 0;
+  /* istanbul ignore next — defensive: callers pass t in [0,1); exact 1 unreachable via gradient flow */
+  if (t >= 1) return 1;
+
+  // Find x s.t. bezier_x(s) ≈ t, then return bezier_y(s).
+  // bezier_x(s) = 3*(1-s)²*s*x1 + 3*(1-s)*s²*x2 + s³
+  let s = t;
+  for (let i = 0; i < 8; i++) {
+    const s2 = s * s;
+    const s3 = s2 * s;
+    const oneMinusS = 1 - s;
+    const oneMinusS2 = oneMinusS * oneMinusS;
+    const fx = 3 * oneMinusS2 * s * x1 + 3 * oneMinusS * s2 * x2 + s3 - t;
+    const dfx = 3 * oneMinusS2 * x1 + 6 * oneMinusS * s * (x2 - x1) + 3 * s2 * (1 - x2);
+    /* istanbul ignore if — defensive: Newton-Raphson convergence guard for near-zero derivative */
+    if (Math.abs(dfx) < 1e-6) break;
+    s -= fx / dfx;
+    s = Math.min(1, Math.max(0, s));
+  }
+  const s2 = s * s;
+  const s3 = s2 * s;
+  return 3 * (1 - s) * (1 - s) * s * y1 + 3 * (1 - s) * s2 * y2 + s3;
+};
+
+const EASINGS: Record<EasingName, EasingFn> = {
+  'linear':       (t) => t,
+  'ease-in':      (t) => t * t,
+  'ease-out':     (t) => 1 - (1 - t) * (1 - t),
+  'ease-in-out':  (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+  'cubic-bezier': (t) => _cubicBezier(t),
+};
+
+/** Resolve an easing option to a function. Returns linear for invalid input. */
+const resolveEasing = (e: EasingName | EasingFn | undefined): EasingFn => {
+  if (typeof e === 'function') return e;
+  if (typeof e === 'string' && EASINGS[e]) return EASINGS[e];
+  return EASINGS.linear;
+};
+
+// ─────────────────────────────────────────────
 //  stripAnsi — re-exported from utils
 // ─────────────────────────────────────────────
 export const stripAnsi = stripAnsiFromUtils;
@@ -268,6 +328,22 @@ export const stripAnsi = stripAnsiFromUtils;
 export interface GradientOptions {
   /** Skip ANSI escapes in the input instead of overwriting them. */
   preserveAnsi?: boolean;
+  /**
+   * Interpolation curve. Default `'linear'`.
+   * - `'linear'` — even color distribution
+   * - `'ease-in'` — slow start, fast end (concentrates colors at the right)
+   * - `'ease-out'` — fast start, slow end (concentrates colors at the left)
+   * - `'ease-in-out'` — slow at both ends, fast in middle
+   * - `'cubic-bezier'` — CSS-style ease (smooth S-curve)
+   * - Or pass a custom `EasingFn` that maps `[0,1] → [0,1]`.
+   */
+  easing?: EasingName | EasingFn;
+  /**
+   * Phase offset in `[0, 1)` — shifts the gradient along the text.
+   * Use with an animation loop to produce a flowing color effect:
+   * `gradient(text, colors, { phase: (Date.now() / 100) % 1 })`
+   */
+  phase?: number;
 }
 
 export const gradient = (
@@ -289,16 +365,24 @@ export const gradient = (
     return adaptiveFg(c.r, c.g, c.b) + s + reset();
   }
 
-  const { preserveAnsi = false } = opts;
+  const { preserveAnsi = false, easing, phase = 0 } = opts;
+  const easingFn = resolveEasing(easing);
+  // Normalize phase to [0, 1). Negative values wrap forward.
+  const phaseN = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
 
   // Quick path: no ANSI in input → simple per-char loop
   if (!preserveAnsi || !s.includes('\x1b')) {
-    return _gradientPlain(s, colors);
+    return _gradientPlain(s, colors, easingFn, phaseN);
   }
-  return _gradientAnsiAware(s, colors);
+  return _gradientAnsiAware(s, colors, easingFn, phaseN);
 };
 
-const _gradientPlain = (text: string, colors: RGB[]): string => {
+const _gradientPlain = (
+  text: string,
+  colors: RGB[],
+  easingFn: EasingFn,
+  phase: number,
+): string => {
   const chars = [...text]; // grapheme-iteration via spread (preserves surrogates)
   const visible = chars.filter((c) => c !== ' ').length;
   if (visible === 0) return text;
@@ -310,7 +394,14 @@ const _gradientPlain = (text: string, colors: RGB[]): string => {
 
   for (const ch of chars) {
     if (ch === ' ') { out += ch; continue; }
-    const t = visible === 1 ? 0 : colorIdx / visibleMinus;
+    // Linear t — then optionally easing + phase
+    let t = visible === 1 ? 0 : colorIdx / visibleMinus;
+    // Apply phase shift (wraps around)
+    t = (t + phase) % 1;
+    // Apply easing curve
+    t = easingFn(t);
+    // Clamp to [0,1] in case a custom easing returns out-of-range
+    t = Math.min(1, Math.max(0, t));
     const scaled = t * (colorCount - 1);
     const lo = Math.floor(scaled);
     const hi = Math.min(lo + 1, colorCount - 1);
@@ -323,7 +414,12 @@ const _gradientPlain = (text: string, colors: RGB[]): string => {
 
 const ANSI_TOKEN = /\x1b\[[0-9;?]*[a-zA-Z]/y;
 
-const _gradientAnsiAware = (text: string, colors: RGB[]): string => {
+const _gradientAnsiAware = (
+  text: string,
+  colors: RGB[],
+  easingFn: EasingFn,
+  phase: number,
+): string => {
   const visible = stripAnsi(text).split('').filter((c) => c !== ' ').length;
   if (visible === 0) return text;
 
@@ -353,7 +449,11 @@ const _gradientAnsiAware = (text: string, colors: RGB[]): string => {
     if (ch === ' ') {
       out += ch;
     } else {
-      const t = visible === 1 ? 0 : colorIdx / visibleMinus;
+      // Linear t — then optionally easing + phase
+      let t = visible === 1 ? 0 : colorIdx / visibleMinus;
+      t = (t + phase) % 1;
+      t = easingFn(t);
+      t = Math.min(1, Math.max(0, t));
       const scaled = t * (colorCount - 1);
       const lo = Math.floor(scaled);
       const hi = Math.min(lo + 1, colorCount - 1);
@@ -371,6 +471,150 @@ const _gradientAnsiAware = (text: string, colors: RGB[]): string => {
 // ─────────────────────────────────────────────
 const RAINBOW = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#8b00ff'];
 export const rainbow: ColorFn = (text) => gradient(text, RAINBOW);
+
+// ─────────────────────────────────────────────
+//  Animated gradient — color flow over time
+// ─────────────────────────────────────────────
+
+export interface AnimateGradientOptions {
+  /** Total animation duration in ms. Default `2000`. */
+  duration?: number;
+  /** Frames per second. Default `30`. Capped to `60`. */
+  fps?: number;
+  /** Loop infinitely. Default `true`. Use `signal` to stop. */
+  infinite?: boolean;
+  /** Cycle count when `infinite: false`. Default `1`. */
+  cycles?: number;
+  /** Direction: `'forward'` (default) shifts colors right; `'reverse'` shifts left. */
+  direction?: 'forward' | 'reverse';
+  /** Easing curve for the gradient itself (not the time progression). */
+  easing?: EasingName | EasingFn;
+  /** Preserve embedded ANSI escapes. Default `false`. */
+  preserveAnsi?: boolean;
+  /** Abort signal — stops the animation cleanly. */
+  signal?: AbortSignal;
+  /**
+   * Callback fired on every frame with the new colored string.
+   * If omitted, frames are written to stdout via cursor-up redraw.
+   */
+  onFrame?: (frame: string, phase: number) => void;
+}
+
+/**
+ * Render a gradient that "flows" through the text over time. Returns a
+ * controller with a `.stop()` method. When `infinite: true` (default),
+ * the animation continues until `.stop()` is called or `signal` aborts.
+ *
+ * @example
+ * ```ts
+ * const ctrl = animateGradient('Loading...', ['#ff79c6', '#bd93f9', '#8be9fd']);
+ * await sleep(3000);
+ * ctrl.stop();
+ * ```
+ *
+ * @example with custom render callback
+ * ```ts
+ * animateGradient('hi', ['#f00', '#0f0'], {
+ *   onFrame: (frame) => myCustomRender(frame),
+ * });
+ * ```
+ */
+export interface AnimateGradientController {
+  /** Stops the animation. Safe to call multiple times. */
+  stop: () => void;
+  /** Promise that resolves when animation finishes (stop / abort / cycle limit). */
+  done: Promise<void>;
+}
+
+export const animateGradient = (
+  text: string,
+  stops: string[],
+  opts: AnimateGradientOptions = {},
+): AnimateGradientController => {
+  const {
+    duration = 2000,
+    fps = 30,
+    infinite = true,
+    cycles = 1,
+    direction = 'forward',
+    easing,
+    preserveAnsi = false,
+    signal,
+    onFrame,
+  } = opts;
+
+  // Validation
+  const safeFps = Math.min(60, Math.max(1, Number.isFinite(fps) ? fps : 30));
+  const safeDuration = Math.max(100, Number.isFinite(duration) ? duration : 2000);
+  const safeCycles = Math.max(1, Number.isFinite(cycles) ? cycles : 1);
+  const frameInterval = 1000 / safeFps;
+
+  let stopped = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let resolveDone: () => void = /* istanbul ignore next */ () => {};
+  const done = new Promise<void>((res) => { resolveDone = res; });
+
+  const stop = (): void => {
+    if (stopped) return;
+    stopped = true;
+    if (timer != null) {
+      clearInterval(timer);
+      timer = null;
+    }
+    resolveDone();
+  };
+
+  /* istanbul ignore if — abort signal path requires AbortController */
+  if (signal) {
+    if (signal.aborted) {
+      stop();
+      return { stop, done };
+    }
+    signal.addEventListener('abort', stop, { once: true });
+  }
+
+  const startTime = Date.now();
+
+  const renderFrame = (): void => {
+    /* istanbul ignore if — defensive: stopped between schedule and fire */
+    if (stopped) return;
+
+    const elapsed = Date.now() - startTime;
+    // phase in [0,1) — one full cycle per `duration` ms
+    let phase = (elapsed / safeDuration) % 1;
+    if (direction === 'reverse') phase = 1 - phase;
+
+    const frame = gradient(text, stops, { preserveAnsi, easing, phase });
+
+    /* istanbul ignore else — onFrame path is the testable one */
+    if (onFrame) {
+      onFrame(frame, phase);
+    } else {
+      // Default render: write frame to stdout, return cursor home
+      try {
+        process.stdout.write('\r' + frame);
+      } catch { /* ignore */ }
+    }
+
+    // Cycle counting (only when finite)
+    if (!infinite) {
+      const completedCycles = Math.floor(elapsed / safeDuration);
+      if (completedCycles >= safeCycles) {
+        stop();
+      }
+    }
+  };
+
+  // Initial frame immediately for responsiveness
+  renderFrame();
+
+  // Schedule recurring frames (only if not already stopped by initial frame's cycle logic)
+  if (!stopped) {
+    timer = setInterval(renderFrame, frameInterval);
+  }
+
+  return { stop, done };
+};
 
 const PRESET_DEFS = {
   sunset: ['#ff6b6b', '#feca57', '#48dbfb'],

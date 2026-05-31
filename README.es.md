@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -202,6 +202,53 @@ console.log(gradient('fuego a océano', ['#ff6b6b', '#feca57', '#48dbfb']));
 console.log(rainbow('preset rainbow integrado'));
 ```
 
+### Gradientes animados (v1.2.0)
+
+```ts
+import { animateGradient, sleep } from 'ansimax';
+
+// Animación de flujo de color — corre hasta llamar stop()
+const ctrl = animateGradient('Cargando...', ['#ff79c6', '#bd93f9', '#8be9fd'], {
+  duration: 2000,    // ms por ciclo
+  fps: 30,
+  direction: 'forward',  // o 'reverse'
+});
+
+await sleep(3000);
+ctrl.stop();
+```
+
+### Curvas de interpolación (v1.2.0)
+
+```ts
+import { gradient } from 'ansimax';
+
+// Cinco easings built-in + soporte para funciones personalizadas
+gradient('hola mundo', stops, { easing: 'linear' });
+gradient('hola mundo', stops, { easing: 'ease-in' });
+gradient('hola mundo', stops, { easing: 'ease-out' });
+gradient('hola mundo', stops, { easing: 'ease-in-out' });
+gradient('hola mundo', stops, { easing: 'cubic-bezier' });
+
+// O tu propia función de easing (t → t suavizado, ambos en [0,1])
+gradient('hola mundo', stops, { easing: (t) => t * t * t });
+```
+
+### Gradientes cónicos (v1.2.0)
+
+```ts
+import { gradientRect } from 'ansimax';
+
+// Barrido radial alrededor del centro — rueda arcoíris
+console.log(gradientRect({
+  width: 30, height: 15,
+  colors: ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ff0000'],
+  style: 'conic',
+  startAngle: 0,   // ángulo de rotación en grados
+  dither: 'bayer',
+}));
+```
+
 ### ASCII Art
 
 <img src="media/ascii_art.png" alt="ASCII art" />
@@ -277,7 +324,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.1.2'));
+console.log(components.badge('VERSION', 'v1.2.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -487,9 +534,9 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Gradientes a ángulo arbitrario
 - [x] Dithering Bayer 4×4 para transiciones tonales suaves
 - [x] UX single-stop (comportamiento estilo CSS)
-- [ ] **Gradientes animados** (flujo de color en el tiempo, loops infinitos)
-- [ ] **Curvas de interpolación** (linear / ease-in / ease-out / cubic-bezier)
-- [ ] **Gradientes cónicos** (barrido radial)
+- [x] **Gradientes animados** — flujo de color en el tiempo con `animateGradient()` (v1.2.0)
+- [x] **Curvas de interpolación** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / personalizado (v1.2.0)
+- [x] **Gradientes cónicos** — barrido radial con `style: 'conic'` (v1.2.0)
 
 ### 🟡 Fase 3 — Motor ASCII
 - [x] Fuentes de bloque (`big`, `small`)
@@ -678,6 +725,24 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.0 — Fase 2 completa: gradientes animados, easing y cónicos
+
+Release minor que cierra el roadmap del motor de gradientes con tres features potentes:
+
+- 🌊 **`animateGradient()`** — flujo de color en el tiempo con ciclo de vida apropiado (Promise, signal, fps, direction)
+- 📐 **Curvas de interpolación** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / funciones personalizadas
+- ⭕ **Gradientes cónicos** — `gradientRect({ style: 'conic', startAngle })` para barridos radiales
+
+```ts
+import { animateGradient } from 'ansimax';
+
+const ctrl = animateGradient('Cargando...', ['#ff79c6', '#bd93f9', '#8be9fd']);
+await sleep(3000);
+ctrl.stop();
+```
+
+Totalmente retrocompatible — todo programa 1.1.x corre idénticamente.
 
 ### v1.1.2 — Madurez y robustez
 

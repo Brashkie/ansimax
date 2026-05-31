@@ -19,8 +19,14 @@ export {
   setNoColor, isNoColor, resetNoColor,
   registerPreset, listPresets, clearColorCache,
   stripAnsi as stripAnsiColors,
+  // v1.2.0 — Phase 2 completion
+  animateGradient,
 } from './colors/index.js';
-export type { ColorFn, PresetName, ColorChain, GradientOptions } from './colors/index.js';
+export type {
+  ColorFn, PresetName, ColorChain, GradientOptions,
+  // v1.2.0 — Phase 2 completion
+  EasingName, EasingFn, AnimateGradientOptions, AnimateGradientController,
+} from './colors/index.js';
 
 export { animate, canAnimate, resetCursorRefCount } from './animations/index.js';
 export type {

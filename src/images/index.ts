@@ -418,9 +418,14 @@ export interface GradientRectOptions {
   height?: number;
   colors?: string[];
   /** Built-in style. Use `angle` for arbitrary directions. */
-  style?: 'horizontal' | 'vertical' | 'diagonal' | 'radial';
+  style?: 'horizontal' | 'vertical' | 'diagonal' | 'radial' | 'conic';
   /** Custom angle in degrees (0=right, 90=down). Overrides `style`. */
   angle?: number;
+  /**
+   * Starting angle (degrees) for conic gradients. Default `0` (= right of center).
+   * Rotates the radial sweep around the center point.
+   */
+  startAngle?: number;
   /** Dithering algorithm. 'bayer' improves perceived smoothness. */
   dither?: 'none' | 'bayer';
   /** Render in braille mode for 2× horizontal × 4× vertical resolution. */
@@ -434,6 +439,7 @@ export const gradientRect = (opts: GradientRectOptions = {}): string => {
     colors = ['#ff0000', '#0000ff'],
     style  = 'horizontal',
     angle,
+    startAngle = 0,
     dither = 'none',
     braille = false,
   } = opts;
@@ -479,7 +485,20 @@ export const gradientRect = (opts: GradientRectOptions = {}): string => {
       } else if (style === 'horizontal') t = col / (safeW - 1);
       else if (style === 'vertical')     t = row / (safeH - 1);
       else if (style === 'diagonal')     t = (col + row) / (safeW + safeH - 2);
+      else if (style === 'conic') {
+        // Conic gradient: sweep radially around center
+        const cx = safeW / 2, cy = safeH / 2;
+        const dx = col - cx;
+        const dy = row - cy;
+        // atan2 returns [-PI, PI] — normalize to [0, 1] starting from startAngle
+        const startRad = (Number.isFinite(startAngle) ? startAngle : 0) * Math.PI / 180;
+        let angleRad = Math.atan2(dy, dx) - startRad;
+        // Normalize to [0, 2*PI)
+        angleRad = ((angleRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        t = angleRad / (2 * Math.PI);
+      }
       else {
+        // Radial (default)
         const cx = safeW / 2, cy = safeH / 2;
         const dx = (col - cx) / cx;
         const dy = (row - cy) / cy;

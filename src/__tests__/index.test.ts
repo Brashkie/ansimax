@@ -637,3 +637,41 @@ describe('barrel coverage — every named re-export', () => {
     expect(mod.default).toBeDefined();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.0 — Phase 2 additions in barrel
+// ─────────────────────────────────────────────
+import { animateGradient } from '../index.js';
+import type {
+  EasingName, EasingFn,
+  AnimateGradientOptions, AnimateGradientController,
+} from '../index.js';
+
+describe('v1.2.0 barrel exports', () => {
+  it('animateGradient is exported from main entry', () => {
+    expect(typeof animateGradient).toBe('function');
+  });
+
+  it('animateGradient returns a working controller', () => {
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+    });
+    expect(ctrl).toBeDefined();
+    expect(typeof ctrl.stop).toBe('function');
+    expect(ctrl.done).toBeInstanceOf(Promise);
+    ctrl.stop();
+  });
+
+  it('exports Phase 2 types (compile-time check)', () => {
+    // These references force TS to resolve the type exports
+    const _easings: EasingName[] = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier'];
+    const _custom: EasingFn = (t) => t;
+    const _opts: AnimateGradientOptions = { duration: 100 };
+    const _ctrl: AnimateGradientController | null = null;
+    // Runtime smoke
+    expect(_easings.length).toBe(5);
+    expect(_custom(0.5)).toBe(0.5);
+    expect(_opts.duration).toBe(100);
+    expect(_ctrl).toBeNull();
+  });
+});

@@ -1114,3 +1114,56 @@ describe('images: branch coverage targets', () => {
     expect(typeof out).toBe('string');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.0 — Phase 2: conic gradients
+// ─────────────────────────────────────────────
+describe('gradientRect: conic style (v1.2.0)', () => {
+  it('renders conic gradient', () => {
+    const out = gradientRect({
+      width: 20,
+      height: 10,
+      colors: ['#ff0000', '#00ff00', '#0000ff', '#ff0000'],
+      style: 'conic',
+    });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('conic with startAngle rotates the sweep', () => {
+    const a = gradientRect({
+      width: 20, height: 10,
+      colors: ['#ff0000', '#0000ff'],
+      style: 'conic', startAngle: 0,
+    });
+    const b = gradientRect({
+      width: 20, height: 10,
+      colors: ['#ff0000', '#0000ff'],
+      style: 'conic', startAngle: 90,
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it('conic with dither still works', () => {
+    const out = gradientRect({
+      width: 20, height: 10,
+      colors: ['#ff0000', '#0000ff'],
+      style: 'conic', dither: 'bayer',
+    });
+    expect(typeof out).toBe('string');
+  });
+
+  it('conic with non-finite startAngle defaults to 0', () => {
+    const ref = gradientRect({
+      width: 20, height: 10,
+      colors: ['#ff0000', '#0000ff'],
+      style: 'conic', startAngle: 0,
+    });
+    const nan = gradientRect({
+      width: 20, height: 10,
+      colors: ['#ff0000', '#0000ff'],
+      style: 'conic', startAngle: NaN,
+    });
+    expect(nan).toBe(ref);
+  });
+});

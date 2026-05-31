@@ -3,6 +3,108 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — Phase 2 complete: animated, eased & conic gradients
+
+Minor release closing the **gradient engine roadmap (Phase 2)** with three
+long-awaited capabilities. All additions are fully backwards-compatible —
+existing `gradient()` calls work identically.
+
+### Added — Easing curves
+
+`gradient()` now accepts an `easing` option to control how colors are
+distributed along the text. Five built-in curves plus custom functions:
+
+```ts
+gradient('hello world', ['#ff0000', '#0000ff'], { easing: 'ease-in' });
+gradient('hello world', ['#ff0000', '#0000ff'], { easing: 'ease-out' });
+gradient('hello world', ['#ff0000', '#0000ff'], { easing: 'ease-in-out' });
+gradient('hello world', ['#ff0000', '#0000ff'], { easing: 'cubic-bezier' });
+
+// Or pass a custom EasingFn (t → eased t, both in [0,1])
+gradient('hello world', ['#ff0000', '#0000ff'], { easing: (t) => t * t * t });
+```
+
+- `linear` — even distribution (default, identical to pre-1.2.0 behavior)
+- `ease-in` — concentrates colors at the end (quadratic)
+- `ease-out` — concentrates colors at the start (quadratic)
+- `ease-in-out` — slow at both ends, fast in middle
+- `cubic-bezier` — CSS-style `ease` curve (Newton-Raphson approximated)
+- Out-of-range custom easings are clamped to `[0, 1]` automatically
+
+### Added — Phase offset (flowing colors)
+
+`gradient()` now accepts a `phase` parameter `[0, 1)` that shifts the
+gradient along the text. Combined with an animation loop, this produces
+a flowing color effect:
+
+```ts
+gradient('hello', ['#ff0000', '#0000ff'], { phase: 0.5 });
+// negative values wrap forward; NaN/Infinity falls back to 0
+```
+
+### Added — `animateGradient()` API
+
+High-level API for animated gradients with proper lifecycle management:
+
+```ts
+import { animateGradient } from 'ansimax';
+
+const ctrl = animateGradient('Loading...', ['#ff79c6', '#bd93f9', '#8be9fd'], {
+  duration: 2000,
+  fps: 30,
+  direction: 'forward',  // or 'reverse'
+  infinite: true,
+});
+
+// Later
+ctrl.stop();
+// Or via AbortController
+const abort = new AbortController();
+animateGradient('hi', stops, { signal: abort.signal });
+abort.abort();
+```
+
+Returns an `AnimateGradientController` with `.stop()` and `.done` (Promise).
+Supports `AbortSignal`, custom render via `onFrame`, fps cap at 60,
+and direction reversal.
+
+### Added — Conic gradients
+
+`gradientRect()` now supports `style: 'conic'` for radial sweeps around
+the center point:
+
+```ts
+import { gradientRect } from 'ansimax';
+
+console.log(gradientRect({
+  width: 30, height: 15,
+  colors: ['#ff0000', '#00ff00', '#0000ff', '#ff0000'],
+  style: 'conic',
+  startAngle: 0,  // rotation in degrees
+  dither: 'bayer',
+}));
+```
+
+- `startAngle` (degrees) rotates the sweep
+- Non-finite `startAngle` falls back to `0`
+- Compatible with all existing options (`dither`, `braille`, `width`, `height`)
+
+### Added — New exports
+
+- `animateGradient` — function
+- `AnimateGradientOptions` / `AnimateGradientController` — types
+- `EasingName` — union type of built-in curve names
+- `EasingFn` — `(t: number) => number` curve type
+
+### Notes
+
+- All 1848 + 30 new tests pass.
+- Backwards-compatible: existing `gradient()` calls work identically.
+- No new runtime dependencies.
+- Phase 2 of the [roadmap](README.md#%EF%B8%8F-roadmap) is now **fully complete**.
+
+---
+
 ## [1.1.2] — maturity & robustness
 
 Patch release focused on maturity: better error semantics, defensive

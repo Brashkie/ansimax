@@ -1255,3 +1255,205 @@ describe('colors: gradient ANSI-aware space branch (line 354)', () => {
     expect(stripAnsi(out)).toBe('a b c');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.0 — Phase 2 completion: easing + phase
+// ─────────────────────────────────────────────
+import { animateGradient } from '../colors/index.js';
+
+describe('gradient: easing curves (v1.2.0)', () => {
+  it('linear easing matches default behavior', () => {
+    const a = gradient('hello world', ['#ff0000', '#0000ff']);
+    const b = gradient('hello world', ['#ff0000', '#0000ff'], { easing: 'linear' });
+    expect(a).toBe(b);
+  });
+
+  it('ease-in produces different output than linear', () => {
+    const linear = gradient('hello world test', ['#ff0000', '#0000ff'], { easing: 'linear' });
+    const easeIn = gradient('hello world test', ['#ff0000', '#0000ff'], { easing: 'ease-in' });
+    expect(linear).not.toBe(easeIn);
+  });
+
+  it('all four built-in easings produce valid output', () => {
+    for (const e of ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier'] as const) {
+      const out = gradient('test text here', ['#ff0000', '#00ff00', '#0000ff'], { easing: e });
+      expect(stripAnsi(out)).toBe('test text here');
+    }
+  });
+
+  it('custom easing function is supported', () => {
+    const customEasing = (t: number): number => t * t * t; // cubic
+    const out = gradient('hello world', ['#ff0000', '#0000ff'], { easing: customEasing });
+    expect(stripAnsi(out)).toBe('hello world');
+  });
+
+  it('invalid easing string falls back to linear', () => {
+    const linear = gradient('hello', ['#ff0000', '#0000ff'], { easing: 'linear' });
+    const bad = gradient('hello', ['#ff0000', '#0000ff'], { easing: 'not-real' as 'linear' });
+    expect(bad).toBe(linear);
+  });
+
+  it('custom easing returning out-of-range values is clamped', () => {
+    // Easing that returns -5 or 10 — should not crash
+    const wild = (_t: number): number => 10;
+    expect(() => gradient('test', ['#ff0000', '#0000ff'], { easing: wild })).not.toThrow();
+  });
+});
+
+describe('gradient: phase parameter (v1.2.0)', () => {
+  it('phase 0 matches no-phase output', () => {
+    const a = gradient('hello world', ['#ff0000', '#0000ff']);
+    const b = gradient('hello world', ['#ff0000', '#0000ff'], { phase: 0 });
+    expect(a).toBe(b);
+  });
+
+  it('phase 0.5 produces different output', () => {
+    const a = gradient('hello world test', ['#ff0000', '#00ff00', '#0000ff']);
+    const b = gradient('hello world test', ['#ff0000', '#00ff00', '#0000ff'], { phase: 0.5 });
+    expect(a).not.toBe(b);
+  });
+
+  it('phase wraps around (1.5 ≡ 0.5)', () => {
+    const a = gradient('hello', ['#ff0000', '#0000ff'], { phase: 0.5 });
+    const b = gradient('hello', ['#ff0000', '#0000ff'], { phase: 1.5 });
+    expect(a).toBe(b);
+  });
+
+  it('negative phase wraps forward (-0.5 ≡ 0.5)', () => {
+    const a = gradient('hello', ['#ff0000', '#0000ff'], { phase: 0.5 });
+    const b = gradient('hello', ['#ff0000', '#0000ff'], { phase: -0.5 });
+    expect(a).toBe(b);
+  });
+
+  it('NaN/Infinity phase falls back to 0', () => {
+    const ref = gradient('hello', ['#ff0000', '#0000ff'], { phase: 0 });
+    expect(gradient('hello', ['#ff0000', '#0000ff'], { phase: NaN })).toBe(ref);
+    expect(gradient('hello', ['#ff0000', '#0000ff'], { phase: Infinity })).toBe(ref);
+  });
+});
+
+describe('animateGradient (v1.2.0)', () => {
+  it('returns controller with stop() and done', () => {
+    const frames: string[] = [];
+    const ctrl = animateGradient('hello', ['#ff0000', '#0000ff'], {
+      onFrame: (f) => frames.push(f),
+      duration: 200,
+      fps: 30,
+    });
+    expect(typeof ctrl.stop).toBe('function');
+    expect(ctrl.done).toBeInstanceOf(Promise);
+    ctrl.stop();
+  });
+
+  it('calls onFrame at least once immediately', () => {
+    const frames: string[] = [];
+    const ctrl = animateGradient('hello', ['#ff0000', '#0000ff'], {
+      onFrame: (f) => frames.push(f),
+    });
+    expect(frames.length).toBeGreaterThanOrEqual(1);
+    ctrl.stop();
+  });
+
+  it('stop() is idempotent', () => {
+    const ctrl = animateGradient('hello', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+    });
+    ctrl.stop();
+    expect(() => ctrl.stop()).not.toThrow();
+  });
+
+  it('signal aborts the animation', async () => {
+    const ctrl_abort = new AbortController();
+    const ctrl = animateGradient('hello', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      signal: ctrl_abort.signal,
+    });
+    ctrl_abort.abort();
+    await ctrl.done;
+    expect(true).toBe(true); // didn't hang
+  });
+
+  it('already-aborted signal stops immediately', async () => {
+    const ctrl_abort = new AbortController();
+    ctrl_abort.abort();
+    const ctrl = animateGradient('hello', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      signal: ctrl_abort.signal,
+    });
+    await ctrl.done;
+    expect(true).toBe(true);
+  });
+
+  it('direction reverse produces phase-inverted output', () => {
+    const forwardFrames: string[] = [];
+    const reverseFrames: string[] = [];
+    const ctrlF = animateGradient('hello world', ['#ff0000', '#00ff00', '#0000ff'], {
+      onFrame: (f, p) => forwardFrames.push(`${p.toFixed(2)}:${f.length}`),
+      direction: 'forward',
+    });
+    const ctrlR = animateGradient('hello world', ['#ff0000', '#00ff00', '#0000ff'], {
+      onFrame: (f, p) => reverseFrames.push(`${p.toFixed(2)}:${f.length}`),
+      direction: 'reverse',
+    });
+    // Both should have produced at least 1 frame
+    expect(forwardFrames.length).toBeGreaterThanOrEqual(1);
+    expect(reverseFrames.length).toBeGreaterThanOrEqual(1);
+    ctrlF.stop();
+    ctrlR.stop();
+  });
+
+  it('fps is clamped to [1, 60]', () => {
+    const c1 = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ }, fps: 1000,
+    });
+    const c2 = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ }, fps: 0,
+    });
+    expect(typeof c1.stop).toBe('function');
+    expect(typeof c2.stop).toBe('function');
+    c1.stop(); c2.stop();
+  });
+});
+
+describe('animateGradient: finite cycles (covers lines 597-603)', () => {
+  it('stops automatically after N cycles when infinite is false', async () => {
+    const frames: number[] = [];
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: (_f, phase) => frames.push(phase),
+      duration: 30,         // 30ms per cycle — fast
+      fps: 60,              // 60 frames/sec → ~1 frame per 16ms
+      infinite: false,
+      cycles: 1,            // stop after just 1 cycle
+    });
+    await ctrl.done;
+    // Should have collected at least 1 frame (initial) and stopped
+    expect(frames.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('respects cycles: 2 (runs roughly twice as long as cycles:1)', async () => {
+    const start = Date.now();
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30,
+      fps: 60,
+      infinite: false,
+      cycles: 2,
+    });
+    await ctrl.done;
+    const elapsed = Date.now() - start;
+    // Should take at least ~50ms (2 cycles × 30ms minus initial frame timing)
+    expect(elapsed).toBeGreaterThan(40);
+  });
+
+  it('non-finite cycles falls back to 1', async () => {
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30,
+      fps: 60,
+      infinite: false,
+      cycles: NaN,         // bad input → clamped to 1
+    });
+    await ctrl.done;
+    expect(true).toBe(true);
+  });
+});

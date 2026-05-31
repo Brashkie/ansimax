@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.1.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -202,6 +202,53 @@ console.log(gradient('fire to ocean', ['#ff6b6b', '#feca57', '#48dbfb']));
 console.log(rainbow('built-in rainbow preset'));
 ```
 
+### Animated Gradients (v1.2.0)
+
+```ts
+import { animateGradient, sleep } from 'ansimax';
+
+// Color flow animation — runs until you call stop()
+const ctrl = animateGradient('Loading...', ['#ff79c6', '#bd93f9', '#8be9fd'], {
+  duration: 2000,    // ms per cycle
+  fps: 30,
+  direction: 'forward',  // or 'reverse'
+});
+
+await sleep(3000);
+ctrl.stop();
+```
+
+### Easing Curves (v1.2.0)
+
+```ts
+import { gradient } from 'ansimax';
+
+// Five built-in easings + custom function support
+gradient('hello world', stops, { easing: 'linear' });
+gradient('hello world', stops, { easing: 'ease-in' });
+gradient('hello world', stops, { easing: 'ease-out' });
+gradient('hello world', stops, { easing: 'ease-in-out' });
+gradient('hello world', stops, { easing: 'cubic-bezier' });
+
+// Or pass your own easing function (t → eased t, both in [0,1])
+gradient('hello world', stops, { easing: (t) => t * t * t });
+```
+
+### Conic Gradients (v1.2.0)
+
+```ts
+import { gradientRect } from 'ansimax';
+
+// Radial sweep around center — rainbow wheel
+console.log(gradientRect({
+  width: 30, height: 15,
+  colors: ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ff0000'],
+  style: 'conic',
+  startAngle: 0,   // rotation angle in degrees
+  dither: 'bayer',
+}));
+```
+
 ### ASCII Art
 
 <img src="media/ascii_art.png" alt="ASCII art" />
@@ -277,7 +324,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.1.2'));
+console.log(components.badge('VERSION', 'v1.2.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -487,9 +534,9 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Arbitrary-angle gradients
 - [x] Bayer 4×4 dithering for smooth tonal transitions
 - [x] Single-stop UX (CSS-style behavior)
-- [ ] **Animated gradients** (color flow over time, infinite loops)
-- [ ] **Gradient interpolation curves** (linear / ease-in / ease-out / cubic-bezier)
-- [ ] **Conic gradients** (radial sweep)
+- [x] **Animated gradients** — color flow over time with `animateGradient()` (v1.2.0)
+- [x] **Gradient interpolation curves** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / custom (v1.2.0)
+- [x] **Conic gradients** — radial sweep with `style: 'conic'` (v1.2.0)
 
 ### 🟡 Phase 3 — ASCII engine
 - [x] Block fonts (`big`, `small`)
@@ -678,6 +725,24 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.0 — Phase 2 complete: animated, eased & conic gradients
+
+Minor release closing the gradient engine roadmap with three powerful features:
+
+- 🌊 **`animateGradient()`** — color flow over time with proper lifecycle (Promise, signal, fps, direction)
+- 📐 **Easing curves** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / custom functions
+- ⭕ **Conic gradients** — `gradientRect({ style: 'conic', startAngle })` for radial sweeps
+
+```ts
+import { animateGradient } from 'ansimax';
+
+const ctrl = animateGradient('Loading...', ['#ff79c6', '#bd93f9', '#8be9fd']);
+await sleep(3000);
+ctrl.stop();
+```
+
+Fully backwards-compatible — every 1.1.x program runs identically.
 
 ### v1.1.2 — Maturity & robustness
 
