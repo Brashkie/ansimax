@@ -220,21 +220,27 @@ ctrl.stop();
 
 ### Easing Curves (v1.2.0)
 
+<img src="media/easing_curves.png" alt="Colors and gradients" />
+
 ```ts
 import { gradient } from 'ansimax';
 
+const stops = ['#ff79c6', '#bd93f9', '#8be9fd'];
+
 // Five built-in easings + custom function support
-gradient('hello world', stops, { easing: 'linear' });
-gradient('hello world', stops, { easing: 'ease-in' });
-gradient('hello world', stops, { easing: 'ease-out' });
-gradient('hello world', stops, { easing: 'ease-in-out' });
-gradient('hello world', stops, { easing: 'cubic-bezier' });
+console.log(gradient('hello world', stops, { easing: 'linear' }));
+console.log(gradient('hello world', stops, { easing: 'ease-in' }));
+console.log(gradient('hello world', stops, { easing: 'ease-out' }));
+console.log(gradient('hello world', stops, { easing: 'ease-in-out' }));
+console.log(gradient('hello world', stops, { easing: 'cubic-bezier' }));
 
 // Or pass your own easing function (t → eased t, both in [0,1])
-gradient('hello world', stops, { easing: (t) => t * t * t });
+console.log(gradient('hello world', stops, { easing: (t) => t * t * t }));
 ```
 
 ### Conic Gradients (v1.2.0)
+
+<img src="media/conic_gradients.png" alt="Colors and gradients" />
 
 ```ts
 import { gradientRect } from 'ansimax';

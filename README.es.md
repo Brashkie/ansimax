@@ -223,15 +223,17 @@ ctrl.stop();
 ```ts
 import { gradient } from 'ansimax';
 
+const stops = ['#ff79c6', '#bd93f9', '#8be9fd'];
+
 // Cinco easings built-in + soporte para funciones personalizadas
-gradient('hola mundo', stops, { easing: 'linear' });
-gradient('hola mundo', stops, { easing: 'ease-in' });
-gradient('hola mundo', stops, { easing: 'ease-out' });
-gradient('hola mundo', stops, { easing: 'ease-in-out' });
-gradient('hola mundo', stops, { easing: 'cubic-bezier' });
+console.log(gradient('hola mundo', stops, { easing: 'linear' }));
+console.log(gradient('hola mundo', stops, { easing: 'ease-in' }));
+console.log(gradient('hola mundo', stops, { easing: 'ease-out' }));
+console.log(gradient('hola mundo', stops, { easing: 'ease-in-out' }));
+console.log(gradient('hola mundo', stops, { easing: 'cubic-bezier' }));
 
 // O tu propia función de easing (t → t suavizado, ambos en [0,1])
-gradient('hola mundo', stops, { easing: (t) => t * t * t });
+console.log(gradient('hola mundo', stops, { easing: (t) => t * t * t }));
 ```
 
 ### Gradientes cónicos (v1.2.0)
