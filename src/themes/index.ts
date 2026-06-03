@@ -65,14 +65,28 @@ const STYLE_NAMES: ReadonlyArray<ThemeStyleName> = [
 //  Validation
 // ─────────────────────────────────────────────
 
+/**
+ * Create a typed error with a stable `.code` property for programmatic
+ * filtering. Codes follow the `ANSIMAX_*` prefix.
+ */
+const _themeError = (
+  Ctor: typeof TypeError | typeof RangeError,
+  code: string,
+  message: string,
+): TypeError | RangeError => {
+  const err = new Ctor(message);
+  (err as Error & { code?: string }).code = code;
+  return err;
+};
+
 const validateTheme = (t: unknown): void => {
   if (typeof t !== 'object' || t === null || Array.isArray(t)) {
-    throw new TypeError('Theme must be a non-null object.');
+    throw _themeError(TypeError, 'ANSIMAX_INVALID_THEME', 'Theme must be a non-null object.');
   }
   const obj = t as Record<string, unknown>;
 
   if (typeof obj.name !== 'string' || (obj.name as string).length === 0) {
-    throw new TypeError('Theme must have a non-empty "name" string.');
+    throw _themeError(TypeError, 'ANSIMAX_INVALID_THEME_NAME', 'Theme must have a non-empty "name" string.');
   }
 
   for (const key of REQUIRED_COLOR_KEYS) {
@@ -540,7 +554,9 @@ export const themes: ThemeInstance = {
   use(name) {
     const t = _globalRegistry.get(name);
     if (!t) {
-      throw new RangeError(
+      throw _themeError(
+        RangeError,
+        'ANSIMAX_UNKNOWN_THEME',
         `Theme "${name}" not found. Available themes: ${[..._globalRegistry.keys()].join(', ')}`,
       );
     }

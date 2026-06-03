@@ -1061,3 +1061,44 @@ describe('themes: v1.1.2 error types', () => {
     })).toThrow(TypeError);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.2 — Error codes
+// ─────────────────────────────────────────────
+describe('themes: error codes (v1.2.2)', () => {
+  it('themes.use("nonexistent") error has code ANSIMAX_UNKNOWN_THEME', () => {
+    try {
+      themes.use('definitely-not-a-real-theme-zzz');
+      fail('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RangeError);
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_UNKNOWN_THEME');
+    }
+  });
+
+  it('themes.register with non-object error has code ANSIMAX_INVALID_THEME', () => {
+    try {
+      themes.register('bad', null as unknown as Parameters<typeof themes.register>[1]);
+      fail('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError);
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_THEME');
+    }
+  });
+
+  it('themes.register with missing name error has code ANSIMAX_INVALID_THEME_NAME', () => {
+    try {
+      themes.register('bad', {
+        primary: '#ff0000', secondary: '#0000ff', accent: '#00ff00',
+        success: '#00ff00', warning: '#ffff00', error: '#ff0000',
+        info: '#0000ff', muted: '#808080', bg: '#000000',
+        surface: '#111111', text: '#ffffff',
+        gradient: ['#ff0000', '#0000ff'],
+      } as unknown as Parameters<typeof themes.register>[1]);
+      fail('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError);
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_THEME_NAME');
+    }
+  });
+});

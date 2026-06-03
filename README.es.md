@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -216,9 +216,16 @@ const ctrl = animateGradient('Cargando...', ['#ff79c6', '#bd93f9', '#8be9fd'], {
 
 await sleep(3000);
 ctrl.stop();
+
+// v1.2.2: await directo (no se necesita .done)
+await animateGradient('¡Listo!', ['#50fa7b', '#bd93f9'], {
+  infinite: false, cycles: 2, duration: 800,
+});
 ```
 
 ### Curvas de interpolación (v1.2.0)
+
+<img src="media/easing_curves.png" alt="Colors and gradients" />
 
 ```ts
 import { gradient } from 'ansimax';
@@ -237,6 +244,8 @@ console.log(gradient('hola mundo', stops, { easing: (t) => t * t * t }));
 ```
 
 ### Gradientes cónicos (v1.2.0)
+
+<img src="media/conic_gradients.png" alt="Colors and gradients" />
 
 ```ts
 import { gradientRect } from 'ansimax';
@@ -326,7 +335,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.0'));
+console.log(components.badge('VERSION', 'v1.2.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -727,6 +736,18 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.2 — Pulido de calidad
+
+Release patch enfocado en ergonomía de API y refinamientos de robustez.
+
+- ✨ **`animateGradient` ahora es thenable** — `await animateGradient(...)` directo sin `.done`
+- 🎯 **Códigos de error estables** — los errores de tema llevan propiedad `.code` (`ANSIMAX_UNKNOWN_THEME`, etc.) para `catch` programático
+- 🛡️ **Seguridad en sandboxes** — `animateGradient` ya no crashea cuando `process.stdout` no está disponible (workers, edge runtimes)
+- 📖 **Mejor JSDoc** — `gradient()` ahora muestra IntelliSense completo con ejemplos
+- 🐛 **Fix de README** — snippet de Easing Curves ahora es ejecutable copy-paste
+
+Drop-in replacement para `1.2.0`.
 
 ### v1.2.0 — Fase 2 completa: gradientes animados, easing y cónicos
 

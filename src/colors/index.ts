@@ -346,6 +346,38 @@ export interface GradientOptions {
   phase?: number;
 }
 
+/**
+ * Apply a multi-stop color gradient across the visible characters of `text`.
+ * ANSI escapes are skipped, and Unicode wide characters / graphemes are
+ * counted correctly.
+ *
+ * @param text  - The text to colorize. Non-string inputs are coerced via `String(text)`.
+ * @param stops - Array of hex colors (`#rgb` or `#rrggbb`). At least 1 required.
+ *                Invalid stops are silently dropped; an empty array returns input as-is.
+ * @param opts  - Optional configuration. See `GradientOptions`.
+ *
+ * @returns ANSI-colorized string. Returns input unchanged if `NO_COLOR` is set
+ *          or if no valid stops are provided.
+ *
+ * @example
+ * ```ts
+ * gradient('Hello world!', ['#ff0000', '#00ff00', '#0000ff']);
+ * // → ANSI-colored "Hello world!" with smooth color transition
+ * ```
+ *
+ * @example with easing curve
+ * ```ts
+ * gradient('Smooth text', ['#ff79c6', '#8be9fd'], { easing: 'ease-in-out' });
+ * ```
+ *
+ * @example animated phase shift
+ * ```ts
+ * setInterval(() => {
+ *   const phase = (Date.now() / 1000) % 1;
+ *   process.stdout.write('\r' + gradient('flowing', ['#f00', '#00f'], { phase }));
+ * }, 33);
+ * ```
+ */
 export const gradient = (
   text: unknown,
   stops: string[] | null | undefined,
@@ -524,6 +556,15 @@ export interface AnimateGradientController {
   stop: () => void;
   /** Promise that resolves when animation finishes (stop / abort / cycle limit). */
   done: Promise<void>;
+  /**
+   * Thenable hook — lets you `await animateGradient(...)` directly.
+   * Equivalent to `await ctrl.done`.
+   */
+  then: Promise<void>['then'];
+  /** Equivalent to `ctrl.done.catch(...)`. */
+  catch: Promise<void>['catch'];
+  /** Equivalent to `ctrl.done.finally(...)`. */
+  finally: Promise<void>['finally'];
 }
 
 export const animateGradient = (
@@ -568,7 +609,13 @@ export const animateGradient = (
   if (signal) {
     if (signal.aborted) {
       stop();
-      return { stop, done };
+      return {
+        stop,
+        done,
+        then:    done.then.bind(done),
+        catch:   done.catch.bind(done),
+        finally: done.finally.bind(done),
+      };
     }
     signal.addEventListener('abort', stop, { once: true });
   }
@@ -590,10 +637,15 @@ export const animateGradient = (
     if (onFrame) {
       onFrame(frame, phase);
     } else {
-      // Default render: write frame to stdout, return cursor home
+      // Default render: write frame to stdout, return cursor home.
+      // Defensive: process.stdout may be undefined in workers, sandboxes,
+      // or Edge runtimes. The try/catch protects against EPIPE on closed pipes.
+      /* istanbul ignore next — direct stdout path requires real TTY */
       try {
-        process.stdout.write('\r' + frame);
-      } catch { /* ignore */ }
+        if (process?.stdout?.write) {
+          process.stdout.write('\r' + frame);
+        }
+      } catch { /* ignore — stream closed mid-animation */ }
     }
 
     // Cycle counting (only when finite)
@@ -613,7 +665,14 @@ export const animateGradient = (
     timer = setInterval(renderFrame, frameInterval);
   }
 
-  return { stop, done };
+  return {
+    stop,
+    done,
+    // Thenable hooks — bind to done so `await ctrl` works directly
+    then:    done.then.bind(done),
+    catch:   done.catch.bind(done),
+    finally: done.finally.bind(done),
+  };
 };
 
 const PRESET_DEFS = {

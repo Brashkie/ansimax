@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -216,6 +216,11 @@ const ctrl = animateGradient('Loading...', ['#ff79c6', '#bd93f9', '#8be9fd'], {
 
 await sleep(3000);
 ctrl.stop();
+
+// v1.2.2: await directly (no .done needed)
+await animateGradient('Done!', ['#50fa7b', '#bd93f9'], {
+  infinite: false, cycles: 2, duration: 800,
+});
 ```
 
 ### Easing Curves (v1.2.0)
@@ -330,7 +335,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.0'));
+console.log(components.badge('VERSION', 'v1.2.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -731,6 +736,18 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.2 — Quality polish
+
+Patch release focused on API ergonomics and robustness refinements.
+
+- ✨ **`animateGradient` is now thenable** — `await animateGradient(...)` directly without `.done`
+- 🎯 **Stable error codes** — theme errors carry `.code` properties (`ANSIMAX_UNKNOWN_THEME`, etc.) for programmatic catch
+- 🛡️ **Sandbox safety** — `animateGradient` no longer crashes when `process.stdout` is unavailable (workers, edge runtimes)
+- 📖 **Better JSDoc** — `gradient()` now shows full IntelliSense with examples
+- 🐛 **README fix** — Easing Curves snippet now copy-paste runnable
+
+Drop-in replacement for `1.2.0`.
 
 ### v1.2.0 — Phase 2 complete: animated, eased & conic gradients
 

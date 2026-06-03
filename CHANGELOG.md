@@ -3,6 +3,68 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] — Quality polish
+
+Patch release focused on API ergonomics and robustness refinements. No
+breaking changes — every 1.2.x program runs identically.
+
+### Improved
+
+- **`animateGradient` controller is now thenable** — you can `await` it
+  directly instead of `await ctrl.done`:
+
+  ```ts
+  // Before (v1.2.0)
+  const ctrl = animateGradient(text, stops, { infinite: false, cycles: 1 });
+  await ctrl.done;
+
+  // After (v1.2.2) — both still work
+  await animateGradient(text, stops, { infinite: false, cycles: 1 });
+
+  // Also supports .then() / .catch() / .finally()
+  animateGradient(text, stops, opts).finally(() => cleanup());
+  ```
+
+  The `.done` property remains for backwards compatibility.
+
+- **Stable error codes for programmatic catch.** Errors thrown by the
+  theme system now carry a `.code` property with the `ANSIMAX_*` prefix
+  for stable programmatic filtering:
+
+  ```ts
+  try {
+    themes.use('not-a-real-theme');
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ANSIMAX_UNKNOWN_THEME') {
+      // handle gracefully
+    }
+  }
+  ```
+
+  New codes: `ANSIMAX_INVALID_THEME`, `ANSIMAX_INVALID_THEME_NAME`,
+  `ANSIMAX_UNKNOWN_THEME`. Error messages and types
+  (`TypeError` / `RangeError`) are unchanged.
+
+- **`animateGradient` is safer in sandboxed environments.** The default
+  stdout-write path now checks `process?.stdout?.write` before calling
+  it, so the function no longer crashes in workers, Edge runtimes, or
+  embedded sandboxes that lack a writable stdout.
+
+- **Better JSDoc on the `gradient()` function.** IntelliSense now shows
+  parameter descriptions, return semantics, and three runnable
+  `@example` blocks (basic, with easing, with phase animation).
+
+- **README fix: `Easing Curves` snippet.** The v1.2.0 snippet was missing
+  the `stops` variable declaration. Now copy-paste runnable.
+
+### Notes
+
+- 1880 + 7 new tests pass.
+- No new dependencies — still zero runtime deps.
+- All API additions are non-breaking and side-effect-free for existing code.
+
+---
+
 ## [1.2.0] — Phase 2 complete: animated, eased & conic gradients
 
 Minor release closing the **gradient engine roadmap (Phase 2)** with three

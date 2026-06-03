@@ -1457,3 +1457,49 @@ describe('animateGradient: finite cycles (covers lines 597-603)', () => {
     expect(true).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.2 — Thenable controller + robustness
+// ─────────────────────────────────────────────
+describe('animateGradient: thenable controller (v1.2.2)', () => {
+  it('controller is awaitable directly (Promise-like)', async () => {
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30, fps: 60, infinite: false, cycles: 1,
+    });
+    // No .done — direct await
+    await ctrl;
+    expect(true).toBe(true); // didn't hang
+  });
+
+  it('controller supports .then() chaining', async () => {
+    let chained = false;
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30, fps: 60, infinite: false, cycles: 1,
+    });
+    await ctrl.then(() => { chained = true; });
+    expect(chained).toBe(true);
+  });
+
+  it('controller supports .finally()', async () => {
+    let finalRan = false;
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30, fps: 60, infinite: false, cycles: 1,
+    });
+    await ctrl.finally(() => { finalRan = true; });
+    expect(finalRan).toBe(true);
+  });
+
+  it('controller .done is still available alongside thenable', async () => {
+    const ctrl = animateGradient('hi', ['#ff0000', '#0000ff'], {
+      onFrame: () => { /* noop */ },
+      duration: 30, fps: 60, infinite: false, cycles: 1,
+    });
+    await ctrl.done;
+    expect(typeof ctrl.then).toBe('function');
+    expect(typeof ctrl.catch).toBe('function');
+    expect(typeof ctrl.finally).toBe('function');
+  });
+});
