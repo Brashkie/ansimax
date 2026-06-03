@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -263,7 +263,7 @@ console.log(gradientRect({
 ### Reusable Gradients (v1.2.3)
 
 ```ts
-import { createGradient, ascii } from 'ansimax';
+import { createGradient, reverseGradient, ascii } from 'ansimax';
 
 // Pre-resolve hex stops once — significantly faster for repeated use
 const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
@@ -274,6 +274,14 @@ console.log(fire('Third line'));
 
 // Use as a colorFn for banners — same ColorFn signature
 console.log(ascii.banner('FIRE', { colorFn: fire }));
+
+// v1.2.4: inspect metadata
+console.log('Stops:', fire.stops);             // → ['#ff5555', '#ffb86c', '#f1fa8c']
+console.log('Resolved:', fire.resolvedStops);  // → [{r:255,g:85,b:85}, ...]
+
+// v1.2.4: reverse a gradient (preserves default options)
+const ice = reverseGradient(fire);
+console.log(ice('Cool side'));
 
 // Per-call options still work — perfect for animation
 for (let p = 0; p < 1; p += 0.05) {
@@ -357,7 +365,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.3'));
+console.log(components.badge('VERSION', 'v1.2.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -758,6 +766,27 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.4 — Gradient utilities + inspectability
+
+Patch release adding inspection metadata and a `reverseGradient()` helper:
+
+- 🔍 **`ReusableGradient` exposes `.stops`, `.resolvedStops`, `.defaultOptions`** — all frozen, all read-only
+- 🔄 **`reverseGradient()` helper** — flips a gradient's stop order (works with arrays or `ReusableGradient`)
+- 🎯 **`presets` exported as canonical name** — alongside the existing `colorPresets` alias
+
+```ts
+import { createGradient, reverseGradient } from 'ansimax';
+
+const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+const ice  = reverseGradient(fire);
+
+console.log(fire.stops);  // ['#ff5555', '#ffb86c', '#f1fa8c']  — read-only
+console.log(fire('warm'));
+console.log(ice('cool'));
+```
+
+Drop-in replacement for `1.2.3`.
 
 ### v1.2.3 — Gradient factory + performance
 

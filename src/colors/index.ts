@@ -433,20 +433,34 @@ export const gradient = (
  * }
  * ```
  */
+/**
+ * The function returned by `createGradient()`. Callable just like `gradient()`,
+ * but also exposes metadata for inspection and chaining.
+ */
+export interface ReusableGradient {
+  /** Apply the gradient to text. */
+  (text: unknown, opts?: GradientOptions): string;
+  /** The original hex stops that were passed to `createGradient()`. */
+  readonly stops: readonly string[];
+  /** The resolved RGB stops (after filtering invalid hex). */
+  readonly resolvedStops: readonly Readonly<RGB>[];
+  /** Default options frozen at factory time. */
+  readonly defaultOptions: Readonly<Omit<GradientOptions, 'phase'>>;
+}
+
 export const createGradient = (
   stops: string[] | null | undefined,
   defaultOpts: Omit<GradientOptions, 'phase'> = {},
-): ((text: unknown, opts?: GradientOptions) => string) => {
+): ReusableGradient => {
   // Pre-resolve hex → RGB once
-  const colors = Array.isArray(stops)
-    ? stops.map(safeHex).filter((c): c is RGB => c !== null)
-    : [];
+  const originalStops = Array.isArray(stops) ? [...stops] : [];
+  const colors = originalStops.map(safeHex).filter((c): c is RGB => c !== null);
 
   // Pre-resolve easing function
   const defaultEasingFn = resolveEasing(defaultOpts.easing);
   const defaultPreserveAnsi = defaultOpts.preserveAnsi ?? false;
 
-  return (text: unknown, opts: GradientOptions = {}): string => {
+  const fn = ((text: unknown, opts: GradientOptions = {}): string => {
     const s = coerceText(text);
     if (!s || isNoColor()) return s;
     if (colors.length === 0) return s;
@@ -467,8 +481,64 @@ export const createGradient = (
       return _gradientPlain(s, colors, easingFn, phaseN);
     }
     return _gradientAnsiAware(s, colors, easingFn, phaseN);
-  };
+  }) as ReusableGradient;
+
+  // Attach metadata (read-only via Object.defineProperty for genuine immutability)
+  Object.defineProperty(fn, 'stops', {
+    value: Object.freeze(originalStops),
+    enumerable: true,
+    writable: false,
+  });
+  Object.defineProperty(fn, 'resolvedStops', {
+    value: Object.freeze(colors.map((c) => Object.freeze({ ...c }))),
+    enumerable: true,
+    writable: false,
+  });
+  Object.defineProperty(fn, 'defaultOptions', {
+    value: Object.freeze({ ...defaultOpts }),
+    enumerable: true,
+    writable: false,
+  });
+
+  return fn;
 };
+
+/**
+ * Return a new gradient with the stops reversed. Useful for symmetric
+ * effects (e.g. fade in / fade out) or to flip an existing palette.
+ *
+ * Accepts either:
+ * - A `ReusableGradient` returned from `createGradient()` — returns a new one
+ * - An array of hex stops — returns a new array with the order flipped
+ *
+ * @example
+ * ```ts
+ * const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+ * const ice  = reverseGradient(fire);  // ReusableGradient with reversed stops
+ *
+ * console.log(fire('warm side'));
+ * console.log(ice('cool side'));
+ * ```
+ *
+ * @example with plain stops
+ * ```ts
+ * const stops = ['#ff0000', '#00ff00', '#0000ff'];
+ * const reversed = reverseGradient(stops);
+ * // → ['#0000ff', '#00ff00', '#ff0000']
+ * ```
+ */
+export function reverseGradient(grad: ReusableGradient): ReusableGradient;
+export function reverseGradient(stops: string[]): string[];
+export function reverseGradient(
+  input: ReusableGradient | string[],
+): ReusableGradient | string[] {
+  if (Array.isArray(input)) {
+    return [...input].reverse();
+  }
+  // It's a ReusableGradient — preserve default options
+  const reversedStops = [...input.stops].reverse();
+  return createGradient(reversedStops, input.defaultOptions);
+}
 
 const _gradientPlain = (
   text: string,

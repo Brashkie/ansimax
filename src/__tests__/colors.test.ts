@@ -1622,3 +1622,139 @@ describe('createGradient: barrel export (v1.2.3)', () => {
     expect(typeof main.createGradient).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.4 — ReusableGradient metadata + reverseGradient
+// ─────────────────────────────────────────────
+import { reverseGradient } from '../colors/index.js';
+import type { ReusableGradient } from '../colors/index.js';
+
+describe('createGradient: metadata (v1.2.4)', () => {
+  it('exposes original stops as readonly array', () => {
+    const stops = ['#ff5555', '#ffb86c', '#f1fa8c'];
+    const fire = createGradient(stops);
+    expect(fire.stops).toEqual(stops);
+    // Verify it's frozen
+    expect(Object.isFrozen(fire.stops)).toBe(true);
+  });
+
+  it('exposes resolvedStops (filtered RGB)', () => {
+    const fire = createGradient(['#ff5555', 'not-a-hex', '#f1fa8c']);
+    expect(fire.resolvedStops).toHaveLength(2);
+    expect(fire.resolvedStops[0]).toEqual({ r: 255, g: 85, b: 85 });
+    expect(fire.resolvedStops[1]).toEqual({ r: 241, g: 250, b: 140 });
+  });
+
+  it('exposes defaultOptions frozen', () => {
+    const fire = createGradient(['#ff0000', '#0000ff'], { easing: 'ease-in' });
+    expect(fire.defaultOptions.easing).toBe('ease-in');
+    expect(Object.isFrozen(fire.defaultOptions)).toBe(true);
+  });
+
+  it('metadata cannot be mutated', () => {
+    'use strict';
+    const fire = createGradient(['#ff0000', '#0000ff']);
+    // Trying to mutate should throw or silently fail (depending on strict mode)
+    expect(() => {
+      (fire.stops as unknown as string[]).push('#00ff00');
+    }).toThrow();
+  });
+
+  it('metadata is enumerable (visible in Object.keys)', () => {
+    const fire = createGradient(['#ff0000', '#0000ff']);
+    const keys = Object.keys(fire);
+    expect(keys).toContain('stops');
+    expect(keys).toContain('resolvedStops');
+    expect(keys).toContain('defaultOptions');
+  });
+
+  it('empty stops still returns valid ReusableGradient', () => {
+    const empty = createGradient([]);
+    expect(empty.stops).toEqual([]);
+    expect(empty.resolvedStops).toEqual([]);
+    expect(empty('hello')).toBe('hello');
+  });
+
+  it('null/undefined stops result in empty metadata arrays', () => {
+    const nullGrad = createGradient(null);
+    const undefGrad = createGradient(undefined);
+    expect(nullGrad.stops).toEqual([]);
+    expect(undefGrad.stops).toEqual([]);
+  });
+});
+
+describe('reverseGradient (v1.2.4)', () => {
+  it('reverses an array of stops', () => {
+    const stops = ['#ff0000', '#00ff00', '#0000ff'];
+    const reversed = reverseGradient(stops);
+    expect(reversed).toEqual(['#0000ff', '#00ff00', '#ff0000']);
+  });
+
+  it('does not mutate the original array', () => {
+    const stops = ['#ff0000', '#00ff00', '#0000ff'];
+    const reversed = reverseGradient(stops);
+    expect(stops).toEqual(['#ff0000', '#00ff00', '#0000ff']); // unchanged
+    expect(reversed).not.toBe(stops); // new array
+  });
+
+  it('reverses a ReusableGradient', () => {
+    const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+    const ice = reverseGradient(fire);
+    expect(ice.stops).toEqual(['#f1fa8c', '#ffb86c', '#ff5555']);
+  });
+
+  it('reversed ReusableGradient preserves default options', () => {
+    const original = createGradient(['#ff0000', '#0000ff'], { easing: 'ease-in' });
+    const reversed = reverseGradient(original);
+    expect(reversed.defaultOptions.easing).toBe('ease-in');
+  });
+
+  it('reversed gradient produces correct output', () => {
+    const forward = createGradient(['#ff0000', '#0000ff']);
+    const reversed = reverseGradient(forward);
+    // Same as creating directly with reversed stops
+    const direct = createGradient(['#0000ff', '#ff0000']);
+    expect(reversed('hello world')).toBe(direct('hello world'));
+  });
+
+  it('double-reverse returns equivalent gradient', () => {
+    const original = createGradient(['#ff0000', '#00ff00', '#0000ff']);
+    const twice = reverseGradient(reverseGradient(original));
+    expect(twice.stops).toEqual(original.stops);
+    expect(twice('hello world')).toBe(original('hello world'));
+  });
+
+  it('reverse of empty stops is empty', () => {
+    const empty = createGradient([]);
+    const reversed = reverseGradient(empty);
+    expect(reversed.stops).toEqual([]);
+  });
+
+  it('reverse of single stop is the same single stop', () => {
+    const single = ['#ff0000'];
+    const reversed = reverseGradient(single);
+    expect(reversed).toEqual(['#ff0000']);
+  });
+});
+
+describe('presets alias (v1.2.4)', () => {
+  it('presets is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(main.presets).toBeDefined();
+    expect(typeof main.presets).toBe('object');
+  });
+
+  it('presets and colorPresets are the same object (alias)', async () => {
+    const main = await import('../index.js');
+    expect(main.presets).toBe(main.colorPresets);
+  });
+
+  it('presets has all the built-in preset names', async () => {
+    const main = await import('../index.js');
+    const presetsKeys = Object.keys(main.presets);
+    expect(presetsKeys).toContain('sunset');
+    expect(presetsKeys).toContain('ocean');
+    expect(presetsKeys).toContain('fire');
+    expect(presetsKeys).toContain('neon');
+  });
+});

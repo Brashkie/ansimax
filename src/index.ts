@@ -15,6 +15,8 @@
 // ── Core modules ──
 export {
   color, gradient, rainbow, presets as colorPresets, presetNames,
+  // v1.2.4 — also expose as `presets` (canonical, matches the docs)
+  presets,
   compose, chain, colorLevel,
   setNoColor, isNoColor, resetNoColor,
   registerPreset, listPresets, clearColorCache,
@@ -23,11 +25,15 @@ export {
   animateGradient,
   // v1.2.3 — gradient factory
   createGradient,
+  // v1.2.4 — gradient utilities
+  reverseGradient,
 } from './colors/index.js';
 export type {
   ColorFn, PresetName, ColorChain, GradientOptions,
   // v1.2.0 — Phase 2 completion
   EasingName, EasingFn, AnimateGradientOptions, AnimateGradientController,
+  // v1.2.4 — gradient utilities
+  ReusableGradient,
 } from './colors/index.js';
 
 export { animate, canAnimate, resetCursorRefCount } from './animations/index.js';

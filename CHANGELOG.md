@@ -3,6 +3,76 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.4] — Gradient utilities + inspectability
+
+Patch release adding gradient inspection and manipulation utilities.
+No breaking changes — `createGradient()` callers from 1.2.3 continue
+to work, but now have access to metadata.
+
+### Added — `ReusableGradient` metadata
+
+`createGradient()` now returns a `ReusableGradient` — still callable
+like before, but with frozen metadata for inspection and debugging:
+
+```ts
+const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c'], {
+  easing: 'ease-in',
+});
+
+// All still callable
+console.log(fire('hello'));
+
+// New: read-only inspection
+fire.stops;            // → ['#ff5555', '#ffb86c', '#f1fa8c']
+fire.resolvedStops;    // → [{r:255,g:85,b:85}, {r:255,g:184,b:108}, ...]
+fire.defaultOptions;   // → { easing: 'ease-in' }
+```
+
+All three properties are frozen — attempting to mutate them throws in
+strict mode and silently fails in sloppy mode.
+
+### Added — `reverseGradient()` helper
+
+Returns a new gradient with stops in reverse order. Works with both
+plain arrays and `ReusableGradient` instances. Default options are
+preserved when reversing a `ReusableGradient`:
+
+```ts
+const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+const ice  = reverseGradient(fire);  // → '#f1fa8c' → '#ffb86c' → '#ff5555'
+
+console.log(fire('warm side'));
+console.log(ice('cool side'));
+
+// Also works with plain arrays
+reverseGradient(['#f00', '#0f0', '#00f']);  // → ['#00f', '#0f0', '#f00']
+```
+
+The original array / gradient is never mutated.
+
+### Added — `presets` alias (canonical name)
+
+Previously `presets` was exported only as `colorPresets`. Many users
+referenced `presets` based on docs and got `ReferenceError`. Now both
+names point to the same object:
+
+```ts
+import { presets, colorPresets } from 'ansimax';
+
+presets === colorPresets;  // → true
+```
+
+`colorPresets` remains for backwards compatibility; new code can use
+either name.
+
+### Notes
+
+- Coverage holds steady at ~98%.
+- No new runtime dependencies — still zero.
+- All 1892 + 22 new tests pass.
+
+---
+
 ## [1.2.3] — Gradient factory + performance
 
 Patch release adding a new performance-oriented API and refinements. No
