@@ -21,6 +21,8 @@ export {
   stripAnsi as stripAnsiColors,
   // v1.2.0 — Phase 2 completion
   animateGradient,
+  // v1.2.3 — gradient factory
+  createGradient,
 } from './colors/index.js';
 export type {
   ColorFn, PresetName, ColorChain, GradientOptions,

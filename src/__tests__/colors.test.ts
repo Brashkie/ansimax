@@ -1503,3 +1503,122 @@ describe('animateGradient: thenable controller (v1.2.2)', () => {
     expect(typeof ctrl.finally).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.3 — createGradient factory
+// ─────────────────────────────────────────────
+import { createGradient } from '../colors/index.js';
+
+describe('createGradient (v1.2.3)', () => {
+  it('returns a reusable gradient function', () => {
+    const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+    expect(typeof fire).toBe('function');
+  });
+
+  it('produces same output as gradient() for same inputs', () => {
+    const stops = ['#ff79c6', '#bd93f9', '#8be9fd'];
+    const factory = createGradient(stops);
+    const direct = gradient('hello world', stops);
+    const fromFactory = factory('hello world');
+    expect(fromFactory).toBe(direct);
+  });
+
+  it('handles single-color stops as solid color', () => {
+    const cyan = createGradient(['#00ffff']);
+    const out = cyan('hello');
+    expect(stripAnsi(out)).toBe('hello');
+    expect(out).toMatch(/\x1b\[/); // has ANSI
+  });
+
+  it('handles empty stops by returning input unchanged', () => {
+    const empty = createGradient([]);
+    expect(empty('hello')).toBe('hello');
+  });
+
+  it('handles null/undefined stops gracefully', () => {
+    const nullStops = createGradient(null);
+    const undefStops = createGradient(undefined);
+    expect(nullStops('hello')).toBe('hello');
+    expect(undefStops('hello')).toBe('hello');
+  });
+
+  it('drops invalid stops silently (like gradient)', () => {
+    const partial = createGradient(['#ff0000', 'not-a-hex', '#0000ff']);
+    expect(stripAnsi(partial('hello world'))).toBe('hello world');
+  });
+
+  it('respects default easing', () => {
+    const stops = ['#ff0000', '#0000ff'];
+    const factory = createGradient(stops, { easing: 'ease-in' });
+    const direct = gradient('hello world test', stops, { easing: 'ease-in' });
+    expect(factory('hello world test')).toBe(direct);
+  });
+
+  it('per-call options override defaults', () => {
+    const stops = ['#ff0000', '#0000ff'];
+    const factory = createGradient(stops, { easing: 'linear' });
+
+    // Per-call easing overrides default
+    const directEaseIn = gradient('hello world test', stops, { easing: 'ease-in' });
+    expect(factory('hello world test', { easing: 'ease-in' })).toBe(directEaseIn);
+  });
+
+  it('supports per-call phase for animation', () => {
+    const stops = ['#ff0000', '#0000ff'];
+    const factory = createGradient(stops);
+
+    // Different phases produce different output
+    const frame1 = factory('hello world', { phase: 0 });
+    const frame2 = factory('hello world', { phase: 0.5 });
+    expect(frame1).not.toBe(frame2);
+
+    // Same phase is deterministic
+    expect(factory('hello world', { phase: 0.3 })).toBe(
+      factory('hello world', { phase: 0.3 }),
+    );
+  });
+
+  it('coerces non-string text inputs', () => {
+    const factory = createGradient(['#ff0000', '#0000ff']);
+    expect(stripAnsi(factory(42))).toBe('42');
+    expect(stripAnsi(factory(true))).toBe('true');
+  });
+
+  it('returns empty string for empty input', () => {
+    const factory = createGradient(['#ff0000', '#0000ff']);
+    expect(factory('')).toBe('');
+  });
+
+  it('respects NO_COLOR by returning plain text', () => {
+    setNoColor(true);
+    try {
+      const factory = createGradient(['#ff0000', '#0000ff']);
+      expect(factory('hello world')).toBe('hello world');
+    } finally {
+      setNoColor(false);
+    }
+  });
+
+  it('preserveAnsi default is respected', () => {
+    const stops = ['#ff0000', '#0000ff'];
+    const factory = createGradient(stops, { preserveAnsi: true });
+    const input = 'pre\x1b[31mtext\x1b[0mpost';
+    // With preserveAnsi=true, the embedded ANSI should be preserved
+    const out = factory(input);
+    expect(out).toContain('\x1b[31m');
+  });
+
+  it('works as colorFn for ascii.banner (integration check)', () => {
+    const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+    // Verify it has the ColorFn shape: (text) => string
+    expect(typeof fire('TEST')).toBe('string');
+    expect(stripAnsi(fire('TEST'))).toBe('TEST');
+  });
+});
+
+describe('createGradient: barrel export (v1.2.3)', () => {
+  it('createGradient is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.createGradient).toBe('function');
+  });
+});

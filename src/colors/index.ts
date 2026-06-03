@@ -409,6 +409,67 @@ export const gradient = (
   return _gradientAnsiAware(s, colors, easingFn, phaseN);
 };
 
+/**
+ * A pre-resolved gradient that can be applied repeatedly to different
+ * strings without re-parsing hex stops. Useful for hot loops, animation
+ * frames, or any case where the same color palette colorizes many texts.
+ *
+ * The returned function accepts the same per-call options as `gradient()`
+ * (e.g. you can still override `phase` per call for animation).
+ *
+ * @example
+ * ```ts
+ * const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
+ *
+ * console.log(fire('first line'));
+ * console.log(fire('second line'));
+ *
+ * // Use as colorFn for ascii.banner
+ * console.log(ascii.banner('FIRE', { colorFn: fire }));
+ *
+ * // Animate by overriding phase per frame
+ * for (let p = 0; p < 1; p += 0.05) {
+ *   console.log(fire('flowing', { phase: p }));
+ * }
+ * ```
+ */
+export const createGradient = (
+  stops: string[] | null | undefined,
+  defaultOpts: Omit<GradientOptions, 'phase'> = {},
+): ((text: unknown, opts?: GradientOptions) => string) => {
+  // Pre-resolve hex → RGB once
+  const colors = Array.isArray(stops)
+    ? stops.map(safeHex).filter((c): c is RGB => c !== null)
+    : [];
+
+  // Pre-resolve easing function
+  const defaultEasingFn = resolveEasing(defaultOpts.easing);
+  const defaultPreserveAnsi = defaultOpts.preserveAnsi ?? false;
+
+  return (text: unknown, opts: GradientOptions = {}): string => {
+    const s = coerceText(text);
+    if (!s || isNoColor()) return s;
+    if (colors.length === 0) return s;
+
+    // Single color fast path
+    if (colors.length === 1) {
+      const c = colors[0] as RGB;
+      return adaptiveFg(c.r, c.g, c.b) + s + reset();
+    }
+
+    // Per-call overrides (mainly for animation)
+    const easingFn = opts.easing !== undefined ? resolveEasing(opts.easing) : defaultEasingFn;
+    const preserveAnsi = opts.preserveAnsi ?? defaultPreserveAnsi;
+    const phase = opts.phase ?? 0;
+    const phaseN = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
+
+    if (!preserveAnsi || !s.includes('\x1b')) {
+      return _gradientPlain(s, colors, easingFn, phaseN);
+    }
+    return _gradientAnsiAware(s, colors, easingFn, phaseN);
+  };
+};
+
 const _gradientPlain = (
   text: string,
   colors: RGB[],
