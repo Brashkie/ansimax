@@ -1187,6 +1187,7 @@ describe('cache key isolation', () => {
 //  v1.2.5 — Phase 3 closure: Image to ASCII + figlet
 // ─────────────────────────────────────────────
 import { fromImage, figletText, parseFiglet, ASCII_RAMPS } from '../ascii/index.js';
+import { setNoColor, resetNoColor } from '../colors/index.js';
 import type { FigletFont } from '../ascii/index.js';
 import type { PixelGrid, Pixel } from '../images/index.js';
 
@@ -1266,11 +1267,18 @@ describe('fromImage (v1.2.5)', () => {
   });
 
   it('color mode adds ANSI escapes', () => {
-    const red = makeSolidGrid(5, 3, 255, 0, 0);
-    const noColor = fromImage(red, { width: 5, color: false });
-    const withColor = fromImage(red, { width: 5, color: true });
-    expect(withColor.length).toBeGreaterThan(noColor.length);
-    expect(withColor).toContain('\x1b[');
+    // Force color enabled — CI environments (GitHub Actions, etc.) detect
+    // non-TTY stdout and disable color by default, which would break this test
+    setNoColor(false);
+    try {
+      const red = makeSolidGrid(5, 3, 255, 0, 0);
+      const noColor = fromImage(red, { width: 5, color: false });
+      const withColor = fromImage(red, { width: 5, color: true });
+      expect(withColor.length).toBeGreaterThan(noColor.length);
+      expect(withColor).toContain('\x1b[');
+    } finally {
+      resetNoColor();
+    }
   });
 
   it('floyd-steinberg dithering applies', () => {
