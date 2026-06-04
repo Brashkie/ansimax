@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -306,6 +306,60 @@ console.log(ascii.banner('HELLO', {
 console.log(ascii.box('Rainbow box!', { padding: 1, borderStyle: 'rounded' }));
 ```
 
+### Image → ASCII (v1.2.5)
+
+```ts
+import { ascii } from 'ansimax';
+import type { PixelGrid } from 'ansimax';
+
+// Get a PixelGrid from any image library (sharp, jimp, pngjs, etc.)
+// Each Pixel is `{ r, g, b }` or null
+const pixels: PixelGrid = await loadImagePixels('./photo.png');
+
+// Monochrome
+console.log(ascii.fromImage(pixels, { width: 80 }));
+
+// Color + Floyd-Steinberg dithering + detailed ramp
+console.log(ascii.fromImage(pixels, {
+  width: 100,
+  color: true,
+  dither: 'floyd-steinberg',
+  ramp: 'detailed',
+}));
+
+// Edge-detection mode (line art)
+console.log(ascii.fromImage(pixels, {
+  width: 80,
+  edgeDetect: 'sobel',
+  edgeThreshold: 50,
+  ramp: 'blocks',
+}));
+
+// Face mode for portraits (boosts midtone contrast)
+console.log(ascii.fromImage(portraitPixels, {
+  width: 60,
+  ramp: 'detailed',
+  faceMode: true,
+}));
+```
+
+### Figlet Fonts (v1.2.5)
+
+```ts
+import { readFileSync } from 'node:fs';
+import { parseFiglet, ascii } from 'ansimax';
+
+// Download fonts from http://www.figlet.org/fontdb.cgi
+const font = parseFiglet(readFileSync('./standard.flf', 'utf8'));
+
+console.log(ascii.figletText('Hello!', font));
+
+// With color
+console.log(ascii.figletText('STYLE', font, {
+  colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9', '#8be9fd']),
+}));
+```
+
 ### Trees
 
 <img src="media/trees.png" alt="Trees" />
@@ -365,7 +419,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.4'));
+console.log(components.badge('VERSION', 'v1.2.5'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -579,7 +633,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Gradient interpolation curves** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / custom (v1.2.0)
 - [x] **Conic gradients** — radial sweep with `style: 'conic'` (v1.2.0)
 
-### 🟡 Phase 3 — ASCII engine
+### ✅ Phase 3 — ASCII engine
 - [x] Block fonts (`big`, `small`)
 - [x] Banner with gradient + alignment + per-char coloring
 - [x] Box drawing (6 border styles)
@@ -587,11 +641,12 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Logo composer (gradient + box wrapping)
 - [x] Custom font registry (`registerFont`, `hasFont`, `listFonts`)
 - [x] Stream API (`ascii.stream()` with AbortSignal)
-- [ ] **Image → ASCII** converter (with edge detection, Sobel/Canny)
-- [ ] **Color ASCII** rendering (preserve image colors)
-- [ ] **Image dithering** for better tonal range (Floyd-Steinberg)
-- [ ] **Face-optimized ASCII** (high-detail mode for portraits)
-- [ ] **Figlet font support** (.flf file loader — 250+ community fonts)
+- [x] **Image → ASCII** converter — `ascii.fromImage()` with luminance mapping (v1.2.5)
+- [x] **Color ASCII** rendering — preserve image colors via `color: true` (v1.2.5)
+- [x] **Image dithering** — Floyd-Steinberg error diffusion (v1.2.5)
+- [x] **Face-optimized ASCII** — histogram stretching for portraits (v1.2.5)
+- [x] **Figlet font support** — `.flf` parser + renderer (`parseFiglet` + `ascii.figletText`) (v1.2.5)
+- [x] **Edge detection** — Sobel operator integrated in `fromImage` (v1.2.5, bonus)
 
 ### ✅ Phase 4 — Terminal UI primitives
 - [x] Tables (irregular rows, multi-line cells, ANSI-aware)
@@ -766,6 +821,35 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.5 — Phase 3 complete: image-to-ASCII engine
+
+Minor release closing the ASCII engine roadmap with 5 new features:
+
+- 🖼️ **`ascii.fromImage(pixels, opts)`** — Image → ASCII converter (input: `PixelGrid`)
+- 🎨 **Color ASCII rendering** — `color: true` preserves source colors
+- 📐 **Floyd-Steinberg dithering** — `dither: 'floyd-steinberg'` for smoother tonal gradients
+- 👤 **Face-optimized mode** — `faceMode: true` boosts midtone contrast for portraits
+- 🔠 **Figlet (.flf) support** — `parseFiglet()` + `ascii.figletText()` for 250+ community fonts
+- ⚡ **Bonus: Sobel edge detection** — `edgeDetect: 'sobel'` for line-art effects
+
+```ts
+import { ascii } from 'ansimax';
+
+// Image to ASCII (input from sharp/jimp/etc, no decoder dependency)
+console.log(ascii.fromImage(pixels, {
+  width: 80,
+  color: true,
+  dither: 'floyd-steinberg',
+  ramp: 'detailed',
+}));
+
+// Figlet rendering
+const font = parseFiglet(readFileSync('./standard.flf', 'utf8'));
+console.log(ascii.figletText('Hello!', font));
+```
+
+Drop-in replacement for `1.2.4`.
 
 ### v1.2.4 — Gradient utilities + inspectability
 

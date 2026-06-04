@@ -43,10 +43,16 @@ export type {
   ParallelStep, ParallelOptions, AnimationHooks,
 } from './animations/index.js';
 
-export { ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize } from './ascii/index.js';
+export {
+  ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize,
+  // v1.2.5 — Phase 3 closure
+  fromImage, figletText, parseFiglet, ASCII_RAMPS,
+} from './ascii/index.js';
 export type {
   BoxStyle, BoxOptions, BannerOptions, DividerOptions, LogoOptions,
   Glyph, FontMap, FontName, RegisterFontOptions, StreamOptions, Dimensions,
+  // v1.2.5 — Phase 3 closure
+  AsciiRamp, FromImageOptions, FigletFont, FigletOptions,
 } from './ascii/index.js';
 
 export { loader, resetLoaderCursorCount } from './loaders/index.js';

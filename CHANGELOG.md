@@ -3,6 +3,131 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.5] — Phase 3 closure: image-to-ASCII engine
+
+Minor release closing the **ASCII engine roadmap (Phase 3)** with five
+new capabilities. All additions are fully backwards-compatible — existing
+code runs identically.
+
+### Added — `ascii.fromImage(pixels, opts)` — image-to-ASCII converter
+
+Convert a `PixelGrid` (from `ansimax.images`) into ASCII art. Five
+features in one call:
+
+```ts
+import { ascii } from 'ansimax';
+
+console.log(ascii.fromImage(pixels, {
+  width: 80,
+  ramp: 'detailed',          // 'standard' | 'detailed' | 'blocks' | 'simple' | custom string
+  invert: false,
+  dither: 'floyd-steinberg', // 'none' | 'floyd-steinberg'
+  edgeDetect: 'sobel',       // 'none' | 'sobel'
+  edgeThreshold: 40,
+  color: true,               // preserve source colors
+  faceMode: false,           // histogram stretch for portraits
+}));
+```
+
+**Aspect-ratio aware**: terminal cells are ~2× as tall as wide, so the
+output height is auto-halved to maintain visual proportion (override
+with `height`).
+
+**Zero-dependency**: input is a `PixelGrid` (one Pixel per cell). Users
+of `sharp`, `jimp`, or any decoder convert their output to `PixelGrid`
+once, then call `ascii.fromImage()`.
+
+### Added — `ASCII_RAMPS` — pre-built character ramps
+
+Four curated character ramps, ordered dark → light, exported as a
+read-only object:
+
+```ts
+ASCII_RAMPS.standard   // ' .:-=+*#%@'           — balanced 10-char (default)
+ASCII_RAMPS.detailed   // 70-char Paul Bourke    — max detail
+ASCII_RAMPS.blocks     // ' ░▒▓█'                — looks like a real photo
+ASCII_RAMPS.simple     // ' .+#'                 — minimal 4-char
+```
+
+Or pass any custom string as the `ramp` option for full control.
+
+### Added — Sobel edge detection
+
+Set `edgeDetect: 'sobel'` to render edges instead of luminance. Useful
+for line-art effects or technical diagrams:
+
+```ts
+console.log(ascii.fromImage(pixels, {
+  width: 100,
+  edgeDetect: 'sobel',
+  edgeThreshold: 50,    // tune for noise/detail balance
+  ramp: 'blocks',
+}));
+```
+
+### Added — Floyd-Steinberg dithering
+
+Set `dither: 'floyd-steinberg'` for error-diffusion dithering. Produces
+smoother tonal gradients in photos. Most useful with shorter ramps:
+
+```ts
+ascii.fromImage(pixels, {
+  width: 80,
+  ramp: 'simple',
+  dither: 'floyd-steinberg',
+});
+```
+
+### Added — Face mode
+
+Set `faceMode: true` to apply histogram stretching ([10%, 90%] percentile
+remap to [0, 255]). Boosts midtone contrast where facial features live,
+producing better results on portraits:
+
+```ts
+ascii.fromImage(portraitPixels, {
+  width: 60,
+  ramp: 'detailed',
+  faceMode: true,
+});
+```
+
+### Added — Figlet (.flf) font support
+
+Parse and render with community FIGfonts (250+ available at
+[figlet.org](http://www.figlet.org/fontdb.cgi)):
+
+```ts
+import { readFileSync } from 'node:fs';
+import { parseFiglet, ascii } from 'ansimax';
+
+const fontStr = readFileSync('./standard.flf', 'utf8');
+const font = parseFiglet(fontStr);
+
+console.log(ascii.figletText('Hello!', font, {
+  trim: true,
+  colorFn: (t) => t,  // optional colorize
+}));
+```
+
+Returns a `FigletFont` object containing the parsed glyphs. Renders
+ASCII 32-126; unknown chars fall back to space.
+
+### Added — Type exports
+
+`AsciiRamp`, `FromImageOptions`, `FigletFont`, `FigletOptions` — all
+exported from the main barrel.
+
+### Notes
+
+- Phase 3 of the [roadmap](README.md#%EF%B8%8F-roadmap) is now **fully complete**.
+- Image decoding (PNG/JPEG → PixelGrid) is intentionally **not** included;
+  users pair ansimax with `sharp`/`jimp`/`pngjs` to keep zero deps.
+- 1914 + 30 new tests pass.
+- No new runtime dependencies — still zero.
+
+---
+
 ## [1.2.4] — Gradient utilities + inspectability
 
 Patch release adding gradient inspection and manipulation utilities.

@@ -1182,3 +1182,374 @@ describe('cache key isolation', () => {
     expect(ascii.getRenderCacheSize()).toBe(2);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.5 — Phase 3 closure: Image to ASCII + figlet
+// ─────────────────────────────────────────────
+import { fromImage, figletText, parseFiglet, ASCII_RAMPS } from '../ascii/index.js';
+import type { FigletFont } from '../ascii/index.js';
+import type { PixelGrid, Pixel } from '../images/index.js';
+
+// Helper: create test pixel grid with luminance gradient
+const makeGradientGrid = (w: number, h: number): PixelGrid => {
+  const grid: PixelGrid = [];
+  for (let y = 0; y < h; y++) {
+    const row = [];
+    for (let x = 0; x < w; x++) {
+      const v = Math.floor((x / (w - 1)) * 255);
+      row.push({ r: v, g: v, b: v });
+    }
+    grid.push(row);
+  }
+  return grid;
+};
+
+const makeSolidGrid = (w: number, h: number, r: number, g: number, b: number): PixelGrid => {
+  return Array.from({ length: h }, () =>
+    Array.from({ length: w }, () => ({ r, g, b })),
+  );
+};
+
+describe('fromImage (v1.2.5)', () => {
+  it('produces output for a basic gradient grid', () => {
+    const grid = makeGradientGrid(20, 10);
+    const out = fromImage(grid, { width: 20 });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty string for empty grid', () => {
+    expect(fromImage([])).toBe('');
+    expect(fromImage([[]])).toBe('');
+  });
+
+  it('produces darker chars for dark pixels', () => {
+    const dark = makeSolidGrid(10, 5, 10, 10, 10);
+    const out = fromImage(dark, { width: 10, ramp: 'standard' });
+    // Standard ramp starts with ' .:'
+    expect(out.charAt(0)).toMatch(/[ .]/);
+  });
+
+  it('produces lighter chars for bright pixels', () => {
+    const bright = makeSolidGrid(10, 5, 250, 250, 250);
+    const out = fromImage(bright, { width: 10, ramp: 'standard' });
+    // Standard ramp ends with '%@'
+    const lastChar = out.charAt(0);
+    expect(lastChar).toMatch(/[%@]/);
+  });
+
+  it('invert option swaps dark/light mapping', () => {
+    const bright = makeSolidGrid(10, 5, 250, 250, 250);
+    const normalOut = fromImage(bright, { width: 10, ramp: 'simple' });
+    const invertOut = fromImage(bright, { width: 10, ramp: 'simple', invert: true });
+    expect(normalOut.charAt(0)).not.toBe(invertOut.charAt(0));
+  });
+
+  it('respects custom ramp', () => {
+    const bright = makeSolidGrid(10, 5, 250, 250, 250);
+    const out = fromImage(bright, { width: 10, ramp: 'ABCDE' });
+    expect(out.charAt(0)).toBe('E'); // Last char of ramp = brightest
+  });
+
+  it('respects width parameter', () => {
+    const grid = makeGradientGrid(50, 25);
+    const out = fromImage(grid, { width: 10 });
+    // First line should be ~10 chars
+    const firstLine = out.split('\n')[0] as string;
+    expect(firstLine.length).toBe(10);
+  });
+
+  it('respects explicit height parameter', () => {
+    const grid = makeGradientGrid(40, 20);
+    const out = fromImage(grid, { width: 20, height: 5 });
+    expect(out.split('\n').length).toBe(5);
+  });
+
+  it('color mode adds ANSI escapes', () => {
+    const red = makeSolidGrid(5, 3, 255, 0, 0);
+    const noColor = fromImage(red, { width: 5, color: false });
+    const withColor = fromImage(red, { width: 5, color: true });
+    expect(withColor.length).toBeGreaterThan(noColor.length);
+    expect(withColor).toContain('\x1b[');
+  });
+
+  it('floyd-steinberg dithering applies', () => {
+    const grid = makeGradientGrid(40, 20);
+    const noDither = fromImage(grid, { width: 40, dither: 'none' });
+    const dithered = fromImage(grid, { width: 40, dither: 'floyd-steinberg' });
+    // Outputs should differ
+    expect(noDither).not.toBe(dithered);
+  });
+
+  it('sobel edge detection produces output', () => {
+    // Create a grid with a sharp edge in the middle
+    const grid: PixelGrid = [];
+    for (let y = 0; y < 10; y++) {
+      const row = [];
+      for (let x = 0; x < 20; x++) {
+        const v = x < 10 ? 0 : 255;
+        row.push({ r: v, g: v, b: v });
+      }
+      grid.push(row);
+    }
+    const out = fromImage(grid, { width: 20, edgeDetect: 'sobel' });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('faceMode applies histogram stretching', () => {
+    // Make a low-contrast grid (all pixels in narrow range)
+    const grid: PixelGrid = makeGradientGrid(30, 15).map((row: Pixel[]) =>
+      row.map((p: Pixel) => ({
+        r: 100 + ((p?.r ?? 0) * 0.2),
+        g: 100 + ((p?.g ?? 0) * 0.2),
+        b: 100 + ((p?.b ?? 0) * 0.2),
+      })),
+    );
+    const normalOut = fromImage(grid, { width: 30, ramp: 'simple' });
+    const faceOut = fromImage(grid, { width: 30, ramp: 'simple', faceMode: true });
+    // faceMode should produce more variation
+    expect(faceOut).not.toBe(normalOut);
+  });
+
+  it('handles null pixels in grid', () => {
+    const grid: PixelGrid = [
+      [{ r: 100, g: 100, b: 100 }, null, { r: 200, g: 200, b: 200 }],
+      [null, { r: 50, g: 50, b: 50 }, null],
+    ];
+    expect(() => fromImage(grid, { width: 3 })).not.toThrow();
+  });
+
+  it('handles invalid input gracefully', () => {
+    expect(fromImage(null as unknown as PixelGrid)).toBe('');
+    expect(fromImage(undefined as unknown as PixelGrid)).toBe('');
+    expect(fromImage('not-a-grid' as unknown as PixelGrid)).toBe('');
+  });
+
+  it('all built-in ramps work', () => {
+    const grid = makeGradientGrid(15, 8);
+    for (const rampName of Object.keys(ASCII_RAMPS) as Array<keyof typeof ASCII_RAMPS>) {
+      const out = fromImage(grid, { width: 15, ramp: rampName });
+      expect(out.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('preserves aspect ratio when height is omitted', () => {
+    const grid = makeGradientGrid(100, 50);
+    const out = fromImage(grid, { width: 50 });
+    const numLines = out.split('\n').length;
+    // src is 100x50 → at width=50 → height ≈ 50 * (50/100) * 0.5 = 12.5 → 13
+    expect(numLines).toBeGreaterThan(5);
+    expect(numLines).toBeLessThan(20);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Figlet parser tests
+// ─────────────────────────────────────────────
+
+// Minimal valid FIGfont (height 3, only space + A)
+// Note: Each glyph row ends with @ (endmark), last row ends with @@.
+const MINIMAL_FLF = `flf2a$ 3 2 4 0 1
+Test FIGfont (minimal)
+   @
+   @
+   @@
+ _ @
+/_\\@
+   @@
+`;
+
+describe('parseFiglet (v1.2.5)', () => {
+  it('parses a minimal valid FIGfont', () => {
+    const font = parseFiglet(MINIMAL_FLF);
+    expect(font.height).toBe(3);
+    expect(font.hardblank).toBe('$');
+    expect(font.glyphs.size).toBeGreaterThan(0);
+  });
+
+  it('extracts the space glyph (code 32)', () => {
+    const font = parseFiglet(MINIMAL_FLF);
+    const space = font.glyphs.get(32);
+    expect(space).toBeDefined();
+    expect(space).toHaveLength(3); // height = 3
+  });
+
+  it('throws TypeError on non-string input', () => {
+    expect(() => parseFiglet(null as unknown as string)).toThrow(TypeError);
+    expect(() => parseFiglet(123 as unknown as string)).toThrow(TypeError);
+  });
+
+  it('throws TypeError on empty string', () => {
+    expect(() => parseFiglet('')).toThrow(TypeError);
+  });
+
+  it('throws TypeError on invalid header', () => {
+    expect(() => parseFiglet('not-a-figlet-font')).toThrow(TypeError);
+  });
+
+  it('respects comment lines count', () => {
+    // 2 comment lines now, glyphs start at line 4
+    const withComments = `flf2a$ 3 2 4 0 2
+Comment line 1
+Comment line 2
+   @
+   @
+   @@
+`;
+    const font = parseFiglet(withComments);
+    expect(font.glyphs.size).toBeGreaterThan(0);
+  });
+});
+
+describe('figletText (v1.2.5)', () => {
+  let font: FigletFont;
+  beforeAll(() => {
+    font = parseFiglet(MINIMAL_FLF);
+  });
+
+  it('renders text using a parsed font', () => {
+    const out = figletText(' ', font);
+    expect(typeof out).toBe('string');
+  });
+
+  it('returns empty string for non-string input', () => {
+    expect(figletText(null as unknown as string, font)).toBe('');
+    expect(figletText(undefined as unknown as string, font)).toBe('');
+  });
+
+  it('returns empty string for invalid font', () => {
+    expect(figletText('hi', null as unknown as FigletFont)).toBe('');
+  });
+
+  it('uses space glyph as fallback for unknown chars', () => {
+    // ñ (unicode codepoint not in minimal font) → falls back to space
+    const out = figletText('ñ', font);
+    expect(typeof out).toBe('string');
+  });
+
+  it('applies colorFn when provided', () => {
+    const colorFn = (s: string): string => `[COLOR]${s}[/COLOR]`;
+    const out = figletText(' ', font, { colorFn });
+    expect(out).toContain('[COLOR]');
+    expect(out).toContain('[/COLOR]');
+  });
+
+  it('trims blank lines by default', () => {
+    // A font with leading/trailing blank rows
+    const out = figletText(' ', font, { trim: true });
+    expect(typeof out).toBe('string');
+  });
+
+  it('respects trim: false to preserve blank rows', () => {
+    const trimmed = figletText(' ', font, { trim: true });
+    const untrimmed = figletText(' ', font, { trim: false });
+    // Untrimmed may have more lines
+    expect(untrimmed.split('\n').length).toBeGreaterThanOrEqual(trimmed.split('\n').length);
+  });
+});
+
+describe('ASCII_RAMPS (v1.2.5)', () => {
+  it('exposes all expected ramps', () => {
+    expect(ASCII_RAMPS.standard).toBeDefined();
+    expect(ASCII_RAMPS.detailed).toBeDefined();
+    expect(ASCII_RAMPS.blocks).toBeDefined();
+    expect(ASCII_RAMPS.simple).toBeDefined();
+  });
+
+  it('each ramp has at least 4 characters', () => {
+    expect(ASCII_RAMPS.standard.length).toBeGreaterThanOrEqual(4);
+    expect(ASCII_RAMPS.detailed.length).toBeGreaterThanOrEqual(4);
+    expect(ASCII_RAMPS.blocks.length).toBeGreaterThanOrEqual(4);
+    expect(ASCII_RAMPS.simple.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('ramps start with darker and end with brighter characters', () => {
+    // All ramps should start with space (darkest)
+    expect(ASCII_RAMPS.standard.charAt(0)).toBe(' ');
+    expect(ASCII_RAMPS.simple.charAt(0)).toBe(' ');
+    expect(ASCII_RAMPS.blocks.charAt(0)).toBe(' ');
+  });
+});
+
+describe('ascii namespace v1.2.5 entries', () => {
+  it('ascii.fromImage is accessible', () => {
+    expect(typeof ascii.fromImage).toBe('function');
+  });
+
+  it('ascii.figletText is accessible', () => {
+    expect(typeof ascii.figletText).toBe('function');
+  });
+
+  it('ascii.parseFiglet is accessible', () => {
+    expect(typeof ascii.parseFiglet).toBe('function');
+  });
+});
+
+describe('v1.2.5 barrel exports', () => {
+  it('fromImage is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.fromImage).toBe('function');
+  });
+
+  it('parseFiglet is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.parseFiglet).toBe('function');
+  });
+
+  it('ASCII_RAMPS is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(main.ASCII_RAMPS).toBeDefined();
+    expect(typeof main.ASCII_RAMPS.standard).toBe('string');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.2.5 — Coverage for edge branches
+// ─────────────────────────────────────────────
+describe('fromImage: edge coverage (v1.2.5)', () => {
+  it('undefined ramp falls back to standard', () => {
+    const bright = makeSolidGrid(10, 5, 250, 250, 250);
+    // Explicitly pass undefined to hit the resolveRamp fallback path
+    const out = fromImage(bright, { width: 10, ramp: undefined });
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('empty string ramp falls back to standard', () => {
+    const bright = makeSolidGrid(10, 5, 250, 250, 250);
+    // Empty string also hits the fallback
+    const out = fromImage(bright, { width: 10, ramp: '' });
+    // Standard ramp is ' .:-=+*#%@', brightest is '@'
+    expect(out.charAt(0)).toBe('@');
+  });
+
+  it('color mode with null pixels uses bare char (no ANSI)', () => {
+    // Mix of valid pixels and nulls in a grid
+    const grid: PixelGrid = [
+      [{ r: 200, g: 200, b: 200 }, null, { r: 100, g: 100, b: 100 }],
+      [null, { r: 50, g: 50, b: 50 }, null],
+    ];
+    const out = fromImage(grid, { width: 3, color: true });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+    // Output should still render — null pixels just skip the ANSI prefix
+  });
+});
+
+describe('parseFiglet: invalid heights (v1.2.5)', () => {
+  it('throws TypeError on zero height', () => {
+    // FLF with height = 0
+    const badHeight = `flf2a$ 0 2 4 0 0
+`;
+    expect(() => parseFiglet(badHeight)).toThrow(TypeError);
+    expect(() => parseFiglet(badHeight)).toThrow(/invalid height/);
+  });
+
+  it('throws TypeError on negative height', () => {
+    // FLF with negative height
+    const negHeight = `flf2a$ -3 2 4 0 0
+`;
+    expect(() => parseFiglet(negHeight)).toThrow(TypeError);
+    expect(() => parseFiglet(negHeight)).toThrow(/invalid height/);
+  });
+});

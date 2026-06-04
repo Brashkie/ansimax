@@ -13,7 +13,9 @@
 // ─────────────────────────────────────────────
 
 import { termSize, center, visibleLen, truncateAnsi, padEnd } from '../utils/helpers.js';
-import { ColorFn } from '../colors/index.js';
+import { ColorFn, isNoColor } from '../colors/index.js';
+import { fgRgb, reset } from '../utils/ansi.js';
+import type { Pixel, PixelGrid } from '../images/index.js';
 
 /** A glyph is an array of equal-length strings (one per row). */
 export type Glyph = string[];
@@ -737,6 +739,504 @@ const stream = async function* (
 };
 
 // ─────────────────────────────────────────────
+//  v1.2.5 — Phase 3 closure: image-to-ASCII engine
+// ─────────────────────────────────────────────
+
+/**
+ * Character ramps for luminance → glyph mapping.
+ * Each ramp is ordered dark → light.
+ *
+ * - `standard` — balanced 10-char ramp, works for most images
+ * - `detailed` — 70-char ramp from Paul Bourke, max detail at small sizes
+ * - `blocks` — Unicode block fills, looks like a real photo at distance
+ * - `simple` — 4-char minimal ramp
+ */
+export const ASCII_RAMPS = {
+  standard: ' .:-=+*#%@',
+  detailed: " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+  blocks:   ' ░▒▓█',
+  simple:   ' .+#',
+} as const;
+
+export type AsciiRamp = keyof typeof ASCII_RAMPS | string;
+
+const _resolveRamp = (r: AsciiRamp | undefined): string => {
+  if (typeof r === 'string' && r.length > 0) {
+    if (r in ASCII_RAMPS) return ASCII_RAMPS[r as keyof typeof ASCII_RAMPS];
+    return r; // custom ramp string
+  }
+  return ASCII_RAMPS.standard;
+};
+
+/** Compute perceived luminance (BT.709) — returns [0, 255]. */
+const _luminance = (p: Pixel): number => {
+  if (!p) return 0;
+  // Standard ITU-R BT.709 coefficients
+  return 0.2126 * p.r + 0.7152 * p.g + 0.0722 * p.b;
+};
+
+/**
+ * Sobel edge detection — returns a same-sized grid of edge magnitudes [0, 255].
+ * Used internally for `edgeDetect: 'sobel'` mode.
+ */
+const _sobelEdges = (pixels: PixelGrid): number[][] => {
+  const h = pixels.length;
+  const w = h > 0 ? (pixels[0] as Pixel[]).length : 0;
+  const out: number[][] = Array.from({ length: h }, () => new Array<number>(w).fill(0));
+
+  // Gx and Gy kernels
+  // Gx: [-1 0 1; -2 0 2; -1 0 1]
+  // Gy: [-1 -2 -1; 0 0 0; 1 2 1]
+  for (let y = 1; y < h - 1; y++) {
+    const rowPrev = pixels[y - 1] as Pixel[];
+    const row     = pixels[y]     as Pixel[];
+    const rowNext = pixels[y + 1] as Pixel[];
+    const outRow  = out[y]        as number[];
+    for (let x = 1; x < w - 1; x++) {
+      const tl = _luminance(rowPrev[x - 1] as Pixel);
+      const t  = _luminance(rowPrev[x]     as Pixel);
+      const tr = _luminance(rowPrev[x + 1] as Pixel);
+      const l  = _luminance(row[x - 1]     as Pixel);
+      const r  = _luminance(row[x + 1]     as Pixel);
+      const bl = _luminance(rowNext[x - 1] as Pixel);
+      const b  = _luminance(rowNext[x]     as Pixel);
+      const br = _luminance(rowNext[x + 1] as Pixel);
+
+      const gx = -tl + tr - 2 * l + 2 * r - bl + br;
+      const gy = -tl - 2 * t - tr + bl + 2 * b + br;
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      outRow[x] = Math.min(255, mag);
+    }
+  }
+  return out;
+};
+
+/**
+ * Floyd-Steinberg error diffusion applied to a luminance grid.
+ * Mutates a copy of the input and returns it. Produces a quantized
+ * grid suitable for ramp-based ASCII rendering.
+ */
+const _floydSteinberg = (lum: number[][], levels: number): number[][] => {
+  const h = lum.length;
+  /* istanbul ignore if — defensive: callers (fromImage) validate non-empty grids upstream */
+  if (h === 0) return lum;
+  const w = (lum[0] as number[]).length;
+  /* istanbul ignore if — defensive: callers validate non-empty rows upstream */
+  if (w === 0) return lum;
+
+  // Work on a copy so we don't mutate the caller's data
+  const out = lum.map((row) => [...row]);
+  const step = 255 / Math.max(1, levels - 1);
+
+  for (let y = 0; y < h; y++) {
+    const row = out[y] as number[];
+    for (let x = 0; x < w; x++) {
+      const oldPixel = row[x] as number;
+      const quantLevel = Math.round(oldPixel / step);
+      const newPixel = quantLevel * step;
+      row[x] = newPixel;
+      const err = oldPixel - newPixel;
+
+      // Distribute the error to neighbors (right, bottom-left, bottom, bottom-right)
+      if (x + 1 < w) {
+        row[x + 1] = (row[x + 1] as number) + err * 7 / 16;
+      }
+      if (y + 1 < h) {
+        const next = out[y + 1] as number[];
+        if (x > 0)     next[x - 1] = (next[x - 1] as number) + err * 3 / 16;
+                       next[x]     = (next[x]     as number) + err * 5 / 16;
+        if (x + 1 < w) next[x + 1] = (next[x + 1] as number) + err * 1 / 16;
+      }
+    }
+  }
+  return out;
+};
+
+/**
+ * Resize a PixelGrid using nearest-neighbor sampling. Fast and good enough
+ * for ASCII output where loss of detail is expected.
+ */
+const _resizePixels = (
+  pixels: PixelGrid,
+  targetW: number,
+  targetH: number,
+): PixelGrid => {
+  const srcH = pixels.length;
+  /* istanbul ignore if — defensive: callers validate non-empty grids upstream */
+  if (srcH === 0) return [];
+  const srcW = (pixels[0] as Pixel[]).length;
+  /* istanbul ignore if — defensive: callers validate non-empty rows upstream */
+  if (srcW === 0) return [];
+
+  const out: PixelGrid = [];
+  for (let y = 0; y < targetH; y++) {
+    const sy = Math.min(srcH - 1, Math.floor((y / targetH) * srcH));
+    const srcRow = pixels[sy] as Pixel[];
+    const newRow: Pixel[] = new Array(targetW);
+    for (let x = 0; x < targetW; x++) {
+      const sx = Math.min(srcW - 1, Math.floor((x / targetW) * srcW));
+      newRow[x] = srcRow[sx] as Pixel;
+    }
+    out.push(newRow);
+  }
+  return out;
+};
+
+/**
+ * Compute a luminance grid (one number per pixel, [0, 255]).
+ * Null pixels become 0.
+ */
+const _toLuminanceGrid = (pixels: PixelGrid): number[][] => {
+  return pixels.map((row) => row.map((p) => _luminance(p)));
+};
+
+/**
+ * Apply a small histogram stretch for portraits to enhance contrast in
+ * the midtones (where faces live). Returns a new luminance grid.
+ *
+ * Strategy: stretch [10%, 90%] percentiles to [0, 255]. Simple but
+ * effective for portraits with limited dynamic range.
+ */
+const _enhanceForFace = (lum: number[][]): number[][] => {
+  const flat: number[] = [];
+  for (const row of lum) for (const v of row) flat.push(v);
+  /* istanbul ignore if — defensive: callers validate non-empty grids upstream */
+  if (flat.length === 0) return lum;
+  flat.sort((a, b) => a - b);
+  const lo = flat[Math.floor(flat.length * 0.10)] as number;
+  const hi = flat[Math.floor(flat.length * 0.90)] as number;
+  const range = Math.max(1, hi - lo);
+  return lum.map((row) =>
+    row.map((v) => {
+      const stretched = ((v - lo) / range) * 255;
+      return Math.max(0, Math.min(255, stretched));
+    }),
+  );
+};
+
+/**
+ * Convert a pixel grid into colored or monochrome ASCII art.
+ *
+ * @example basic monochrome conversion
+ * ```ts
+ * import sharp from 'sharp';
+ *
+ * const { data, info } = await sharp('photo.png')
+ *   .raw().toBuffer({ resolveWithObject: true });
+ * const pixels: PixelGrid = bufferToPixelGrid(data, info.width, info.height);
+ *
+ * console.log(ascii.fromImage(pixels, { width: 80 }));
+ * ```
+ *
+ * @example with color + dither
+ * ```ts
+ * console.log(ascii.fromImage(pixels, {
+ *   width: 100,
+ *   color: true,
+ *   dither: 'floyd-steinberg',
+ *   ramp: 'detailed',
+ * }));
+ * ```
+ *
+ * @example with edge detection
+ * ```ts
+ * console.log(ascii.fromImage(pixels, {
+ *   width: 80,
+ *   edgeDetect: 'sobel',
+ *   ramp: 'blocks',
+ * }));
+ * ```
+ */
+export interface FromImageOptions {
+  /** Output character width. Default `80`. Aspect ratio is preserved. */
+  width?: number;
+  /**
+   * Output character height. If omitted, computed from `width` and source
+   * aspect ratio (with a 0.5 vertical correction for typical terminal cells
+   * which are ~2x as tall as wide).
+   */
+  height?: number;
+  /** Character ramp (dark → light). Default `'standard'`. */
+  ramp?: AsciiRamp;
+  /** Invert luminance (dark areas become bright chars). */
+  invert?: boolean;
+  /**
+   * Apply dithering for better tonal range.
+   * - `'none'` (default) — direct mapping
+   * - `'floyd-steinberg'` — error diffusion, better for photos
+   */
+  dither?: 'none' | 'floyd-steinberg';
+  /**
+   * Edge detection mode. Renders edges as the brightest chars.
+   * - `'none'` (default)
+   * - `'sobel'` — classical 3x3 Sobel operator
+   */
+  edgeDetect?: 'none' | 'sobel';
+  /** Sobel threshold (only when `edgeDetect: 'sobel'`). Default `40`. */
+  edgeThreshold?: number;
+  /**
+   * Render in color. When `true`, each char is colored with the average
+   * color of its source pixel. Default `false` (monochrome).
+   */
+  color?: boolean;
+  /**
+   * Use face-optimized rendering. Applies histogram stretching to enhance
+   * midtone detail (where faces typically live). Best for portrait input.
+   */
+  faceMode?: boolean;
+}
+
+export const fromImage = (
+  pixels: PixelGrid,
+  opts: FromImageOptions = {},
+): string => {
+  // Validation
+  if (!Array.isArray(pixels) || pixels.length === 0) return '';
+  const firstRow = pixels[0];
+  if (!Array.isArray(firstRow) || firstRow.length === 0) return '';
+
+  const {
+    width = 80,
+    ramp = 'standard',
+    invert = false,
+    dither = 'none',
+    edgeDetect = 'none',
+    edgeThreshold = 40,
+    color = false,
+    faceMode = false,
+  } = opts;
+
+  const srcH = pixels.length;
+  const srcW = (pixels[0] as Pixel[]).length;
+  const safeW = Math.max(1, Math.floor(width));
+  // Terminal cells are ~2x tall as wide; halve the height to keep aspect ratio
+  const computedH = Math.max(1, Math.round((srcH / srcW) * safeW * 0.5));
+  const safeH = opts.height != null ? Math.max(1, Math.floor(opts.height)) : computedH;
+
+  // 1. Resize to target dimensions
+  const resized = _resizePixels(pixels, safeW, safeH);
+
+  // 2. Compute luminance grid
+  let lum = _toLuminanceGrid(resized);
+
+  // 3. Face-mode contrast enhancement (before quantization)
+  if (faceMode) lum = _enhanceForFace(lum);
+
+  // 4. Edge detection (overrides luminance if enabled)
+  let edgeGrid: number[][] | null = null;
+  if (edgeDetect === 'sobel') {
+    edgeGrid = _sobelEdges(resized);
+  }
+
+  // 5. Ramp resolution
+  const rampStr = _resolveRamp(ramp);
+  const rampLen = rampStr.length;
+
+  // 6. Optional dithering (only when not in edge mode — they don't combine well)
+  if (dither === 'floyd-steinberg' && !edgeGrid) {
+    lum = _floydSteinberg(lum, rampLen);
+  }
+
+  // 7. Render output
+  const useColor = color && !isNoColor();
+  const lines: string[] = [];
+  for (let y = 0; y < safeH; y++) {
+    const lumRow  = lum[y]      as number[];
+    const pxRow   = resized[y]  as Pixel[];
+    const edgeRow = edgeGrid ? (edgeGrid[y] as number[]) : null;
+    let line = '';
+    for (let x = 0; x < safeW; x++) {
+      let charIdx: number;
+      if (edgeRow) {
+        // Edge mode: high edge → bright char, low edge → dark char
+        const edge = edgeRow[x] as number;
+        const t = edge >= edgeThreshold ? Math.min(1, edge / 255) : 0;
+        // Math.round for fairer distribution at range extremes (vs floor)
+        charIdx = invert
+          ? Math.round((1 - t) * (rampLen - 1))
+          : Math.round(t * (rampLen - 1));
+      } else {
+        const l = (lumRow[x] as number) / 255;
+        const tNorm = invert ? 1 - l : l;
+        // Math.round + clamp: ensures bright pixels reach the brightest char
+        charIdx = Math.min(rampLen - 1, Math.max(0, Math.round(tNorm * (rampLen - 1))));
+      }
+      const ch = rampStr[charIdx] as string;
+
+      if (useColor) {
+        const p = pxRow[x];
+        if (p) {
+          line += fgRgb(p.r, p.g, p.b) + ch;
+        } else {
+          line += ch;
+        }
+      } else {
+        line += ch;
+      }
+    }
+    if (useColor) line += reset();
+    lines.push(line);
+  }
+
+  return lines.join('\n');
+};
+
+// ─────────────────────────────────────────────
+//  v1.2.5 — Phase 3 closure: figlet .flf parser
+// ─────────────────────────────────────────────
+
+/** A parsed FIGfont — opaque to the user; pass to `ascii.figlet()`. */
+export interface FigletFont {
+  /** Font hardblank character (used as a space inside glyphs). */
+  hardblank: string;
+  /** Glyph height in rows. */
+  height: number;
+  /** Map from ASCII codepoint → glyph rows. */
+  glyphs: Map<number, string[]>;
+}
+
+/**
+ * Parse a FIGfont (.flf) file content into a `FigletFont` object.
+ * Use the returned font with `ascii.figlet(text, font)`.
+ *
+ * Supports standard FIGfont format (the most common one). Tagged fonts
+ * and complex Unicode glyphs may not parse — use vanilla .flf files
+ * from http://www.figlet.org/fontdb.cgi
+ *
+ * @example
+ * ```ts
+ * import { readFileSync } from 'node:fs';
+ * import { parseFiglet, ascii } from 'ansimax';
+ *
+ * const fontStr = readFileSync('./standard.flf', 'utf8');
+ * const font = parseFiglet(fontStr);
+ *
+ * console.log(ascii.figlet('Hello!', font));
+ * ```
+ */
+export const parseFiglet = (flfContent: string): FigletFont => {
+  if (typeof flfContent !== 'string' || flfContent.length === 0) {
+    throw new TypeError('parseFiglet: input must be a non-empty string');
+  }
+
+  const lines = flfContent.split(/\r?\n/);
+  /* istanbul ignore if — unreachable: String.prototype.split always returns at least one element, and empty-string check is earlier */
+  if (lines.length === 0) {
+    throw new TypeError('parseFiglet: empty content');
+  }
+
+  // Header: "flf2a$ <height> <baseline> <maxLength> <oldLayout> <commentLines> ..."
+  const header = lines[0] as string;
+  const m = /^flf2.\s*(\S)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(\d+)/.exec(header);
+  if (!m) {
+    throw new TypeError('parseFiglet: invalid FIGfont header (expected "flf2a$..." line)');
+  }
+  const hardblank   = m[1] as string;
+  const height      = parseInt(m[2] as string, 10);
+  const commentLines = parseInt(m[6] as string, 10);
+
+  if (!Number.isFinite(height) || height <= 0) {
+    throw new TypeError(`parseFiglet: invalid height ${m[2]}`);
+  }
+
+  // Skip header + comment lines
+  let cursor = 1 + Math.max(0, commentLines);
+  const glyphs = new Map<number, string[]>();
+
+  // Glyphs for ASCII 32..126 come first, in order
+  for (let code = 32; code <= 126; code++) {
+    if (cursor + height > lines.length) break;
+    const rows: string[] = [];
+    for (let r = 0; r < height; r++) {
+      const raw = lines[cursor + r] as string;
+      // Strip trailing endmark chars (usually @ or @@). FIGfont endmark is
+      // the last char of the line, but may be doubled on the last row.
+      const endmark = raw.charAt(raw.length - 1);
+      let stripped = raw;
+      // Remove any number of trailing endmark chars
+      while (stripped.length > 0 && stripped.charAt(stripped.length - 1) === endmark) {
+        stripped = stripped.slice(0, -1);
+      }
+      rows.push(stripped);
+    }
+    glyphs.set(code, rows);
+    cursor += height;
+  }
+
+  return { hardblank, height, glyphs };
+};
+
+/**
+ * Render text using a parsed FIGfont (.flf).
+ * Unknown characters render as a space-equivalent.
+ *
+ * @example
+ * ```ts
+ * import { readFileSync } from 'node:fs';
+ * import { parseFiglet, ascii } from 'ansimax';
+ *
+ * const font = parseFiglet(readFileSync('./big.flf', 'utf8'));
+ * console.log(ascii.figlet('NICE', font));
+ * ```
+ */
+export interface FigletOptions {
+  /** Trim leading/trailing spaces per row. Default `true`. */
+  trim?: boolean;
+  /** Color function applied to the assembled output. */
+  colorFn?: ColorFn | null;
+}
+
+export const figletText = (
+  text: string,
+  font: FigletFont,
+  opts: FigletOptions = {},
+): string => {
+  if (typeof text !== 'string') return '';
+  if (!font || !font.glyphs || font.height <= 0) return '';
+  const { trim = true, colorFn = null } = opts;
+
+  // For each character, look up its glyph (or space-equivalent)
+  const glyphsForText: string[][] = [];
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 32;
+    const glyph = font.glyphs.get(code);
+    if (glyph) {
+      glyphsForText.push(glyph);
+    } else {
+      // Unknown char → use space (32) or empty rows
+      const fallback = font.glyphs.get(32);
+      glyphsForText.push(fallback ?? new Array(font.height).fill(''));
+    }
+  }
+
+  // Assemble row by row, replacing hardblank with real spaces
+  const hardblankRe = new RegExp(_escapeRe(font.hardblank), 'g');
+  const rows: string[] = [];
+  for (let r = 0; r < font.height; r++) {
+    let row = '';
+    for (const g of glyphsForText) {
+      row += (g[r] as string ?? '');
+    }
+    row = row.replace(hardblankRe, ' ');
+    rows.push(row);
+  }
+
+  // Optional trim
+  let result = rows.join('\n');
+  if (trim) {
+    // Remove blank rows at top and bottom
+    const trimmed = rows.filter((row) => row.trim().length > 0);
+    result = trimmed.length > 0 ? trimmed.join('\n') : rows.join('\n');
+  }
+
+  // Optional colorize
+  if (colorFn) result = colorFn(result);
+  return result;
+};
+
+const _escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// ─────────────────────────────────────────────
 //  Public API
 // ─────────────────────────────────────────────
 
@@ -750,6 +1250,10 @@ export const ascii = {
   logo,
   stream,
   measure,
+  // v1.2.5 — Phase 3 closure
+  fromImage,
+  figletText,
+  parseFiglet,
   // Pipeline stages — exposed for custom compositions
   stageRender,
   stageAlign,
