@@ -118,14 +118,14 @@ async function main() {
   console.log(components.section('🏷️  Badges & Status', { width: 60 }));
   console.log();
   console.log(' ',
-    components.badge('VERSION', 'v1.2.5'),
+    components.badge('VERSION', 'v1.2.6'),
     components.badge('BUILD', 'passing'),
     components.badge('LICENSE', 'Apache 2.0'));
   console.log();
-  console.log(components.status('Build started', { type: 'info' }));
-  console.log(components.status('Tests passed', { type: 'success' }));
-  console.log(components.status('1 deprecation', { type: 'warning' }));
-  console.log(components.status('Build failed', { type: 'error' }));
+  console.log(components.status('info',    'Build started'));
+  console.log(components.status('success', 'Tests passed'));
+  console.log(components.status('warn',    '1 deprecation'));
+  console.log(components.status('error',   'Build failed'));
   console.log();
 
   // ── 9. Loaders ────────────────────────────────────────────

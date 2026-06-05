@@ -14,7 +14,7 @@
 
 import { termSize, center, visibleLen, truncateAnsi, padEnd } from '../utils/helpers.js';
 import { ColorFn, isNoColor } from '../colors/index.js';
-import { fgRgb, reset } from '../utils/ansi.js';
+import { fgRgb, bgRgb, reset } from '../utils/ansi.js';
 import type { Pixel, PixelGrid } from '../images/index.js';
 
 /** A glyph is an array of equal-length strings (one per row). */
@@ -746,16 +746,39 @@ const stream = async function* (
  * Character ramps for luminance → glyph mapping.
  * Each ramp is ordered dark → light.
  *
- * - `standard` — balanced 10-char ramp, works for most images
+ * - `standard` — balanced 10-char ramp, works for most images (default)
  * - `detailed` — 70-char ramp from Paul Bourke, max detail at small sizes
  * - `blocks` — Unicode block fills, looks like a real photo at distance
  * - `simple` — 4-char minimal ramp
+ * - `binary` — pure 2-char ramp: space + filled block
+ * - `dots` — Unicode braille dots (sparse aesthetic)
+ * - `shades` — Unicode shading gradient with high tonal range
+ * - `ascii64` — printable ASCII subset, 64 chars, good for non-Unicode terminals
+ *
+ * @example
+ * ```js
+ * import { ascii, ASCII_RAMPS } from 'ansimax';
+ *
+ * console.log(ASCII_RAMPS.blocks);   // ' ░▒▓█'
+ * console.log(ASCII_RAMPS.shades);   // ' ⠁⠃⠇⠧⠷⡷⣷⣿█'
+ *
+ * // Use directly by name
+ * ascii.fromImage(pixels, { ramp: 'shades' });
+ *
+ * // Or pass a custom ramp string
+ * ascii.fromImage(pixels, { ramp: ' .oO@' });
+ * ```
  */
 export const ASCII_RAMPS = {
   standard: ' .:-=+*#%@',
   detailed: " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
   blocks:   ' ░▒▓█',
   simple:   ' .+#',
+  // v1.2.6 — new ramps
+  binary:   ' █',
+  dots:     ' ⠁⠃⠇⠧⠷⡷⣷⣿',
+  shades:   ' ⠁⠃⠇⠧⠷⡷⣷⣿█',
+  ascii64:  ' `.\'^,_:-+=<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@',
 } as const;
 
 export type AsciiRamp = keyof typeof ASCII_RAMPS | string;
@@ -915,6 +938,37 @@ const _enhanceForFace = (lum: number[][]): number[][] => {
 };
 
 /**
+ * Apply brightness and contrast adjustments to a luminance grid.
+ *
+ * - `brightness` is added to each value (scaled to 0-255 range)
+ * - `contrast` stretches values around the midpoint (128)
+ *
+ * Both parameters are in `[-1, 1]`. Returns a new grid; never mutates input.
+ *
+ * @since 1.2.6
+ */
+const _adjustBrightnessContrast = (
+  lum: number[][],
+  brightness: number,
+  contrast: number,
+): number[][] => {
+  // Clamp inputs to [-1, 1]
+  const safeBrightness = Math.max(-1, Math.min(1, brightness)) * 255;
+  const safeContrast = Math.max(-1, Math.min(1, contrast));
+  // Standard contrast formula: out = (in - 128) * factor + 128
+  // where factor = (1 + contrast) for contrast in [-1, 1]
+  const contrastFactor = 1 + safeContrast;
+
+  return lum.map((row) =>
+    row.map((v) => {
+      // Apply contrast (around 128 midpoint), then brightness
+      const adjusted = (v - 128) * contrastFactor + 128 + safeBrightness;
+      return Math.max(0, Math.min(255, adjusted));
+    }),
+  );
+};
+
+/**
  * Convert a pixel grid into colored or monochrome ASCII art.
  *
  * @example basic monochrome conversion
@@ -984,6 +1038,32 @@ export interface FromImageOptions {
    * midtone detail (where faces typically live). Best for portrait input.
    */
   faceMode?: boolean;
+  /**
+   * Render the source pixel's color as the **background** instead of the
+   * foreground. Useful when paired with `ramp: 'binary'` for a photo-like
+   * effect where chars become "pixels". Default `false`.
+   *
+   * Implies `color: true` — does not need to be set separately.
+   *
+   * @since 1.2.6
+   */
+  bgColor?: boolean;
+  /**
+   * Brightness adjustment applied to luminance before quantization.
+   * Range `[-1, 1]`. `0` = no change, `0.2` = lighter, `-0.2` = darker.
+   * Default `0`.
+   *
+   * @since 1.2.6
+   */
+  brightness?: number;
+  /**
+   * Contrast adjustment applied to luminance before quantization.
+   * Range `[-1, 1]`. `0` = no change, `0.5` = boosted, `-0.5` = flattened.
+   * Default `0`.
+   *
+   * @since 1.2.6
+   */
+  contrast?: number;
 }
 
 export const fromImage = (
@@ -1004,6 +1084,10 @@ export const fromImage = (
     edgeThreshold = 40,
     color = false,
     faceMode = false,
+    // v1.2.6
+    bgColor = false,
+    brightness = 0,
+    contrast = 0,
   } = opts;
 
   const srcH = pixels.length;
@@ -1019,10 +1103,15 @@ export const fromImage = (
   // 2. Compute luminance grid
   let lum = _toLuminanceGrid(resized);
 
-  // 3. Face-mode contrast enhancement (before quantization)
+  // 3. Brightness / contrast pre-adjustment (v1.2.6)
+  if (brightness !== 0 || contrast !== 0) {
+    lum = _adjustBrightnessContrast(lum, brightness, contrast);
+  }
+
+  // 4. Face-mode contrast enhancement (before quantization)
   if (faceMode) lum = _enhanceForFace(lum);
 
-  // 4. Edge detection (overrides luminance if enabled)
+  // 5. Edge detection (overrides luminance if enabled)
   let edgeGrid: number[][] | null = null;
   if (edgeDetect === 'sobel') {
     edgeGrid = _sobelEdges(resized);
@@ -1038,7 +1127,7 @@ export const fromImage = (
   }
 
   // 7. Render output
-  const useColor = color && !isNoColor();
+  const useColor = (color || bgColor) && !isNoColor();
   const lines: string[] = [];
   for (let y = 0; y < safeH; y++) {
     const lumRow  = lum[y]      as number[];
@@ -1066,7 +1155,12 @@ export const fromImage = (
       if (useColor) {
         const p = pxRow[x];
         if (p) {
-          line += fgRgb(p.r, p.g, p.b) + ch;
+          // v1.2.6: bgColor option puts color on background instead of foreground
+          if (bgColor) {
+            line += bgRgb(p.r, p.g, p.b) + ch;
+          } else {
+            line += fgRgb(p.r, p.g, p.b) + ch;
+          }
         } else {
           line += ch;
         }
@@ -1180,10 +1274,24 @@ export const parseFiglet = (flfContent: string): FigletFont => {
  * ```
  */
 export interface FigletOptions {
-  /** Trim leading/trailing spaces per row. Default `true`. */
+  /** Trim leading/trailing blank rows. Default `true`. */
   trim?: boolean;
   /** Color function applied to the assembled output. */
   colorFn?: ColorFn | null;
+  /**
+   * Extra spacing (in characters) inserted between each glyph.
+   * `0` = touching glyphs, `1` = one-space gap, etc. Default `0`.
+   *
+   * @since 1.2.6
+   */
+  kerning?: number;
+  /**
+   * Vertical spacing (blank lines) between rendered lines when `text`
+   * contains `\n`. Default `0`.
+   *
+   * @since 1.2.6
+   */
+  lineSpacing?: number;
 }
 
 export const figletText = (
@@ -1193,8 +1301,45 @@ export const figletText = (
 ): string => {
   if (typeof text !== 'string') return '';
   if (!font || !font.glyphs || font.height <= 0) return '';
-  const { trim = true, colorFn = null } = opts;
+  const {
+    trim = true,
+    colorFn = null,
+    // v1.2.6
+    kerning = 0,
+    lineSpacing = 0,
+  } = opts;
 
+  const safeKerning = Math.max(0, Math.floor(kerning));
+  const safeLineSpacing = Math.max(0, Math.floor(lineSpacing));
+
+  // v1.2.6: Split input on newlines and render each line, then join vertically.
+  // Single-line text takes the fast path (no split overhead).
+  if (text.includes('\n')) {
+    const linesOfText = text.split('\n');
+    const renderedBlocks = linesOfText.map((line) =>
+      _renderFigletLine(line, font, safeKerning, trim),
+    );
+    const spacer = safeLineSpacing > 0 ? '\n'.repeat(safeLineSpacing + 1) : '\n';
+    let multiResult = renderedBlocks.join(spacer);
+    if (colorFn) multiResult = colorFn(multiResult);
+    return multiResult;
+  }
+
+  // Single-line fast path
+  let result = _renderFigletLine(text, font, safeKerning, trim);
+  if (colorFn) result = colorFn(result);
+  return result;
+};
+
+/**
+ * Render a single line of text (no `\n`) with a FIGfont. Internal helper.
+ */
+const _renderFigletLine = (
+  text: string,
+  font: FigletFont,
+  kerning: number,
+  trim: boolean,
+): string => {
   // For each character, look up its glyph (or space-equivalent)
   const glyphsForText: string[][] = [];
   for (const ch of text) {
@@ -1205,33 +1350,37 @@ export const figletText = (
     } else {
       // Unknown char → use space (32) or empty rows
       const fallback = font.glyphs.get(32);
-      glyphsForText.push(fallback ?? new Array(font.height).fill(''));
+      glyphsForText.push(fallback ?? new Array<string>(font.height).fill(''));
     }
   }
+
+  // Kerning spacer: a column of pure spaces, repeated `kerning` times
+  // and as tall as the font.
+  const kerningSpacer = kerning > 0 ? ' '.repeat(kerning) : '';
 
   // Assemble row by row, replacing hardblank with real spaces
   const hardblankRe = new RegExp(_escapeRe(font.hardblank), 'g');
   const rows: string[] = [];
   for (let r = 0; r < font.height; r++) {
     let row = '';
-    for (const g of glyphsForText) {
+    for (let i = 0; i < glyphsForText.length; i++) {
+      const g = glyphsForText[i] as string[];
       row += (g[r] as string ?? '');
+      // Add kerning spacer between glyphs (but not after the last one)
+      if (i < glyphsForText.length - 1 && kerningSpacer) {
+        row += kerningSpacer;
+      }
     }
     row = row.replace(hardblankRe, ' ');
     rows.push(row);
   }
 
-  // Optional trim
-  let result = rows.join('\n');
+  // Optional trim of blank rows
   if (trim) {
-    // Remove blank rows at top and bottom
     const trimmed = rows.filter((row) => row.trim().length > 0);
-    result = trimmed.length > 0 ? trimmed.join('\n') : rows.join('\n');
+    return trimmed.length > 0 ? trimmed.join('\n') : rows.join('\n');
   }
-
-  // Optional colorize
-  if (colorFn) result = colorFn(result);
-  return result;
+  return rows.join('\n');
 };
 
 const _escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

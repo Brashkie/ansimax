@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -49,7 +49,7 @@ Ansimax es una **librería de renderizado todo-en-uno** para construir interface
 npm install ansimax
 ```
 
-```ts
+```js
 import { color, gradient, ascii, loader, sleep } from 'ansimax';
 
 console.log(ascii.banner('hola', {
@@ -122,7 +122,7 @@ yarn add ansimax
 
 ## ⚡ Ejemplo en 30 segundos
 
-```ts
+```js
 import { color, gradient, loader, ascii, sleep } from 'ansimax';
 
 console.log(ascii.banner('deploy', {
@@ -140,7 +140,7 @@ console.log(color.green('✓') + ' Listo en ' + color.bold('1.4s'));
 
 ## 🚀 Inicio rápido
 
-```ts
+```js
 import { configure, color, themes, gradient } from 'ansimax';
 
 // Configuración global
@@ -186,7 +186,7 @@ console.log(themes.primary('primary de cyberpunk'));
 
 <img src="media/colors.png" alt="Colores y gradientes" />
 
-```ts
+```js
 import { color, gradient, rainbow } from 'ansimax';
 
 // Colores básicos
@@ -204,7 +204,7 @@ console.log(rainbow('preset rainbow integrado'));
 
 ### Gradientes animados (v1.2.0)
 
-```ts
+```js
 import { animateGradient, sleep } from 'ansimax';
 
 // Animación de flujo de color — corre hasta llamar stop()
@@ -227,7 +227,7 @@ await animateGradient('¡Listo!', ['#50fa7b', '#bd93f9'], {
 
 <img src="media/easing_curves.png" alt="Colors and gradients" />
 
-```ts
+```js
 import { gradient } from 'ansimax';
 
 const stops = ['#ff79c6', '#bd93f9', '#8be9fd'];
@@ -247,7 +247,7 @@ console.log(gradient('hola mundo', stops, { easing: (t) => t * t * t }));
 
 <img src="media/conic_gradients.png" alt="Colors and gradients" />
 
-```ts
+```js
 import { gradientRect } from 'ansimax';
 
 // Barrido radial alrededor del centro — rueda arcoíris
@@ -262,7 +262,7 @@ console.log(gradientRect({
 
 ### Gradientes reusables (v1.2.3)
 
-```ts
+```js
 import { createGradient, reverseGradient, ascii } from 'ansimax';
 
 // Pre-resuelve los stops de hex una vez — significativamente más rápido para uso repetido
@@ -294,7 +294,7 @@ for (let p = 0; p < 1; p += 0.05) {
 
 <img src="media/ascii_art.png" alt="ASCII art" />
 
-```ts
+```js
 import { ascii, gradient } from 'ansimax';
 
 console.log(ascii.banner('HOLA', {
@@ -308,13 +308,28 @@ console.log(ascii.box('¡Caja arcoiris!', { padding: 1, borderStyle: 'rounded' }
 
 ### Imagen → ASCII (v1.2.5)
 
-```ts
+```js
 import { ascii } from 'ansimax';
-import type { PixelGrid } from 'ansimax';
+import sharp from 'sharp';
 
-// Obtén un PixelGrid de cualquier librería de imágenes (sharp, jimp, pngjs, etc.)
-// Cada Pixel es `{ r, g, b }` o null
-const pixels: PixelGrid = await loadImagePixels('./foto.png');
+// Obtén píxeles RGB raw de cualquier librería de imágenes — ejemplo con `sharp`.
+// Puedes usar jimp, pngjs, canvas, o cualquier decoder. Ansimax sigue sin deps.
+const { data, info } = await sharp('./foto.png')
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+// Convierte el buffer RGB raw → PixelGrid (un array 2D de objetos { r, g, b })
+const pixels = [];
+for (let y = 0; y < info.height; y++) {
+  const row = [];
+  for (let x = 0; x < info.width; x++) {
+    const i = (y * info.width + x) * info.channels;
+    row.push({ r: data[i], g: data[i + 1], b: data[i + 2] });
+  }
+  pixels.push(row);
+}
+
+// Ahora usa ansimax — varias formas:
 
 // Monocromo
 console.log(ascii.fromImage(pixels, { width: 80 }));
@@ -336,7 +351,7 @@ console.log(ascii.fromImage(pixels, {
 }));
 
 // Modo rostro para retratos (mejora contraste de tonos medios)
-console.log(ascii.fromImage(retratoPixels, {
+console.log(ascii.fromImage(pixels, {
   width: 60,
   ramp: 'detailed',
   faceMode: true,
@@ -345,9 +360,9 @@ console.log(ascii.fromImage(retratoPixels, {
 
 ### Fuentes Figlet (v1.2.5)
 
-```ts
+```js
 import { readFileSync } from 'node:fs';
-import { parseFiglet, ascii } from 'ansimax';
+import { parseFiglet, ascii, gradient } from 'ansimax';
 
 // Descarga fuentes desde http://www.figlet.org/fontdb.cgi
 const font = parseFiglet(readFileSync('./standard.flf', 'utf8'));
@@ -364,7 +379,7 @@ console.log(ascii.figletText('STYLE', font, {
 
 <img src="media/trees.png" alt="Árboles" />
 
-```ts
+```js
 import { tree, color } from 'ansimax';
 
 const proyecto = tree({ label: 'mi-app', icon: '📦', color: color.bold });
@@ -383,7 +398,7 @@ console.log(proyecto.render({
 
 <img src="media/pixel_art.png" alt="Pixel art" />
 
-```ts
+```js
 import { images, createCanvas, gradientRect, SPRITES } from 'ansimax';
 
 // Sprite integrado
@@ -409,7 +424,7 @@ c.print();
 
 <img src="media/components.png" alt="Componentes" />
 
-```ts
+```js
 import { components, color } from 'ansimax';
 
 console.log(components.table([
@@ -419,7 +434,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.5'));
+console.log(components.badge('VERSION', 'v1.2.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -427,7 +442,7 @@ console.log(components.badge('BUILD',   'passing'));
 
 <img src="media/timeline.png" alt="Timeline" />
 
-```ts
+```js
 import { components } from 'ansimax';
 
 console.log(components.timeline([
@@ -440,7 +455,7 @@ console.log(components.timeline([
 
 ### Loaders y Progreso
 
-```ts
+```js
 import { loader, sleep } from 'ansimax';
 
 // Spinner con éxito/fallo
@@ -469,7 +484,7 @@ await loader.tasks([
 
 ### Animaciones
 
-```ts
+```js
 import { animate, gradient, sleep } from 'ansimax';
 
 await animate.typewriter('Bienvenido al wizard de deployment...', {
@@ -491,7 +506,7 @@ await animate.parallel([
 
 <img src="media/themes.png" alt="Temas" />
 
-```ts
+```js
 import { themes, createTheme } from 'ansimax';
 
 // Temas built-in
@@ -580,7 +595,7 @@ node examples/all-in-one.cjs
 
 La config global afecta cada módulo que la respeta (colores, temas, velocidad de animación, etc.):
 
-```ts
+```js
 import { configure, getConfig, withConfig, onConfigKeyChange } from 'ansimax';
 
 configure({
@@ -822,6 +837,37 @@ ansimax/
 
 ## 📝 Changelog
 
+### v1.2.6 — Mejoras del módulo ASCII
+
+Release patch con mejoras al motor ASCII:
+
+- 🎨 **4 ramps built-in nuevos** — `binary`, `dots`, `shades`, `ascii64`
+- 🖼️ **Opción `bgColor`** en `fromImage` — colores van al background (excelente con `ramp: 'binary'` para efecto foto)
+- 🔆 **`brightness` y `contrast`** pre-ajuste en `fromImage` — afina el rango tonal sin re-procesar
+- 📏 **Opción `kerning`** en `figletText` — controla el espacio entre glyphs
+- 📄 **`figletText` multi-línea** — input con `\n` renderiza múltiples bloques FIGfont con `lineSpacing` opcional
+
+```js
+import { ascii, ASCII_RAMPS } from 'ansimax';
+
+// Renderizado tipo-foto con bloques coloreados en background
+console.log(ascii.fromImage(pixels, {
+  width: 80,
+  bgColor: true,
+  ramp: 'binary',
+  brightness: 0.1,
+  contrast: 0.2,
+}));
+
+// Figlet multi-línea con espaciado
+console.log(ascii.figletText('TITULO\nSUBTITULO', font, {
+  kerning: 1,
+  lineSpacing: 1,
+}));
+```
+
+Drop-in replacement para `1.2.5`.
+
 ### v1.2.5 — Fase 3 completa: motor de imagen-a-ASCII
 
 Release minor que cierra el roadmap del motor ASCII con 5 features nuevas:
@@ -833,8 +879,16 @@ Release minor que cierra el roadmap del motor ASCII con 5 features nuevas:
 - 🔠 **Soporte Figlet (.flf)** — `parseFiglet()` + `ascii.figletText()` para 250+ fuentes de comunidad
 - ⚡ **Bonus: detección de bordes Sobel** — `edgeDetect: 'sobel'` para efectos line-art
 
-```ts
-import { ascii } from 'ansimax';
+```js
+import { readFileSync } from 'node:fs';
+import { ascii, parseFiglet } from 'ansimax';
+
+// Construye un PixelGrid pequeño a mano (usa sharp/jimp/etc para imágenes
+// reales — ver sección Imagen → ASCII arriba)
+const pixels = [
+  [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }],
+  [{ r: 0, g: 0, b: 255 }, { r: 255, g: 255, b: 0 }],
+];
 
 // Imagen a ASCII (input desde sharp/jimp/etc, sin dependencia de decoder)
 console.log(ascii.fromImage(pixels, {
@@ -859,7 +913,7 @@ Release patch añadiendo metadata de inspección y un helper `reverseGradient()`
 - 🔄 **Helper `reverseGradient()`** — invierte el orden de stops de un gradiente (funciona con arrays o `ReusableGradient`)
 - 🎯 **`presets` exportado con su nombre canónico** — junto al alias existente `colorPresets`
 
-```ts
+```js
 import { createGradient, reverseGradient } from 'ansimax';
 
 const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
@@ -880,8 +934,8 @@ Release patch añadiendo una API orientada a performance:
 - 📖 Más JSDoc con ejemplos ejecutables
 - 🎯 Coincide con la firma `ColorFn` — funciona como `colorFn` en `ascii.banner`, themes, etc.
 
-```ts
-import { createGradient } from 'ansimax';
+```js
+import { createGradient, ascii } from 'ansimax';
 
 const fire = createGradient(['#ff5555', '#ffb86c', '#f1fa8c']);
 console.log(fire('¡Colores reusados!'));
@@ -910,7 +964,7 @@ Release minor que cierra el roadmap del motor de gradientes con tres features po
 - 📐 **Curvas de interpolación** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / funciones personalizadas
 - ⭕ **Gradientes cónicos** — `gradientRect({ style: 'conic', startAngle })` para barridos radiales
 
-```ts
+```js
 import { animateGradient } from 'ansimax';
 
 const ctrl = animateGradient('Cargando...', ['#ff79c6', '#bd93f9', '#8be9fd']);

@@ -42,10 +42,10 @@ console.log();
 
 console.log(color.bold('━━━ Status ━━━'));
 console.log();
-console.log(components.status('Build started', { type: 'info' }));
-console.log(components.status('Linting passed', { type: 'success' }));
-console.log(components.status('5 deprecation warnings', { type: 'warning' }));
-console.log(components.status('Build failed', { type: 'error' }));
+console.log(components.status('info',    'Build started'));
+console.log(components.status('success', 'Linting passed'));
+console.log(components.status('warn',    '5 deprecation warnings'));
+console.log(components.status('error',   'Build failed'));
 console.log();
 
 console.log(color.bold('━━━ Section ━━━'));

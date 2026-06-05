@@ -1561,3 +1561,201 @@ describe('parseFiglet: invalid heights (v1.2.5)', () => {
     expect(() => parseFiglet(negHeight)).toThrow(/invalid height/);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.6 — New ASCII features
+// ─────────────────────────────────────────────
+describe('ASCII_RAMPS: new ramps (v1.2.6)', () => {
+  it('binary ramp has exactly 2 chars', () => {
+    expect(ASCII_RAMPS.binary.length).toBe(2);
+    expect(ASCII_RAMPS.binary.charAt(0)).toBe(' ');
+    expect(ASCII_RAMPS.binary.charAt(1)).toBe('█');
+  });
+
+  it('dots ramp uses Unicode braille chars', () => {
+    expect(ASCII_RAMPS.dots.length).toBeGreaterThan(4);
+    expect(ASCII_RAMPS.dots.charAt(0)).toBe(' ');
+  });
+
+  it('shades ramp has progressive Unicode shading', () => {
+    expect(ASCII_RAMPS.shades.length).toBeGreaterThan(5);
+    expect(ASCII_RAMPS.shades.charAt(0)).toBe(' ');
+  });
+
+  it('ascii64 ramp contains only printable ASCII', () => {
+    expect(ASCII_RAMPS.ascii64.length).toBeGreaterThanOrEqual(60);
+    // All chars should be in range 0x20-0x7E (printable ASCII)
+    for (const ch of ASCII_RAMPS.ascii64) {
+      const code = ch.charCodeAt(0);
+      expect(code).toBeGreaterThanOrEqual(0x20);
+      expect(code).toBeLessThanOrEqual(0x7E);
+    }
+  });
+
+  it('all new ramps work with fromImage', () => {
+    const grid = makeGradientGrid(20, 10);
+    for (const rampName of ['binary', 'dots', 'shades', 'ascii64'] as const) {
+      const out = fromImage(grid, { width: 20, ramp: rampName });
+      expect(out.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('fromImage: bgColor (v1.2.6)', () => {
+  it('bgColor adds background ANSI escapes', () => {
+    setNoColor(false);
+    try {
+      const red = makeSolidGrid(5, 3, 255, 0, 0);
+      const out = fromImage(red, { width: 5, bgColor: true, ramp: 'binary' });
+      expect(out).toContain('\x1b[48;'); // background color escape
+      expect(out).toContain('\x1b[0m'); // reset
+    } finally {
+      resetNoColor();
+    }
+  });
+
+  it('bgColor and color: false still produces colored output', () => {
+    setNoColor(false);
+    try {
+      const blue = makeSolidGrid(5, 3, 0, 0, 255);
+      const out = fromImage(blue, { width: 5, bgColor: true, color: false });
+      // bgColor alone should enable color rendering
+      expect(out).toContain('\x1b[');
+    } finally {
+      resetNoColor();
+    }
+  });
+
+  it('bgColor not set → no background ANSI', () => {
+    setNoColor(false);
+    try {
+      const red = makeSolidGrid(5, 3, 255, 0, 0);
+      const out = fromImage(red, { width: 5, color: true });
+      expect(out).not.toContain('\x1b[48;'); // no bg escape
+    } finally {
+      resetNoColor();
+    }
+  });
+});
+
+describe('fromImage: brightness/contrast (v1.2.6)', () => {
+  it('positive brightness produces brighter output', () => {
+    const mid = makeSolidGrid(10, 5, 128, 128, 128);
+    const normal = fromImage(mid, { width: 10, ramp: 'standard' });
+    const brighter = fromImage(mid, { width: 10, ramp: 'standard', brightness: 0.5 });
+    // brighter should use a later char in the ramp (more towards '@')
+    expect(brighter.charAt(0)).not.toBe(normal.charAt(0));
+  });
+
+  it('negative brightness produces darker output', () => {
+    const mid = makeSolidGrid(10, 5, 128, 128, 128);
+    const normal = fromImage(mid, { width: 10, ramp: 'standard' });
+    const darker = fromImage(mid, { width: 10, ramp: 'standard', brightness: -0.5 });
+    expect(darker.charAt(0)).not.toBe(normal.charAt(0));
+  });
+
+  it('positive contrast pushes extremes apart', () => {
+    // Low-contrast grid (all values near 128)
+    const grid: PixelGrid = Array.from({ length: 5 }, () =>
+      Array.from({ length: 20 }, (_, x) => {
+        const v = 110 + (x % 30);
+        return { r: v, g: v, b: v };
+      }),
+    );
+    const normal = fromImage(grid, { width: 20, ramp: 'detailed' });
+    const boosted = fromImage(grid, { width: 20, ramp: 'detailed', contrast: 0.8 });
+    expect(boosted).not.toBe(normal);
+  });
+
+  it('brightness clamps to [-1, 1]', () => {
+    const mid = makeSolidGrid(5, 3, 128, 128, 128);
+    // Extreme positive brightness — should saturate but not crash
+    expect(() => fromImage(mid, { width: 5, brightness: 5 })).not.toThrow();
+    expect(() => fromImage(mid, { width: 5, brightness: -5 })).not.toThrow();
+  });
+
+  it('zero brightness + zero contrast = identity', () => {
+    const grid = makeGradientGrid(15, 8);
+    const normal = fromImage(grid, { width: 15 });
+    const explicit = fromImage(grid, { width: 15, brightness: 0, contrast: 0 });
+    expect(explicit).toBe(normal);
+  });
+});
+
+describe('figletText: kerning (v1.2.6)', () => {
+  let testFont: FigletFont;
+  beforeAll(() => {
+    // Reuse minimal FLF from earlier
+    const MINIMAL_FLF = `flf2a$ 3 2 4 0 1
+Test FIGfont (minimal)
+   @
+   @
+   @@
+ _ @
+/_\\@
+   @@
+`;
+    testFont = parseFiglet(MINIMAL_FLF);
+  });
+
+  it('kerning 0 (default) leaves glyphs touching', () => {
+    const out0 = figletText(' ', testFont);
+    const outExplicit = figletText(' ', testFont, { kerning: 0 });
+    expect(out0).toBe(outExplicit);
+  });
+
+  it('kerning > 0 adds extra space between glyphs', () => {
+    const noKerning = figletText('  ', testFont, { kerning: 0 });
+    const withKerning = figletText('  ', testFont, { kerning: 2 });
+    // Should be longer
+    expect(withKerning.length).toBeGreaterThan(noKerning.length);
+  });
+
+  it('negative kerning is clamped to 0', () => {
+    const out = figletText('  ', testFont, { kerning: -5 });
+    const out0 = figletText('  ', testFont, { kerning: 0 });
+    expect(out).toBe(out0);
+  });
+});
+
+describe('figletText: multiline (v1.2.6)', () => {
+  let testFont: FigletFont;
+  beforeAll(() => {
+    const MINIMAL_FLF = `flf2a$ 3 2 4 0 1
+Test FIGfont (minimal)
+   @
+   @
+   @@
+ _ @
+/_\\@
+   @@
+`;
+    testFont = parseFiglet(MINIMAL_FLF);
+  });
+
+  it('text with \\n renders multiple rows of figlet output', () => {
+    const single = figletText(' ', testFont);
+    const multi = figletText(' \n ', testFont);
+    expect(multi.split('\n').length).toBeGreaterThan(single.split('\n').length);
+  });
+
+  it('lineSpacing adds blank lines between rendered text lines', () => {
+    const noSpacing = figletText(' \n ', testFont, { lineSpacing: 0 });
+    const withSpacing = figletText(' \n ', testFont, { lineSpacing: 2 });
+    expect(withSpacing.split('\n').length).toBeGreaterThan(noSpacing.split('\n').length);
+  });
+
+  it('negative lineSpacing is clamped to 0', () => {
+    const out = figletText(' \n ', testFont, { lineSpacing: -3 });
+    const out0 = figletText(' \n ', testFont, { lineSpacing: 0 });
+    expect(out).toBe(out0);
+  });
+
+  it('colorFn applies to multiline output', () => {
+    const wrapped = figletText(' \n ', testFont, {
+      colorFn: (s) => `[COLOR]${s}[/COLOR]`,
+    });
+    expect(wrapped).toContain('[COLOR]');
+    expect(wrapped).toContain('[/COLOR]');
+  });
+});

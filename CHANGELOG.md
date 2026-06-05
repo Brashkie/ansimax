@@ -3,6 +3,96 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.6] — ASCII module improvements
+
+Patch release focused on ASCII module quality and feature additions. No
+breaking changes — every 1.2.x program runs identically.
+
+### Added — 4 new built-in ramps
+
+`ASCII_RAMPS` now includes 4 additional ramps for different aesthetic styles:
+
+```js
+import { ASCII_RAMPS, ascii } from 'ansimax';
+
+ASCII_RAMPS.binary    // ' █'         — pure 2-char ramp
+ASCII_RAMPS.dots      // ' ⠁⠃⠇⠧⠷⡷⣷⣿' — Unicode braille (sparse aesthetic)
+ASCII_RAMPS.shades    // ' ⠁⠃⠇⠧⠷⡷⣷⣿█' — combined shading
+ASCII_RAMPS.ascii64   // 64-char printable ASCII — non-Unicode terminals
+
+ascii.fromImage(pixels, { ramp: 'shades' });
+ascii.fromImage(pixels, { ramp: 'binary', bgColor: true });  // photo-like effect
+```
+
+### Added — `bgColor` option in `fromImage`
+
+Render the source pixel's color as the **background** instead of the foreground.
+Pairs especially well with `ramp: 'binary'` for a photo-like effect where each
+character cell becomes a colored block:
+
+```js
+ascii.fromImage(pixels, {
+  width: 80,
+  bgColor: true,        // colors go on background
+  ramp: 'binary',       // chars are spaces/blocks
+});
+```
+
+Implies `color: true` — no need to set both.
+
+### Added — `brightness` and `contrast` in `fromImage`
+
+Pre-adjust the image's tonal range without modifying the source pixels:
+
+```js
+ascii.fromImage(pixels, {
+  width: 80,
+  brightness: 0.2,    // [-1, 1] — positive = lighter, negative = darker
+  contrast: 0.3,      // [-1, 1] — positive = boosted, negative = flattened
+});
+```
+
+Useful for tuning hard-to-read photos without re-processing the source.
+Values are clamped to `[-1, 1]`. Default `0` (no change, identical to v1.2.5).
+
+### Added — `kerning` option in `figletText`
+
+Control horizontal spacing between FIGfont glyphs:
+
+```js
+ascii.figletText('HELLO', font, {
+  kerning: 1,    // 1-space gap between each character glyph
+});
+```
+
+Default `0` (touching glyphs, matches previous behavior).
+
+### Added — Multi-line `figletText`
+
+`figletText` now handles `\n` in input — each line renders as a separate
+FIGfont block:
+
+```js
+ascii.figletText('LINE 1\nLINE 2', font, {
+  lineSpacing: 1,   // 1 blank line between rendered lines
+});
+```
+
+Single-line text takes a fast path (no behavior change for v1.2.5 callers).
+
+### Improved
+
+- Better JSDoc on `ASCII_RAMPS` with `@example` showing every ramp
+- Brightness/contrast use standard photo-editing formulas (linear stretch around midpoint)
+- All 1958 + 25 new tests pass
+
+### Notes
+
+- No new runtime dependencies — still zero
+- Drop-in replacement for `1.2.5`
+
+---
+
 ## [1.2.5] — Phase 3 closure: image-to-ASCII engine
 
 Minor release closing the **ASCII engine roadmap (Phase 3)** with five
