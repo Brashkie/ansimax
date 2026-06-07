@@ -1521,14 +1521,16 @@ describe('sleep / sleepFrame: branch coverage', () => {
 // ─────────────────────────────────────────────
 describe('ansi: more branch coverage', () => {
   it('sleep finish() is idempotent — double abort is no-op (line 580)', async () => {
-    // Trigger both timer + abort to exercise the `if (resolved) return` guard
+    // Trigger both timer + abort to exercise the `if (resolved) return` guard.
+    //
+    // Race-condition safety: we use a long sleep (200ms) and abort synchronously
+    // BEFORE awaiting, so the abort happens deterministically before the timer
+    // could ever fire. Calling abort() twice exercises the idempotent path.
     const ctrl = new AbortController();
-    const p = sleep(15, { signal: ctrl.signal });
-    // Abort while sleeping — finish() fires once
-    setTimeout(() => {
-      ctrl.abort();
-      ctrl.abort(); // second abort — handler already removed, but be defensive
-    }, 3);
+    const p = sleep(200, { signal: ctrl.signal });
+    // Abort immediately, synchronously — no setTimeout race
+    ctrl.abort();
+    ctrl.abort(); // second abort — exercises defensive guard
     await p;
     expect(ctrl.signal.aborted).toBe(true);
   });
