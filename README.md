@@ -7,10 +7,10 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Bundle](https://img.shields.io/badge/bundle-%3C100kb-brightgreen.svg?style=flat-square)](#)
 
@@ -434,7 +434,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.6'));
+console.log(components.badge('VERSION', 'v1.2.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -836,6 +836,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.7 — Bug fixes + robustness
+
+Patch release focused on edge case handling and better DX:
+
+- 🐛 **`fromImage` rejects invalid dimensions explicitly** — `width: 0`, `NaN`, `Infinity` now return `''` instead of clamping silently
+- 🐛 **`figletText('')` returns `''`** — previously returned empty rows
+- 🛡️ **Non-rectangular grids handled gracefully** — rows of different widths no longer crash `fromImage`
+- 🎯 **Error codes added throughout ASCII module** — `ANSIMAX_INVALID_FIGLET_HEADER`, `ANSIMAX_INVALID_FONT_NAME`, etc. for programmatic catch
+- 📝 **Better error messages** — `parseFiglet` now includes a snippet of the problematic input
+
+```js
+try {
+  ascii.registerFont('big', myFont);  // 'big' is reserved
+} catch (e) {
+  if (e.code === 'ANSIMAX_RESERVED_FONT_NAME') {
+    ascii.registerFont('big', myFont, { force: true });  // override
+  }
+}
+```
+
+Drop-in replacement for `1.2.6`.
 
 ### v1.2.6 — ASCII module improvements
 

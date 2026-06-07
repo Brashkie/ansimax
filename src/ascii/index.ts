@@ -381,12 +381,16 @@ export const registerFont = (
   opts: RegisterFontOptions = {},
 ): void => {
   if (typeof name !== 'string' || !name.length) {
-    throw new TypeError('ascii.registerFont: name must be a non-empty string');
+    const err = new TypeError('ascii.registerFont: name must be a non-empty string');
+    (err as Error & { code?: string }).code = 'ANSIMAX_INVALID_FONT_NAME';
+    throw err;
   }
   if (RESERVED_FONT_NAMES.has(name) && !opts.force) {
-    throw new Error(
+    const err = new Error(
       `Font name "${name}" is reserved. Pass { force: true } to override.`,
     );
+    (err as Error & { code?: string }).code = 'ANSIMAX_RESERVED_FONT_NAME';
+    throw err;
   }
   const safeMap = ensureFontMap(fontMap, name);
   validateFont(name, safeMap);
@@ -895,10 +899,17 @@ const _resizePixels = (
   for (let y = 0; y < targetH; y++) {
     const sy = Math.min(srcH - 1, Math.floor((y / targetH) * srcH));
     const srcRow = pixels[sy] as Pixel[];
+    // v1.2.7: handle non-rectangular grids — use actual row width per row
+    const actualRowW = Array.isArray(srcRow) ? srcRow.length : 0;
     const newRow: Pixel[] = new Array(targetW);
     for (let x = 0; x < targetW; x++) {
-      const sx = Math.min(srcW - 1, Math.floor((x / targetW) * srcW));
-      newRow[x] = srcRow[sx] as Pixel;
+      if (actualRowW === 0) {
+        newRow[x] = null;
+        continue;
+      }
+      const sx = Math.min(actualRowW - 1, Math.floor((x / targetW) * actualRowW));
+      // Coalesce undefined → null (so render code's null-check handles it)
+      newRow[x] = (srcRow[sx] ?? null) as Pixel;
     }
     out.push(newRow);
   }
@@ -1075,8 +1086,15 @@ export const fromImage = (
   const firstRow = pixels[0];
   if (!Array.isArray(firstRow) || firstRow.length === 0) return '';
 
+  // v1.2.7: reject invalid dimensions explicitly instead of silently
+  // coercing them to 1 (which produces unexpected single-character output)
+  const requestedW = opts.width ?? 80;
+  if (!Number.isFinite(requestedW) || requestedW <= 0) return '';
+  if (opts.height !== undefined) {
+    if (!Number.isFinite(opts.height) || opts.height <= 0) return '';
+  }
+
   const {
-    width = 80,
     ramp = 'standard',
     invert = false,
     dither = 'none',
@@ -1092,7 +1110,7 @@ export const fromImage = (
 
   const srcH = pixels.length;
   const srcW = (pixels[0] as Pixel[]).length;
-  const safeW = Math.max(1, Math.floor(width));
+  const safeW = Math.max(1, Math.floor(requestedW));
   // Terminal cells are ~2x tall as wide; halve the height to keep aspect ratio
   const computedH = Math.max(1, Math.round((srcH / srcW) * safeW * 0.5));
   const safeH = opts.height != null ? Math.max(1, Math.floor(opts.height)) : computedH;
@@ -1210,7 +1228,9 @@ export interface FigletFont {
  */
 export const parseFiglet = (flfContent: string): FigletFont => {
   if (typeof flfContent !== 'string' || flfContent.length === 0) {
-    throw new TypeError('parseFiglet: input must be a non-empty string');
+    const err = new TypeError('parseFiglet: input must be a non-empty string');
+    (err as Error & { code?: string }).code = 'ANSIMAX_INVALID_FIGLET_INPUT';
+    throw err;
   }
 
   const lines = flfContent.split(/\r?\n/);
@@ -1223,14 +1243,22 @@ export const parseFiglet = (flfContent: string): FigletFont => {
   const header = lines[0] as string;
   const m = /^flf2.\s*(\S)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(\d+)/.exec(header);
   if (!m) {
-    throw new TypeError('parseFiglet: invalid FIGfont header (expected "flf2a$..." line)');
+    // v1.2.7: include a snippet of what we saw to help debugging
+    const snippet = header.length > 60 ? header.slice(0, 60) + '…' : header;
+    const err = new TypeError(
+      `parseFiglet: invalid FIGfont header. Expected "flf2a$..." prefix, got: "${snippet}"`,
+    );
+    (err as Error & { code?: string }).code = 'ANSIMAX_INVALID_FIGLET_HEADER';
+    throw err;
   }
   const hardblank   = m[1] as string;
   const height      = parseInt(m[2] as string, 10);
   const commentLines = parseInt(m[6] as string, 10);
 
   if (!Number.isFinite(height) || height <= 0) {
-    throw new TypeError(`parseFiglet: invalid height ${m[2]}`);
+    const err = new TypeError(`parseFiglet: invalid height ${m[2]} (must be positive integer)`);
+    (err as Error & { code?: string }).code = 'ANSIMAX_INVALID_FIGLET_HEIGHT';
+    throw err;
   }
 
   // Skip header + comment lines
@@ -1300,6 +1328,8 @@ export const figletText = (
   opts: FigletOptions = {},
 ): string => {
   if (typeof text !== 'string') return '';
+  // v1.2.7: empty text → empty output (was producing height-1 empty rows)
+  if (text.length === 0) return '';
   if (!font || !font.glyphs || font.height <= 0) return '';
   const {
     trim = true,

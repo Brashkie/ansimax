@@ -7,10 +7,10 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Bundle](https://img.shields.io/badge/bundle-%3C100kb-brightgreen.svg?style=flat-square)](#)
 
@@ -434,7 +434,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.6'));
+console.log(components.badge('VERSION', 'v1.2.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -836,6 +836,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.7 — Correcciones + robustez
+
+Release patch enfocado en manejo de edge cases y mejor DX:
+
+- 🐛 **`fromImage` rechaza dimensiones inválidas explícitamente** — `width: 0`, `NaN`, `Infinity` ahora retornan `''` en vez de clampear silenciosamente
+- 🐛 **`figletText('')` retorna `''`** — antes retornaba filas vacías
+- 🛡️ **Grids no-rectangulares manejados con gracia** — filas de distinto largo ya no crashean `fromImage`
+- 🎯 **Códigos de error añadidos en todo el módulo ASCII** — `ANSIMAX_INVALID_FIGLET_HEADER`, `ANSIMAX_INVALID_FONT_NAME`, etc. para `catch` programático
+- 📝 **Mejores mensajes de error** — `parseFiglet` ahora incluye snippet del input problemático
+
+```js
+try {
+  ascii.registerFont('big', myFont);  // 'big' está reservado
+} catch (e) {
+  if (e.code === 'ANSIMAX_RESERVED_FONT_NAME') {
+    ascii.registerFont('big', myFont, { force: true });  // override
+  }
+}
+```
+
+Drop-in replacement para `1.2.6`.
 
 ### v1.2.6 — Mejoras del módulo ASCII
 

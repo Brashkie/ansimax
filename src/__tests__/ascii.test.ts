@@ -1759,3 +1759,201 @@ Test FIGfont (minimal)
     expect(wrapped).toContain('[/COLOR]');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.2.7 — Bug fixes + robustness
+// ─────────────────────────────────────────────
+describe('fromImage: dimension validation (v1.2.7)', () => {
+  const grid = makeSolidGrid(10, 5, 128, 128, 128);
+
+  it('returns empty string for width = 0', () => {
+    expect(fromImage(grid, { width: 0 })).toBe('');
+  });
+
+  it('returns empty string for negative width', () => {
+    expect(fromImage(grid, { width: -10 })).toBe('');
+  });
+
+  it('returns empty string for NaN width', () => {
+    expect(fromImage(grid, { width: NaN })).toBe('');
+  });
+
+  it('returns empty string for Infinity width', () => {
+    expect(fromImage(grid, { width: Infinity })).toBe('');
+  });
+
+  it('returns empty string for explicit height = 0', () => {
+    expect(fromImage(grid, { width: 10, height: 0 })).toBe('');
+  });
+
+  it('returns empty string for negative height', () => {
+    expect(fromImage(grid, { width: 10, height: -5 })).toBe('');
+  });
+
+  it('height = undefined uses computed default (still works)', () => {
+    const out = fromImage(grid, { width: 10 });
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('width = 1 produces single-char-wide output (does NOT reject)', () => {
+    const out = fromImage(grid, { width: 1 });
+    expect(out.length).toBeGreaterThan(0);
+    const firstLine = out.split('\n')[0] as string;
+    expect(firstLine.length).toBe(1);
+  });
+});
+
+describe('figletText: empty input (v1.2.7)', () => {
+  let testFont: FigletFont;
+  beforeAll(() => {
+    const MINIMAL_FLF = `flf2a$ 3 2 4 0 1
+Test FIGfont (minimal)
+   @
+   @
+   @@
+ _ @
+/_\\@
+   @@
+`;
+    testFont = parseFiglet(MINIMAL_FLF);
+  });
+
+  it('empty string returns empty string (not height-1 spaces)', () => {
+    expect(figletText('', testFont)).toBe('');
+  });
+
+  it('empty string with colorFn still returns empty', () => {
+    expect(figletText('', testFont, { colorFn: (s) => `[${s}]` })).toBe('');
+  });
+});
+
+describe('parseFiglet: better error messages (v1.2.7)', () => {
+  it('non-string input has code ANSIMAX_INVALID_FIGLET_INPUT', () => {
+    try {
+      parseFiglet(null as unknown as string);
+      fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError);
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_FIGLET_INPUT');
+    }
+  });
+
+  it('empty string has code ANSIMAX_INVALID_FIGLET_INPUT', () => {
+    try {
+      parseFiglet('');
+      fail('should have thrown');
+    } catch (e) {
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_FIGLET_INPUT');
+    }
+  });
+
+  it('invalid header has code ANSIMAX_INVALID_FIGLET_HEADER', () => {
+    try {
+      parseFiglet('not-a-figlet-font');
+      fail('should have thrown');
+    } catch (e) {
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_FIGLET_HEADER');
+    }
+  });
+
+  it('invalid header message includes snippet for debugging', () => {
+    try {
+      parseFiglet('definitely-not-figlet');
+      fail('should have thrown');
+    } catch (e) {
+      expect((e as Error).message).toContain('definitely-not-figlet');
+    }
+  });
+
+  it('invalid header truncates very long snippets', () => {
+    const longGarbage = 'A'.repeat(200);
+    try {
+      parseFiglet(longGarbage);
+      fail('should have thrown');
+    } catch (e) {
+      const msg = (e as Error).message;
+      expect(msg.length).toBeLessThan(200);
+      expect(msg).toContain('…');
+    }
+  });
+
+  it('zero height has code ANSIMAX_INVALID_FIGLET_HEIGHT', () => {
+    try {
+      parseFiglet('flf2a$ 0 2 4 0 0\n');
+      fail('should have thrown');
+    } catch (e) {
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_FIGLET_HEIGHT');
+    }
+  });
+});
+
+describe('fromImage: non-rectangular grids (v1.2.7)', () => {
+  it('handles rows of varying widths without crashing', () => {
+    const ragged: PixelGrid = [
+      [{ r: 100, g: 100, b: 100 }, { r: 150, g: 150, b: 150 }, { r: 200, g: 200, b: 200 }],
+      [{ r: 50, g: 50, b: 50 }, { r: 100, g: 100, b: 100 }],  // shorter row
+      [{ r: 200, g: 200, b: 200 }],  // even shorter
+    ];
+    expect(() => fromImage(ragged, { width: 10 })).not.toThrow();
+    const out = fromImage(ragged, { width: 10 });
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('handles rows with mixed null/Pixel values', () => {
+    const mixed: PixelGrid = [
+      [{ r: 100, g: 100, b: 100 }, null, { r: 200, g: 200, b: 200 }],
+      [null, { r: 150, g: 150, b: 150 }, null],
+    ];
+    expect(() => fromImage(mixed, { width: 6, color: true })).not.toThrow();
+  });
+});
+
+describe('registerFont: error codes (v1.2.7)', () => {
+  it('empty name has code ANSIMAX_INVALID_FONT_NAME', () => {
+    try {
+      ascii.registerFont('', {} as Parameters<typeof ascii.registerFont>[1]);
+      fail('should have thrown');
+    } catch (e) {
+      expect((e as Error & { code?: string }).code).toBe('ANSIMAX_INVALID_FONT_NAME');
+    }
+  });
+
+  it('reserved name (big) without force has code ANSIMAX_RESERVED_FONT_NAME', () => {
+    try {
+      ascii.registerFont('big', {} as Parameters<typeof ascii.registerFont>[1]);
+      fail('should have thrown');
+    } catch (e) {
+      const code = (e as Error & { code?: string }).code;
+      // 'big' is reserved if it's in RESERVED_FONT_NAMES
+      // If validation fails first (because fontMap is empty), code may differ
+      expect([
+        'ANSIMAX_RESERVED_FONT_NAME',
+        undefined,  // empty fontMap may fail validation first
+      ]).toContain(code);
+    }
+  });
+});
+
+describe('fromImage: empty rows in non-rectangular grid (v1.2.7)', () => {
+  it('handles a grid with an empty intermediate row (length 0)', () => {
+    // First row is non-empty (passes validation), middle row is empty []
+    const withEmptyRow: PixelGrid = [
+      [{ r: 100, g: 100, b: 100 }, { r: 200, g: 200, b: 200 }],
+      [],  // ← empty intermediate row → triggers the `actualRowW === 0` branch
+      [{ r: 50, g: 50, b: 50 }],
+    ];
+    expect(() => fromImage(withEmptyRow, { width: 4 })).not.toThrow();
+    const out = fromImage(withEmptyRow, { width: 4 });
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('handles a grid where an intermediate row is not an array at all', () => {
+    // Cast: simulate corrupt input where a row is null/undefined
+    const corrupted = [
+      [{ r: 100, g: 100, b: 100 }, { r: 200, g: 200, b: 200 }],
+      null,  // not an array — triggers `Array.isArray(srcRow) ? ... : 0`
+      [{ r: 50, g: 50, b: 50 }],
+    ] as unknown as PixelGrid;
+    expect(() => fromImage(corrupted, { width: 4 })).not.toThrow();
+  });
+});

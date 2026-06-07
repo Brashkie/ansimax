@@ -3,6 +3,65 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.7] — Bug fixes + robustness
+
+Patch release focused on edge case handling, better error messages, and
+defensive coding. No breaking changes — every 1.2.x program runs identically.
+
+### Fixed
+
+- **`ascii.fromImage()` silently accepted `width: 0`, `NaN`, `Infinity`** —
+  now returns an empty string explicitly. Previously it would clamp to 1
+  and produce a single-character-wide output, which was confusing:
+
+  ```js
+  // Before (v1.2.6 and earlier):
+  ascii.fromImage(pixels, { width: 0 });      // → 1-char-wide output 😞
+  ascii.fromImage(pixels, { width: NaN });    // → 1-char-wide output 😞
+
+  // Now (v1.2.7):
+  ascii.fromImage(pixels, { width: 0 });      // → '' (explicit)
+  ascii.fromImage(pixels, { width: NaN });    // → ''
+  ascii.fromImage(pixels, { width: -10 });    // → ''
+  ascii.fromImage(pixels, { width: 1 });      // → still works, 1-char wide
+  ```
+
+  Same validation applies to `height` when explicitly set.
+
+- **`ascii.figletText('', font)` returned `font.height - 1` empty lines**
+  instead of an empty string. Now returns `''` immediately.
+
+- **`ascii.fromImage()` could crash on non-rectangular grids** (rows of
+  different widths) because `_resizePixels` assumed all rows had the same
+  length as the first row. Now each row is sampled by its actual width,
+  with missing pixels coalesced to `null` (the standard "transparent"
+  marker).
+
+### Improved — Error codes everywhere
+
+Errors thrown by the ASCII module now carry stable `.code` properties for
+programmatic catching:
+
+| Function | Error condition | `.code` |
+|---|---|---|
+| `parseFiglet` | non-string / empty input | `ANSIMAX_INVALID_FIGLET_INPUT` |
+| `parseFiglet` | unrecognized header | `ANSIMAX_INVALID_FIGLET_HEADER` |
+| `parseFiglet` | non-positive height | `ANSIMAX_INVALID_FIGLET_HEIGHT` |
+| `ascii.registerFont` | empty name | `ANSIMAX_INVALID_FONT_NAME` |
+| `ascii.registerFont` | reserved name without `force` | `ANSIMAX_RESERVED_FONT_NAME` |
+
+Error messages also include a debug snippet for `parseFiglet` header
+errors (truncated at 60 chars), so you immediately see what was wrong.
+
+### Notes
+
+- Error message text may have changed slightly — if you were matching exact
+  strings in tests, switch to `.code` checks (which are stable forever)
+- All 1983 + 17 new tests pass
+- No new runtime dependencies — still zero
+
+---
+
 ## [1.2.6] — ASCII module improvements
 
 Patch release focused on ASCII module quality and feature additions. No
