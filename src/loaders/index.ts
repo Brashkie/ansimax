@@ -264,6 +264,54 @@ export interface TaskResult {
 
 export type StopFn = (finalText?: string, success?: boolean) => void;
 
+/**
+ * Start an animated terminal spinner. Returns a `stop` function that
+ * clears the spinner and optionally prints a final status message.
+ *
+ * The spinner animates in place using cursor reset characters — it does
+ * NOT leave noisy output behind on stop.
+ *
+ * @param text - Loading label shown next to the spinner. Default `'Loading'`.
+ * @param opts - Visual + behavior options.
+ * @returns A `stop` function — call it when done.
+ *
+ * @example basic usage
+ * ```js
+ * import { loader } from 'ansimax';
+ *
+ * const stop = loader.spin('Fetching data...');
+ * await fetch('https://api.example.com/data');
+ * stop('Data loaded successfully!', true);  // ✓ Data loaded ...
+ * ```
+ *
+ * @example custom spinner type + color
+ * ```js
+ * const stop = loader.spin('Building...', {
+ *   type: 'arrow',     // 'dots' | 'dots2' | 'line' | 'arrow' | 'bounce' | 'star' | 'moon' | 'clock' | 'pong' | 'aesthetic' | 'blocks'
+ *   color: '#bd93f9',
+ *   interval: 100,
+ * });
+ *
+ * try {
+ *   await buildProject();
+ *   stop('Build complete', true);
+ * } catch (err) {
+ *   stop('Build failed', false);  // shows error icon
+ * }
+ * ```
+ *
+ * @example with try/finally for safety
+ * ```js
+ * const stop = loader.spin('Long task');
+ * try {
+ *   await doWork();
+ *   stop('Done!', true);
+ * } catch (err) {
+ *   stop('Failed: ' + err.message, false);
+ *   throw err;
+ * }
+ * ```
+ */
 export const spin = (text: string = 'Loading', opts: SpinOptions = {}): StopFn => {
   const {
     type = 'dots',
@@ -582,6 +630,63 @@ const runSingleTask = async (
   return taskResult;
 };
 
+/**
+ * Run a list of async tasks with per-task spinners. Each task gets a
+ * spinner that turns into ✓ or ✗ on completion. Tasks can have nested
+ * subtasks for hierarchical progress display.
+ *
+ * @param taskList - Array of `Task` objects (each with `text` + `fn`).
+ * @param opts     - Execution options.
+ * @returns Array of `TaskResult` (success, duration, etc.) per task.
+ *
+ * @example basic — serial tasks
+ * ```js
+ * import { loader } from 'ansimax';
+ * const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+ *
+ * await loader.tasks([
+ *   { text: 'Compiling sources',     fn: async () => { await sleep(300); } },
+ *   { text: 'Bundling assets',       fn: async () => { await sleep(200); } },
+ *   { text: 'Generating type defs',  fn: async () => { await sleep(150); } },
+ * ]);
+ * ```
+ *
+ * @example with subtasks
+ * ```js
+ * await loader.tasks([
+ *   {
+ *     text: 'Build pipeline',
+ *     fn: async () => { ... },
+ *     subtasks: [
+ *       { text: 'TypeScript', fn: async () => buildTS() },
+ *       { text: 'Bundle',     fn: async () => bundle() },
+ *       { text: 'Minify',     fn: async () => minify() },
+ *     ],
+ *   },
+ * ]);
+ * ```
+ *
+ * @example parallel mode (top-level tasks run concurrently)
+ * ```js
+ * const results = await loader.tasks([
+ *   { text: 'Lint',  fn: async () => runLint() },
+ *   { text: 'Test',  fn: async () => runTests() },
+ *   { text: 'Build', fn: async () => buildAll() },
+ * ], { parallel: true });
+ *
+ * const failed = results.filter((r) => !r.success);
+ * if (failed.length > 0) process.exit(1);
+ * ```
+ *
+ * @example error handling (a failing task does not stop sibling tasks by default)
+ * ```js
+ * await loader.tasks([
+ *   { text: 'Always works', fn: async () => sleep(100) },
+ *   { text: 'Will fail',    fn: async () => { throw new Error('boom'); } },
+ *   { text: 'Still runs',   fn: async () => sleep(100) },  // continues
+ * ]);
+ * ```
+ */
 export const tasks = async (
   taskList: Task[],
   opts: TasksOptions = {},

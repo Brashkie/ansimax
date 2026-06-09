@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -434,7 +434,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.7'));
+console.log(components.badge('VERSION', 'v1.2.8'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -618,6 +618,40 @@ await withConfig({ animationSpeed: 'fast' }, async () => {
 // Strict mode catches config typos
 // configure({ unknwnKey: 'x' }, { strict: true });  // throws RangeError
 ```
+
+---
+
+## ⚠️ Error codes
+
+Several ansimax functions throw `Error` / `TypeError` / `RangeError` for invalid input.
+Catching by error code is the **stable, recommended** way to handle them programmatically — message text may evolve, but `.code` values are guaranteed semver-stable.
+
+```js
+import { themes, ascii, parseFiglet } from 'ansimax';
+
+try {
+  themes.use('inexistent-theme');
+} catch (e) {
+  if (e.code === 'ANSIMAX_UNKNOWN_THEME') {
+    themes.use('dracula');  // fallback
+  } else {
+    throw e;  // re-throw unexpected errors
+  }
+}
+```
+
+### All error codes
+
+| Code | Thrown by | Type | When |
+|---|---|---|---|
+| `ANSIMAX_INVALID_THEME` | `themes.register` | `TypeError` | Theme value is not a plain object |
+| `ANSIMAX_INVALID_THEME_NAME` | `themes.register` | `TypeError` | Theme has missing/empty `name` |
+| `ANSIMAX_UNKNOWN_THEME` | `themes.use` | `RangeError` | Requested theme name not registered |
+| `ANSIMAX_INVALID_FONT_NAME` | `ascii.registerFont` | `TypeError` | Empty or non-string font name |
+| `ANSIMAX_RESERVED_FONT_NAME` | `ascii.registerFont` | `Error` | Overwriting built-in font without `{ force: true }` |
+| `ANSIMAX_INVALID_FIGLET_INPUT` | `parseFiglet` | `TypeError` | Non-string or empty `.flf` content |
+| `ANSIMAX_INVALID_FIGLET_HEADER` | `parseFiglet` | `TypeError` | First line is not a valid FIGfont header |
+| `ANSIMAX_INVALID_FIGLET_HEIGHT` | `parseFiglet` | `TypeError` | Header declared zero/negative height |
 
 ---
 
@@ -836,6 +870,22 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.8 — Documentation polish
+
+Patch release with massively improved JSDoc + IntelliSense coverage:
+
+- 📝 **`components` module** — `table`, `badge`, `status`, `timeline` now have full JSDoc with runnable examples
+- 📝 **`loaders` module** — `loader.spin` and `loader.tasks` now show usage patterns in IntelliSense
+- 📝 **`themes` module** — full JSDoc with switching, registering, subscribing examples
+- 📝 **`animations` module** — `animate.typewriter` and `animate.fadeIn` show how to use abort signals, reduced-motion, custom colors
+- 📝 **`ascii.box`** — 4 examples (basic, multiline, fixed-width, colored content)
+- 📖 **Error codes section** in README — all 8 `ANSIMAX_*` codes documented
+
+Total: ~30 new `@example` blocks visible in your editor. No code changes —
+your existing programs run identically.
+
+Drop-in replacement for `1.2.7`.
 
 ### v1.2.7 — Bug fixes + robustness
 

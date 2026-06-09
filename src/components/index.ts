@@ -114,6 +114,39 @@ const TABLE_BORDERS: Record<TableBorderStyle, TableBorderChars> = {
  * so ANSI escapes don't corrupt column alignment.
  *
  * Defensive: non-array rows → empty string. Non-string cells coerced.
+ *
+ * @param rows - 2D array. First row is treated as header by default.
+ * @param opts - Optional configuration.
+ *
+ * @example basic table
+ * ```js
+ * console.log(components.table([
+ *   ['Name', 'Status', 'Tests'],
+ *   ['colors', '✓ ready', '180'],
+ *   ['ascii', '✓ ready', '125'],
+ * ]));
+ * ```
+ *
+ * @example with custom border + no header
+ * ```js
+ * console.log(components.table(rows, {
+ *   header: false,
+ *   borderStyle: 'double',
+ *   padding: 2,
+ *   maxColWidth: 30,
+ * }));
+ * ```
+ *
+ * @example colored cells (ANSI preserved)
+ * ```js
+ * import { color } from 'ansimax';
+ *
+ * console.log(components.table([
+ *   ['Service', 'Status'],
+ *   ['api',    color.green('✓ healthy')],
+ *   ['db',     color.red('✗ down')],
+ * ]));
+ * ```
  */
 export const table = (rows: string[][], opts: TableOptions = {}): string => {
   if (!Array.isArray(rows) || rows.length === 0) return '';
@@ -209,6 +242,38 @@ export interface BadgeOptions {
   border?: boolean;
 }
 
+/**
+ * Render a two-tone badge with label + value. Like the badges on README
+ * files (`VERSION` / `v1.0.0`) — two colored segments side by side.
+ *
+ * @param label - Text on the left side (typically a category like "VERSION").
+ * @param value - Text on the right side (typically a value like "1.2.3").
+ * @param opts  - Optional color/padding overrides.
+ *
+ * @example basic
+ * ```js
+ * console.log(components.badge('VERSION', 'v1.2.8'));
+ * console.log(components.badge('BUILD',   'passing'));
+ * console.log(components.badge('LICENSE', 'Apache 2.0'));
+ * ```
+ *
+ * @example custom colors
+ * ```js
+ * console.log(components.badge('STATUS', 'OK', {
+ *   labelBg: 4,    // blue
+ *   valueBg: 2,    // green
+ *   padding: 2,
+ * }));
+ * ```
+ *
+ * @example multiple inline (good for headers)
+ * ```js
+ * const v   = components.badge('VERSION', 'v1.2.8');
+ * const b   = components.badge('BUILD',   'passing');
+ * const lic = components.badge('LICENSE', 'Apache 2.0');
+ * console.log(`${v} ${b} ${lic}`);
+ * ```
+ */
 export const badge = (label: string, value: string, opts: BadgeOptions = {}): string => {
   const {
     labelBg = BG.blue, valueBg = BG.green,
@@ -309,6 +374,35 @@ export interface StatusOptions {
   color?: number;
 }
 
+/**
+ * Render a status message with a leading icon and color, based on a status type.
+ *
+ * Built-in types: `'success'`, `'error'`, `'warn'`, `'info'`, `'wait'`.
+ *
+ * @param type    - Status type — determines default icon and color.
+ * @param message - The message text. Multi-line messages are aligned under the icon.
+ * @param opts    - Optional overrides for icon/color.
+ *
+ * @example basic
+ * ```js
+ * console.log(components.status('info',    'Build started'));
+ * console.log(components.status('success', 'Tests passed (1958/1958)'));
+ * console.log(components.status('warn',    '1 deprecation notice'));
+ * console.log(components.status('error',   'Build failed'));
+ * console.log(components.status('wait',    'Installing dependencies...'));
+ * ```
+ *
+ * @example multiline message (continuation lines align under text, not icon)
+ * ```js
+ * console.log(components.status('error', 'Build failed:\n  Cannot find module "foo"\n  at index.ts:12'));
+ * ```
+ *
+ * @example custom icon / no icon
+ * ```js
+ * console.log(components.status('info', 'Custom', { icon: '🔔' }));
+ * console.log(components.status('info', 'No icon at all', { icon: null }));
+ * ```
+ */
 export const status = (
   type: StatusType,
   message: string,
@@ -437,6 +531,42 @@ export interface TimelineOptions {
   timeColumnWidth?: number | null;
 }
 
+/**
+ * Render a vertical timeline of events with connector lines between them.
+ * Each event has a label, optional time, and optional `done` state for color.
+ *
+ * @param events - Array of timeline events.
+ * @param opts   - Visual configuration.
+ *
+ * @example basic timeline
+ * ```js
+ * console.log(components.timeline([
+ *   { label: 'Project created',     time: 'Mon' },
+ *   { label: 'Dependencies installed', time: 'Tue' },
+ *   { label: 'Tests passing',       time: 'Wed' },
+ *   { label: 'Documentation done',  time: 'Thu' },
+ *   { label: 'Published to npm' },
+ * ]));
+ * ```
+ *
+ * @example with done/pending status (different colors)
+ * ```js
+ * console.log(components.timeline([
+ *   { label: 'Plan',  done: true },
+ *   { label: 'Build', done: true },
+ *   { label: 'Test',  done: false },  // current — pending color
+ *   { label: 'Ship',  done: false },
+ * ]));
+ * ```
+ *
+ * @example custom symbols
+ * ```js
+ * console.log(components.timeline(events, {
+ *   node: '◆',
+ *   connector: '┊',
+ * }));
+ * ```
+ */
 export const timeline = (events: TimelineEvent[], opts: TimelineOptions = {}): string => {
   if (!Array.isArray(events) || events.length === 0) return '';
 

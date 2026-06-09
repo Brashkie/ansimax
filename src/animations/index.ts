@@ -298,6 +298,43 @@ export interface RevealOptions extends AnimationHooks {
 // ─────────────────────────────────────────────
 //  TYPEWRITER
 // ─────────────────────────────────────────────
+/**
+ * Print text one character at a time, like an old typewriter. Resolves
+ * when the full text has been printed. Aborts cleanly via AbortSignal.
+ *
+ * @example basic
+ * ```js
+ * import { animate } from 'ansimax';
+ *
+ * await animate.typewriter('Hello, world!');
+ * // Prints "Hello, world!" character by character at default speed
+ * ```
+ *
+ * @example faster + colored
+ * ```js
+ * import { gradient } from 'ansimax';
+ *
+ * await animate.typewriter('Loading...', {
+ *   speed: 30,     // ms per character
+ *   colorFn: (t) => gradient(t, ['#ff79c6', '#bd93f9']),
+ * });
+ * ```
+ *
+ * @example abortable
+ * ```js
+ * const ctrl = new AbortController();
+ * setTimeout(() => ctrl.abort(), 500);
+ *
+ * await animate.typewriter('Very long text...', { signal: ctrl.signal });
+ * // Stops printing as soon as ctrl.abort() is called
+ * ```
+ *
+ * @example respect accessibility (reduced motion)
+ * ```js
+ * await animate.typewriter('Hello!', { reducedMotion: true });
+ * // Prints instantly — no character-by-character animation
+ * ```
+ */
 const typewriter = async (text: string, opts: TypewriterOptions = {}): Promise<void> => {
   const {
     speed = 50, newline = true, colorFn = null,
@@ -335,6 +372,31 @@ const typewriter = async (text: string, opts: TypewriterOptions = {}): Promise<v
 // ─────────────────────────────────────────────
 //  FADE IN
 // ─────────────────────────────────────────────
+/**
+ * Fade text in from invisible to full color over time.
+ *
+ * @example basic
+ * ```js
+ * await animate.fadeIn('Hello world!');  // default 800ms fade
+ * ```
+ *
+ * @example slower with custom color
+ * ```js
+ * await animate.fadeIn('Welcome', {
+ *   duration: 2000,
+ *   color: '#bd93f9',
+ *   steps: 30,
+ * });
+ * ```
+ *
+ * @example abortable + reduced-motion safe
+ * ```js
+ * await animate.fadeIn('Loaded', {
+ *   signal: AbortSignal.timeout(1000),
+ *   reducedMotion: prefersReducedMotion,
+ * });
+ * ```
+ */
 const fadeIn = async (text: string, opts: FadeOptions = {}): Promise<void> => {
   const {
     duration = 800, steps = 16, newline = true,

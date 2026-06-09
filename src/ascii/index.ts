@@ -581,6 +581,45 @@ const banner = (text: string, opts: BannerOptions = {}): string => {
 //  Box / divider / logo
 // ─────────────────────────────────────────────
 
+/**
+ * Wrap text in a Unicode box border. ANSI escapes inside the text are
+ * preserved (the border is drawn around colored content correctly).
+ *
+ * @param text - Text to wrap. Multi-line text (containing `\n`) is supported.
+ * @param opts - Optional configuration.
+ *
+ * @example basic single border
+ * ```js
+ * console.log(ascii.box('Hello!'));
+ * ```
+ *
+ * @example multi-line with rounded border + padding
+ * ```js
+ * console.log(ascii.box('Title\n\nBody text here.', {
+ *   padding: 2,
+ *   borderStyle: 'rounded',
+ * }));
+ * ```
+ *
+ * @example fixed width (text gets truncated/wrapped to fit)
+ * ```js
+ * console.log(ascii.box('Very long line of text that will be cut off', {
+ *   width: 30,
+ *   borderStyle: 'double',
+ * }));
+ * ```
+ *
+ * @example with colored content (border stays uncolored)
+ * ```js
+ * import { gradient } from 'ansimax';
+ *
+ * const colored = gradient('Rainbow text', ['#ff0000', '#0000ff']);
+ * console.log(ascii.box(colored, { borderStyle: 'heavy' }));
+ * ```
+ *
+ * Available `borderStyle` values: `'single'`, `'double'`, `'rounded'` (default),
+ * `'heavy'`, `'dashed'`, `'ascii'`.
+ */
 const box = (text: string, opts: BoxOptions = {}): string => {
   const safe = ensureString(text, 'box(text)');
   const { padding = 1, borderStyle = 'rounded', width = null } = opts;

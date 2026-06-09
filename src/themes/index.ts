@@ -547,6 +547,64 @@ const globalFireChange = (oldT: Theme, newT: Theme): void => {
   }
 };
 
+/**
+ * The global theme registry — a singleton that holds all registered themes
+ * (built-in + custom) and tracks the active one.
+ *
+ * @example switching the active theme
+ * ```js
+ * import { themes } from 'ansimax';
+ *
+ * themes.use('dracula');          // throws if name doesn't exist
+ * themes.tryUse('nord');          // returns true/false, never throws
+ *
+ * const active = themes.current(); // get current Theme definition
+ * console.log(active.primary);     // → '#bd93f9'
+ * ```
+ *
+ * @example registering a custom theme
+ * ```js
+ * themes.register('synthwave', {
+ *   name: 'synthwave',
+ *   primary:   '#ff6ec7',
+ *   secondary: '#36d6e7',
+ *   accent:    '#ffd93d',
+ *   success:   '#06d6a0',
+ *   warning:   '#ffd93d',
+ *   error:     '#ff5e5b',
+ *   info:      '#36d6e7',
+ *   muted:     '#6c757d',
+ *   bg:        '#241734',
+ *   surface:   '#34174f',
+ *   text:      '#ffffff',
+ *   gradient:  ['#ff6ec7', '#36d6e7'],
+ * });
+ *
+ * themes.use('synthwave');
+ * ```
+ *
+ * @example subscribing to theme changes
+ * ```js
+ * const unsubscribe = themes.onChange((newT, oldT) => {
+ *   console.log(`Theme changed: ${oldT.name} → ${newT.name}`);
+ *   // re-render your UI here
+ * });
+ *
+ * // Later: stop listening
+ * unsubscribe();
+ * ```
+ *
+ * @example handling missing themes gracefully
+ * ```js
+ * try {
+ *   themes.use('not-real');
+ * } catch (e) {
+ *   if (e.code === 'ANSIMAX_UNKNOWN_THEME') {
+ *     themes.use('dracula');  // fallback
+ *   }
+ * }
+ * ```
+ */
 export const themes: ThemeInstance = {
   list: () => [..._globalRegistry.keys()],
   get:  (name) => _globalRegistry.get(name) ?? null,

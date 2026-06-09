@@ -3,6 +3,45 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.8] — Documentation polish
+
+Patch release improving JSDoc and IntelliSense coverage across previously
+under-documented modules. No code changes — pure documentation upgrade.
+
+### Improved — JSDoc with runnable examples
+
+The following functions now have full JSDoc with `@example` blocks visible
+in editor IntelliSense (VS Code, IntelliJ, etc.):
+
+**`components/` (previously 0 examples → now 4):**
+- `components.table` — 3 examples (basic, custom borders, colored cells)
+- `components.badge` — 3 examples (basic, custom colors, inline composition)
+- `components.status` — 3 examples (basic, multiline, custom icons)
+- `components.timeline` — 3 examples (basic, done/pending, custom symbols)
+
+**`loaders/` (previously 0 examples → now 2):**
+- `loader.spin` — 3 examples (basic, custom type/color, try/finally pattern)
+- `loader.tasks` — 4 examples (serial, subtasks, parallel mode, error handling)
+
+**`themes/` (previously 0 examples → now 4):**
+- `themes` object — 4 examples (switching, registering, subscribing, fallback)
+
+**`animations/` (previously 1 example → now 6):**
+- `animate.typewriter` — 4 examples (basic, colored, abortable, reduced-motion)
+- `animate.fadeIn` — 3 examples (basic, custom timing, abortable)
+
+**`ascii/`:**
+- `ascii.box` — 4 examples (basic, multiline, fixed-width, with color)
+
+### Notes
+
+- No new tests required — pure documentation changes
+- No runtime dependencies — still zero
+- No API changes — drop-in replacement for `1.2.7`
+- IntelliSense quality dramatically improved for new users
+
+---
+
 ## [1.2.7] — Bug fixes + robustness
 
 Patch release focused on edge case handling, better error messages, and

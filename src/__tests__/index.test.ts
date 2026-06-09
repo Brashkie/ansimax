@@ -675,3 +675,4 @@ describe('v1.2.0 barrel exports', () => {
     expect(_ctrl).toBeNull();
   });
 });
+

@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.2.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -434,7 +434,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.7'));
+console.log(components.badge('VERSION', 'v1.2.8'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -618,6 +618,40 @@ await withConfig({ animationSpeed: 'fast' }, async () => {
 // Modo strict captura typos en config
 // configure({ unknwnKey: 'x' }, { strict: true });  // lanza RangeError
 ```
+
+---
+
+## ⚠️ Códigos de error
+
+Varias funciones de ansimax lanzan `Error` / `TypeError` / `RangeError` para inputs inválidos.
+Hacer `catch` por código de error es la forma **estable y recomendada** para manejarlos programáticamente — el texto del mensaje puede cambiar, pero los valores `.code` están garantizados como semver-estables.
+
+```js
+import { themes, ascii, parseFiglet } from 'ansimax';
+
+try {
+  themes.use('tema-inexistente');
+} catch (e) {
+  if (e.code === 'ANSIMAX_UNKNOWN_THEME') {
+    themes.use('dracula');  // fallback
+  } else {
+    throw e;  // re-lanzar errores inesperados
+  }
+}
+```
+
+### Todos los códigos de error
+
+| Código | Lanzado por | Tipo | Cuándo |
+|---|---|---|---|
+| `ANSIMAX_INVALID_THEME` | `themes.register` | `TypeError` | El valor del tema no es un objeto plano |
+| `ANSIMAX_INVALID_THEME_NAME` | `themes.register` | `TypeError` | El tema tiene `name` vacío o ausente |
+| `ANSIMAX_UNKNOWN_THEME` | `themes.use` | `RangeError` | El nombre del tema solicitado no está registrado |
+| `ANSIMAX_INVALID_FONT_NAME` | `ascii.registerFont` | `TypeError` | Nombre de fuente vacío o no string |
+| `ANSIMAX_RESERVED_FONT_NAME` | `ascii.registerFont` | `Error` | Sobrescribir fuente built-in sin `{ force: true }` |
+| `ANSIMAX_INVALID_FIGLET_INPUT` | `parseFiglet` | `TypeError` | Contenido `.flf` vacío o no string |
+| `ANSIMAX_INVALID_FIGLET_HEADER` | `parseFiglet` | `TypeError` | La primera línea no es un header FIGfont válido |
+| `ANSIMAX_INVALID_FIGLET_HEIGHT` | `parseFiglet` | `TypeError` | El header declara altura cero o negativa |
 
 ---
 
@@ -836,6 +870,22 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.2.8 — Pulido de documentación
+
+Release patch con cobertura JSDoc + IntelliSense masivamente mejorada:
+
+- 📝 **Módulo `components`** — `table`, `badge`, `status`, `timeline` ahora tienen JSDoc completo con ejemplos ejecutables
+- 📝 **Módulo `loaders`** — `loader.spin` y `loader.tasks` ahora muestran patrones de uso en IntelliSense
+- 📝 **Módulo `themes`** — JSDoc completo con ejemplos de cambio, registro y suscripción
+- 📝 **Módulo `animations`** — `animate.typewriter` y `animate.fadeIn` muestran cómo usar abort signals, reduced-motion, colores custom
+- 📝 **`ascii.box`** — 4 ejemplos (básico, multilínea, ancho fijo, con color)
+- 📖 **Sección Códigos de error** en README — los 8 códigos `ANSIMAX_*` documentados
+
+Total: ~30 nuevos bloques `@example` visibles en tu editor. Cero cambios en código —
+tus programas existentes corren idéntico.
+
+Drop-in replacement para `1.2.7`.
 
 ### v1.2.7 — Correcciones + robustez
 
