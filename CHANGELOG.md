@@ -3,6 +3,117 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — Phase 4 progress: Panels + JSON pretty-print
+
+Minor release adding **split layout primitives** and **JSON pretty-printing**.
+Two new top-level modules, zero breaking changes — every 1.2.x program runs
+identically.
+
+### Added — `panels` module (split layouts)
+
+Two composition primitives for combining already-rendered blocks:
+
+- **`panels.vsplit(blocks, opts)`** — joins blocks side-by-side (columns).
+  ANSI-aware width measurement, variable height handling, alignment, gap,
+  fixed-width mode.
+
+- **`panels.hsplit(blocks, opts)`** — stacks blocks vertically (rows).
+  Width alignment, vertical gap.
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Two columns side-by-side
+console.log(panels.vsplit([
+  ascii.box('Left side',  { borderStyle: 'rounded' }),
+  ascii.box('Right side', { borderStyle: 'rounded' }),
+], { gap: 2 }));
+
+// Three rows stacked vertically
+console.log(panels.hsplit([
+  '── Header ──',
+  ascii.box('Body content'),
+  '── Footer ──',
+], { align: 'center' }));
+
+// Nested — sidebar + main in an app shell
+const sidebar = ascii.box('Sidebar', { width: 20 });
+const main    = ascii.box('Main',    { width: 40 });
+
+console.log(panels.hsplit([
+  '── Application ──',
+  panels.vsplit([sidebar, main], { gap: 2 }),
+]));
+```
+
+**Both functions:**
+- Preserve ANSI escapes from input blocks
+- Handle multi-line blocks of variable height
+- Coerce invalid inputs (`gap: -5` → `0`, empty arrays → `''`)
+- Compose freely with each other (panels-in-panels)
+
+Three alignment modes (`'start'` / `'center'` / `'end'`) for both axes.
+
+### Added — `json` module (pretty-printer)
+
+Color-coded JSON pretty-printer for terminal display:
+
+```js
+import { json } from 'ansimax';
+
+// Basic — colored output
+console.log(json.pretty({
+  name: 'ansimax',
+  version: '1.3.0',
+  features: ['colors', 'gradients', 'panels'],
+  stats: { tests: 2000, coverage: 0.98 },
+}));
+
+// With depth limit — deep nesting collapses to {...}
+console.log(json.pretty(deeplyNested, { maxDepth: 2 }));
+
+// Limit array display — huge arrays show "... (N more)"
+console.log(json.pretty(bigArray, { maxItems: 10 }));
+
+// Monochrome for log files
+console.log(json.pretty(data, { colors: false }));
+
+// Handles circular refs gracefully
+const obj = { name: 'foo' };
+obj.self = obj;
+console.log(json.pretty(obj));   // → { "name": "foo", "self": [Circular] }
+```
+
+**Features:**
+- Color-coded by type: cyan (keys), green (strings), yellow (numbers), magenta (booleans), gray (null/undefined)
+- Circular reference detection
+- Depth limit with `{...}` / `[...]` collapse markers
+- Array length limit with `... (N more)` marker
+- String length limit with `...` truncation
+- BigInt, function, symbol rendering
+- ANSI auto-disabled in `NO_COLOR` / non-TTY environments
+- Configurable indent (default `2`)
+
+### Roadmap impact — Phase 4 progress
+
+Phase 4 (Terminal UI primitives) advances from 8/15 → **10/15**:
+
+- [x] Panels (split layouts: hsplit, vsplit) ← **v1.3.0**
+- [x] JSON/YAML pretty-printing (with depth limit + collapse) ← **v1.3.0**
+
+Still pending in Phase 4: Layouts (flexbox-style), Grid system, Markdown
+rendering, Syntax highlighting, Logging integration. These come in later
+1.3.x / 1.4.x releases.
+
+### Notes
+
+- 2 new test files: `panels.test.ts` (~25 tests), `json.test.ts` (~30 tests)
+- No runtime dependencies — still zero
+- No breaking API changes — pure additions
+- Drop-in replacement for `1.2.8`
+
+---
+
 ## [1.2.8] — Documentation polish
 
 Patch release improving JSDoc and IntelliSense coverage across previously

@@ -7,12 +7,13 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.2.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
-[![Bundle](https://img.shields.io/badge/bundle-%3C100kb-brightgreen.svg?style=flat-square)](#)
+[![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
+[![ESM%20%2B%20CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
 
 **English** · [Español](README.es.md)
 
@@ -79,30 +80,40 @@ stop('Build complete', true);
 
 ## 🆚 Comparison with the Node.js ecosystem
 
-Ansimax replaces a dependency stack of popular Node.js libraries with one coherent, typed package:
+Ansimax replaces a stack of popular Node.js libraries with **one coherent, typed, zero-dependency package**:
 
 | Feature | chalk | gradient-string | ora | cli-progress | figlet | boxen | inquirer | cli-table3 | **Ansimax** |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Basic + 256 colors | ✅ | — | — | — | — | — | — | — | ✅ |
 | Truecolor with adaptive fallback | ✅ | ✅ | — | — | — | — | — | — | ✅ |
 | Multi-stop gradients | — | ✅ | — | — | — | — | — | — | ✅ |
-| **Animated gradients** | — | — | — | — | — | — | — | — | 🔜 |
+| **Animated gradients** | — | — | — | — | — | — | — | — | ✅ |
+| **Easing curves (5 presets + custom)** | — | — | — | — | — | — | — | — | ✅ |
+| **Conic gradients (radial sweep)** | — | — | — | — | — | — | — | — | ✅ |
 | ASCII banners | — | — | — | — | ✅ | — | — | — | ✅ |
+| **Image → ASCII converter** | — | — | — | — | — | — | — | — | ✅ |
+| **Figlet `.flf` font parser** | — | — | — | — | ✅ (own) | — | — | — | ✅ (250+ fonts) |
 | Custom font registry | — | — | — | — | partial | — | — | — | ✅ |
-| Boxes with multiple styles | — | — | — | — | — | ✅ | — | — | ✅ |
+| Boxes with multiple styles | — | — | — | — | — | ✅ | — | — | ✅ (6 styles) |
 | Spinners (multiple styles) | — | — | ✅ | — | — | — | — | — | ✅ (11 styles) |
 | Animated progress bars | — | — | — | ✅ | — | — | — | — | ✅ |
 | **Hierarchical/parallel tasks** | — | — | — | — | — | — | — | — | ✅ |
 | Tables (multi-line, ANSI-aware) | — | — | — | — | — | — | — | ✅ | ✅ |
 | Interactive menus + multi-select | — | — | — | — | — | — | ✅ | — | ✅ |
 | **Trees with cycle detection** | — | — | — | — | — | — | — | — | ✅ |
+| **Split layouts (vsplit/hsplit)** | — | — | — | — | — | — | — | — | ✅ (v1.3.0) |
+| **JSON colored pretty-printer** | — | — | — | — | — | — | — | — | ✅ (v1.3.0) |
 | **Pixel art + canvas + sprites** | — | — | — | — | — | — | — | — | ✅ |
 | **Theme system + per-instance isolation** | — | — | — | — | — | — | — | — | ✅ |
 | `AbortSignal` everywhere | — | — | partial | — | — | — | partial | — | ✅ |
 | `NO_COLOR` env support | ✅ | partial | partial | — | — | — | — | — | ✅ |
-| TypeScript-first | partial | partial | ✅ | partial | partial | ✅ | partial | partial | ✅ |
-| Zero runtime dependencies | ✅ | — | — | — | — | — | — | — | ✅ |
-| **Total install size** | small | small | medium | medium | medium | small | large | medium | **< 100 KB** |
+| Stable error codes (`ANSIMAX_*`) | — | — | — | — | — | — | — | — | ✅ |
+| TypeScript-first (strict mode) | partial | partial | ✅ | partial | partial | ✅ | partial | partial | ✅ |
+| **Zero runtime dependencies** | ✅ | — | — | — | — | — | — | — | ✅ |
+| ESM + CJS dual export | partial | partial | ✅ | ✅ | partial | ✅ | partial | partial | ✅ |
+| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (2000+ tests)** |
+
+> Comparison reflects what each library officially supports at time of writing. Some libraries can be combined to approach ansimax's feature set, but at the cost of bundle size, version-skew bugs, and inconsistent APIs.
 
 ---
 
@@ -225,7 +236,7 @@ await animateGradient('Done!', ['#50fa7b', '#bd93f9'], {
 
 ### Easing Curves (v1.2.0)
 
-<img src="media/easing_curves.png" alt="Colors and gradients" />
+<img src="media/easing_curves.png" alt="Easing curves preview" />
 
 ```js
 import { gradient } from 'ansimax';
@@ -245,7 +256,7 @@ console.log(gradient('hello world', stops, { easing: (t) => t * t * t }));
 
 ### Conic Gradients (v1.2.0)
 
-<img src="media/conic_gradients.png" alt="Colors and gradients" />
+<img src="media/conic_gradients.png" alt="Conic gradients preview" />
 
 ```js
 import { gradientRect } from 'ansimax';
@@ -434,7 +445,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.2.8'));
+console.log(components.badge('VERSION', 'v1.3.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -542,6 +553,61 @@ tenantA.register('custom', {
 console.log('tenantA themes include custom?', tenantA.list().includes('custom'));
 console.log('tenantB themes include custom?', tenantB.list().includes('custom'));
 //                                            ↑ false — full isolation
+```
+
+### Panels — Split Layouts (v1.3.0)
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Side-by-side columns
+const left  = ascii.box('Sidebar',   { borderStyle: 'rounded' });
+const right = ascii.box('Main view', { borderStyle: 'rounded' });
+
+console.log(panels.vsplit([left, right], { gap: 2, align: 'center' }));
+
+// Vertical stacking
+console.log(panels.hsplit([
+  '── Application ──',
+  ascii.box('Body content'),
+  '── Footer ──',
+], { gap: 1, align: 'center' }));
+
+// Nested — sidebar + main inside an app shell
+console.log(panels.hsplit([
+  '── My App ──',
+  panels.vsplit([
+    ascii.box('Sidebar', { width: 20 }),
+    ascii.box('Main',    { width: 40 }),
+  ], { gap: 2 }),
+  '── End ──',
+]));
+```
+
+### JSON Pretty-print (v1.3.0)
+
+```js
+import { json } from 'ansimax';
+
+// Colored, depth-aware pretty-printing
+console.log(json.pretty({
+  name: 'ansimax',
+  version: '1.3.0',
+  features: ['colors', 'gradients', 'panels'],
+  stats: { tests: 2000, coverage: 0.98 },
+  active: true,
+}));
+
+// Depth limit — collapses deep objects to {...}
+console.log(json.pretty(deeplyNested, { maxDepth: 2 }));
+
+// Item limit — huge arrays show "... (N more)"
+console.log(json.pretty(largeArray, { maxItems: 10 }));
+
+// Circular references handled gracefully
+const obj = { name: 'foo' };
+obj.self = obj;
+console.log(json.pretty(obj));   // → "self": [Circular]
 ```
 
 ---
@@ -655,6 +721,68 @@ try {
 
 ---
 
+## 🧩 Ecosystem packages
+
+The **ansimax ecosystem** is structured in two tiers — companion packages that extend the core, and independent evolutions that target different platforms.
+
+### `@ansimax/*` — Companion packages
+
+Scoped packages that extend `ansimax` without breaking its zero-dependency promise. Each is published independently but shares ansimax's philosophy and naming.
+
+| Package | Status | Description |
+|---|:-:|---|
+| `ansimax` | ✅ stable | Terminal-rendering core. Zero dependencies. |
+| `@ansimax/image` | 🟡 planned | Image-to-ASCII loader — PNG/JPEG/WebP from file/buffer/URL |
+| `@ansimax/cli` | 🟡 planned | Standalone binary — `npx @ansimax/cli demo`, font browser, image converter |
+| `@ansimax/fonts` | 🟡 planned | 250+ figlet `.flf` fonts pre-bundled, ready to use |
+| `@ansimax/sprites` | 🔴 future | Curated sprite library (animals, UI icons, technical diagrams) |
+| `@ansimax/video` | 🔴 future | Video frame extraction → ASCII playback |
+| `@ansimax/themes-extra` | 🔴 future | Community-contributed themes pack |
+
+**How they connect:**
+
+```
+                ┌─────────────────────────────┐
+                │   ansimax  (zero deps)      │  ← core, you always install
+                │   • colors, ASCII, panels   │
+                │   • types: PixelGrid, etc.  │
+                └────────────┬────────────────┘
+                             │ peer dependency
+        ┌────────────────────┼────────────────────┐
+        ▼                    ▼                    ▼
+  @ansimax/image      @ansimax/cli         @ansimax/fonts
+  (deps: jimp)        (binary)             (data only)
+```
+
+Each companion declares `"ansimax": "^X.Y.Z"` as `peerDependency` — semver-coordinated, never duplicated, never out of sync.
+
+### `ansimax-*` — Independent evolutions
+
+Standalone projects that build **alongside** ansimax for different platforms. Not companions — these are separate identities with their own scope and release cycle.
+
+| Package | Status | Description |
+|---|:-:|---|
+| `ansimax-native` | 🔴 future | **Rust + TS rewrite** of the rendering hot path. Native performance via napi-rs. Same API surface as `ansimax`. |
+| `ansimax-web` | 🔴 future | **Browser rendering** layer. ANSI → HTML/CSS conversion + canvas rendering. For demos, docs sites, web terminals. |
+
+**Sub-ecosystems**: each of these can have their own scoped sub-packages (`@ansimax-native/image`, `@ansimax-web/canvas`, etc.) over time.
+
+### Why two naming conventions?
+
+Industry convention used by many mature ecosystems (Babel, Vue, Webpack, etc.):
+
+- **`@scope/*`** = "same project family, coordinated release, same team"
+- **`name-*`** = "inspired by / works alongside, independent identity"
+
+By using both, ansimax signals:
+- The **core** (`ansimax`) stays small, zero-dep, focused on terminal rendering
+- The **ecosystem** (`@ansimax/*`) grows around it as opt-in extensions
+- **Evolutions** (`ansimax-native`, `ansimax-web`) explore different platforms without compromising the core
+
+> 💡 **Coming soon**: When `@ansimax/image` or similar packages are released, this section will link to them. Want one of these built sooner? [Open an issue](https://github.com/Brashkie/ansimax/issues) to vote.
+
+---
+
 ## 🛣️ Roadmap
 
 Ansimax is being built toward a **full terminal rendering platform** — a Node-native answer to what Python developers get from `rich` + `textual` combined, with Node-specific improvements where it matters.
@@ -706,12 +834,12 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Columns layout (truncate/wrap overflow)
 - [x] Sections (gradient headers with auto-width)
 - [x] Trees (collapsible, max-depth, cycle-safe)
-- [ ] **Panels** (split layouts: hsplit, vsplit)
+- [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
+- [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
 - [ ] **Layouts** (flexbox-style positioning)
 - [ ] **Grid system** (CSS Grid-inspired column/row spans)
 - [ ] **Markdown rendering** (headings, lists, code blocks, tables)
 - [ ] **Syntax highlighting** (built-in language grammars)
-- [ ] **JSON/YAML pretty-printing** (with depth limit + collapse)
 - [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
 
 ### ✅ Phase 5 — Cursor & screen control
@@ -826,16 +954,23 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 ## 🧪 Testing
 
 ```bash
-npm test              # Run all 1700+ tests
+npm test              # Run all 2000+ tests
 npm run test:watch    # Watch mode
 npm run test:coverage # Coverage report
 ```
 
-Coverage targets:
-- Statements: **98%**
-- Branches: **95%**
-- Functions: **99%**
-- Lines: **99%**
+Coverage (as of v1.3.0):
+
+| Metric | Score |
+|---|:-:|
+| **Statements** | ~98% |
+| **Branches** | ~95% |
+| **Functions** | ~99% |
+| **Lines** | ~99% |
+| **Total tests** | **2,000+** |
+| **Test suites** | 18 |
+| **CI matrix** | Node 18, 20, 22, latest |
+| **Platforms tested** | Linux, macOS, Windows |
 
 ---
 
@@ -870,6 +1005,29 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.0 — Phase 4 progress: Panels + JSON pretty-print
+
+Minor release adding two new top-level modules — split layouts and JSON pretty-printing:
+
+- 🪟 **`panels` module** — `vsplit` (columns) + `hsplit` (rows) with ANSI-aware width, alignment (`start`/`center`/`end`), gap, fixed-width mode, nesting
+- 🎨 **`json` module** — colored JSON pretty-printer with depth limit, item limit, string truncation, circular reference detection
+- 🛣️ **Phase 4 roadmap**: 8/15 → **10/15** complete
+
+```js
+import { panels, json, ascii } from 'ansimax';
+
+// Side-by-side columns
+console.log(panels.vsplit([
+  ascii.box('Sidebar', { width: 20 }),
+  ascii.box('Main',    { width: 40 }),
+], { gap: 2 }));
+
+// Pretty-print JSON
+console.log(json.pretty({ name: 'app', tests: 2000 }, { maxDepth: 3 }));
+```
+
+Drop-in replacement for `1.2.8`. Two new modules, zero breaking changes.
 
 ### v1.2.8 — Documentation polish
 

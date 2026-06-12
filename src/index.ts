@@ -96,6 +96,13 @@ export type { Theme, ThemeInstance, ThemeStyleName, ThemeChangeListener, BannerO
 export { images, createCanvas, renderPixelArt, gradientRect, SPRITES, clearAnsiCache, flipHorizontal, flipVertical, rotate90 } from './images/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
+// v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
+export { panels, vsplit, hsplit } from './panels/index.js';
+export type { Alignment, VsplitOptions, HsplitOptions } from './panels/index.js';
+
+export { json, pretty as jsonPretty } from './json/index.js';
+export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';
+
 export {
   configure, getConfig, getSpeedMultiplier, resetConfig,
   onConfigChange, onConfigKeyChange, getConfigValue,
