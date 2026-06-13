@@ -44,6 +44,23 @@ export interface PrettyOptions {
    * Maximum string length before truncation with ellipsis. Default `Infinity`.
    */
   maxStringLength?: number;
+  /**
+   * Sort object keys alphabetically. Useful for deterministic diffs (e.g.,
+   * comparing two JSON snapshots) and for visual scanning of large objects.
+   * Default `false` (insertion order preserved).
+   *
+   * @since 1.3.1
+   */
+  sortKeys?: boolean;
+  /**
+   * Arrays of primitives shorter than this character width (in their
+   * rendered form) are displayed on a single line: `[1, 2, 3]` instead of
+   * three lines. Nested objects/arrays never inline regardless of size.
+   * Set to `0` to disable inlining. Default `60`.
+   *
+   * @since 1.3.1
+   */
+  inlineArrayMaxLength?: number;
 }
 
 // ─────────────────────────────────────────────
@@ -112,7 +129,7 @@ const _formatPrimitive = (value: unknown, opts: { useColor: boolean; maxStringLe
   if (typeof value === 'symbol') {
     return _c(value.toString(), COLORS.comment, useColor);
   }
-  // Fallback
+  /* istanbul ignore next — defensive: all primitive typeof values are handled above */
   return _c(String(value), COLORS.comment, useColor);
 };
 
@@ -129,9 +146,15 @@ const _renderValue = (
     maxStringLength: number;
     useColor: boolean;
     seen: WeakSet<object>;
+    // v1.3.1
+    sortKeys: boolean;
+    inlineArrayMaxLength: number;
   },
 ): string => {
-  const { indent, maxDepth, maxItems, maxStringLength, useColor, seen } = config;
+  const {
+    indent, maxDepth, maxItems, maxStringLength, useColor, seen,
+    sortKeys, inlineArrayMaxLength,
+  } = config;
 
   // Primitives (including null, undefined)
   if (value === null || typeof value !== 'object') {
@@ -165,6 +188,31 @@ const _renderValue = (
       return _c('[]', COLORS.bracket, useColor);
     }
 
+    // v1.3.1: try inline rendering for arrays of primitives if short enough
+    if (inlineArrayMaxLength > 0) {
+      const allPrimitive = value.every((v) => v === null || typeof v !== 'object');
+      if (allPrimitive) {
+        const displayCount = Math.min(value.length, maxItems);
+        const inlineItems: string[] = [];
+        for (let i = 0; i < displayCount; i++) {
+          inlineItems.push(_formatPrimitive(value[i], { useColor, maxStringLength }));
+        }
+        if (value.length > maxItems) {
+          const remaining = value.length - maxItems;
+          inlineItems.push(_c(`... (${remaining} more)`, COLORS.comment, useColor));
+        }
+        const candidate = _c('[', COLORS.bracket, useColor)
+                        + inlineItems.join(', ')
+                        + _c(']', COLORS.bracket, useColor);
+        // Strip ANSI to measure visible length
+        const visibleLen = candidate.replace(/\x1b\[[0-9;]*m/g, '').length;
+        if (visibleLen <= inlineArrayMaxLength) {
+          return candidate;
+        }
+      }
+    }
+
+    // Multi-line rendering
     const items: string[] = [];
     const displayCount = Math.min(value.length, maxItems);
     for (let i = 0; i < displayCount; i++) {
@@ -185,9 +233,14 @@ const _renderValue = (
   }
 
   // Plain objects (and class instances — render their own enumerable keys)
-  const keys = Object.keys(value as Record<string, unknown>);
+  let keys = Object.keys(value as Record<string, unknown>);
   if (keys.length === 0) {
     return _c('{}', COLORS.bracket, useColor);
+  }
+
+  // v1.3.1: sort keys alphabetically when requested
+  if (sortKeys) {
+    keys = [...keys].sort((a, b) => a.localeCompare(b));
   }
 
   const entries: string[] = [];
@@ -266,6 +319,9 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
     maxDepth = Infinity,
     maxItems = Infinity,
     maxStringLength = Infinity,
+    // v1.3.1
+    sortKeys = false,
+    inlineArrayMaxLength = 60,
   } = opts;
 
   // Defensive: clamp indent
@@ -278,6 +334,10 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
   const safeMaxStrLen = Number.isFinite(maxStringLength)
     ? Math.max(0, Math.floor(maxStringLength))
     : Infinity;
+  // Defensive: clamp inlineArrayMaxLength (0 disables inlining)
+  const safeInlineMax = Number.isFinite(inlineArrayMaxLength)
+    ? Math.max(0, Math.floor(inlineArrayMaxLength))
+    : 60;
 
   const useColor = colors && !isNoColor();
 
@@ -288,6 +348,8 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
     maxStringLength: safeMaxStrLen,
     useColor,
     seen: new WeakSet<object>(),
+    sortKeys: Boolean(sortKeys),
+    inlineArrayMaxLength: safeInlineMax,
   });
 };
 

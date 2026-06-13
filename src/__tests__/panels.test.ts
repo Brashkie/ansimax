@@ -177,3 +177,170 @@ describe('panels namespace export (v1.3.0)', () => {
     expect(typeof main.hsplit).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.1 — panels.center + panels.frame
+// ─────────────────────────────────────────────
+import { center, frame } from '../panels/index.js';
+
+describe('panels.center (v1.3.1)', () => {
+  it('horizontally centers a single line', () => {
+    const result = center('Hi', { width: 10 });
+    // 8 spaces split (4 left, 4 right) around "Hi"
+    expect(result).toBe('    Hi    ');
+  });
+
+  it('handles odd-space centering (extra space to right)', () => {
+    const result = center('Hi', { width: 11 });
+    // 9 spaces split (4 left, 5 right)
+    expect(result).toBe('    Hi     ');
+  });
+
+  it('returns block unchanged when content already fills width', () => {
+    const result = center('exact', { width: 5 });
+    expect(result).toBe('exact');
+  });
+
+  it('truncates content wider than width', () => {
+    const result = center('too long', { width: 4 });
+    // Falls back to first 4 chars
+    expect(result).toBe('too ');
+  });
+
+  it('handles multi-line block (each line centered)', () => {
+    const result = center('a\nbb', { width: 6 });
+    const lines = result.split('\n');
+    // "a" centered in 6 → "  a   " (3 spaces left, 2 right after a — actually "  a   ")
+    // Math.floor(5/2)=2, 5-2=3 → "  a   "
+    expect(lines[0]).toBe('  a   ');
+    // "bb" centered in 6 → "  bb  " (Math.floor(4/2)=2)
+    expect(lines[1]).toBe('  bb  ');
+  });
+
+  it('with height — vertical centering inserts blank lines', () => {
+    const result = center('X', { width: 5, height: 5, align: 'center' });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(5);
+    // X should be in the middle row (index 2)
+    expect(lines[2]?.includes('X')).toBe(true);
+  });
+
+  it('with height + align:start — content at top', () => {
+    const result = center('X', { width: 5, height: 5, align: 'start' });
+    const lines = result.split('\n');
+    expect(lines[0]?.includes('X')).toBe(true);
+  });
+
+  it('with height + align:end — content at bottom', () => {
+    const result = center('X', { width: 5, height: 5, align: 'end' });
+    const lines = result.split('\n');
+    expect(lines[4]?.includes('X')).toBe(true);
+  });
+
+  it('width = 0 returns block unchanged', () => {
+    expect(center('hello', { width: 0 })).toBe('hello');
+  });
+
+  it('missing opts returns block unchanged', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(center('hello', null)).toBe('hello');
+  });
+});
+
+describe('panels.frame (v1.3.1)', () => {
+  it('adds simple top/bottom rule lines', () => {
+    const result = frame('Hello');
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3); // top, content, bottom
+    expect(lines[0]).toBe('─────');
+    expect(lines[1]).toBe('Hello');
+    expect(lines[2]).toBe('─────');
+  });
+
+  it('respects padding option (adds blank lines + horizontal padding)', () => {
+    const result = frame('Hi', { padding: 1 });
+    const lines = result.split('\n');
+    // top, blank, " Hi ", blank, bottom
+    expect(lines.length).toBe(5);
+    expect(lines[2]).toBe(' Hi ');
+  });
+
+  it('separates paddingX and paddingY', () => {
+    const result = frame('Hi', { paddingX: 2, paddingY: 0 });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3); // no Y padding → no blank lines
+    expect(lines[1]).toBe('  Hi  '); // 2 spaces left + Hi + 2 right
+  });
+
+  it('adds title centered in top edge', () => {
+    const result = frame('Body', { title: 'Header' });
+    const lines = result.split('\n');
+    // First line includes "Header"
+    expect(lines[0]?.includes(' Header ')).toBe(true);
+  });
+
+  it('uses custom topChar and bottomChar', () => {
+    const result = frame('X', { topChar: '═', bottomChar: '═' });
+    const lines = result.split('\n');
+    expect(lines[0]).toBe('═');
+    expect(lines[2]).toBe('═');
+  });
+
+  it('bottomChar falls back to topChar when unset', () => {
+    const result = frame('X', { topChar: '━' });
+    const lines = result.split('\n');
+    expect(lines[0]).toBe('━');
+    expect(lines[2]).toBe('━'); // same char
+  });
+
+  it('handles multi-line block', () => {
+    const result = frame('Line 1\nLine 2\nLine 3', { padding: 0 });
+    const lines = result.split('\n');
+    // top, line1, line2, line3, bottom
+    expect(lines.length).toBe(5);
+  });
+
+  it('negative padding is clamped to 0', () => {
+    const r1 = frame('Hi');
+    const r2 = frame('Hi', { padding: -5 });
+    expect(r2).toBe(r1);
+  });
+
+  it('namespaced access works', () => {
+    expect(typeof panels.center).toBe('function');
+    expect(typeof panels.frame).toBe('function');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage gap from v1.3.1 (line 66 — empty/invalid block)
+// ─────────────────────────────────────────────
+
+describe('panels: empty/invalid block input (coverage v1.3.1)', () => {
+  it('frame handles empty string block', () => {
+    // _splitBlock with '' returns { lines: [''], maxWidth: 0 }
+    const result = frame('');
+    expect(typeof result).toBe('string');
+    // Should still produce top + content + bottom rules
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3);
+  });
+
+  it('center handles empty string block', () => {
+    const result = center('', { width: 10 });
+    // Empty content padded to width 10 → 10 spaces
+    expect(result).toBe(' '.repeat(10));
+  });
+
+  it('frame handles non-string block defensively', () => {
+    // @ts-expect-error testing defensive behavior with invalid type
+    expect(() => frame(null)).not.toThrow();
+    // @ts-expect-error testing defensive behavior with invalid type
+    expect(() => frame(undefined)).not.toThrow();
+  });
+
+  it('center handles non-string block defensively', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(() => center(null, { width: 10 })).not.toThrow();
+  });
+});

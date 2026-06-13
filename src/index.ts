@@ -97,8 +97,9 @@ export { images, createCanvas, renderPixelArt, gradientRect, SPRITES, clearAnsiC
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
-export { panels, vsplit, hsplit } from './panels/index.js';
-export type { Alignment, VsplitOptions, HsplitOptions } from './panels/index.js';
+// v1.3.1 — panels.center + panels.frame, json sortKeys + inline arrays
+export { panels, vsplit, hsplit, center as centerBlock, frame } from './panels/index.js';
+export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions } from './panels/index.js';
 
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';

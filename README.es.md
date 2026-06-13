@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -445,7 +445,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.0'));
+console.log(components.badge('VERSION', 'v1.3.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1005,6 +1005,35 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.1 — Pulido de panels + json
+
+Release patch que mejora los módulos de v1.3.0 con quality-of-life:
+
+- 🎯 **`panels.center(block, opts)`** — centra un block horizontalmente (y opcionalmente verticalmente) en un ancho conocido
+- 🖼️ **`panels.frame(block, opts)`** — alternativa más ligera a `ascii.box`: solo top/bottom con title + padding opcionales
+- 📋 **`json.pretty` opción `sortKeys`** — orden alfabético de keys para diffs deterministas
+- 📐 **`json.pretty` opción `inlineArrayMaxLength`** — arrays cortos de primitivos ahora se renderizan como `[1, 2, 3]` en una línea (threshold default: 60 chars)
+- 🧪 **+26 tests** entre panels + json
+
+```js
+import { panels, json } from 'ansimax';
+
+// Centrar un box dentro de la terminal
+console.log(panels.center(ascii.box('Hello'), { width: 80 }));
+
+// Frame decorativo más ligero
+console.log(panels.frame('Body', { title: 'Header', padding: 1 }));
+
+// Sorted, con inline arrays
+console.log(json.pretty({ zebra: [1, 2, 3], apple: 'A' }, { sortKeys: true }));
+// {
+//   "apple": "A",
+//   "zebra": [1, 2, 3]
+// }
+```
+
+Drop-in replacement para `1.3.0`.
 
 ### v1.3.0 — Avance Fase 4: Panels + JSON pretty-print
 

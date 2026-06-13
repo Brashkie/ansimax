@@ -3,6 +3,128 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] — Polish for panels + json
+
+Patch release improving the two modules introduced in v1.3.0 — adds layout
+helpers, JSON readability options, and tests. No breaking changes.
+
+### Added — `panels.center(block, opts)`
+
+Center a multi-line block horizontally (and optionally vertically) within
+a fixed width/height. Useful for centering boxes, banners, or any pre-rendered
+block in a known terminal width.
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Horizontal centering only
+console.log(panels.center('Hello!', { width: 30 }));
+//   "            Hello!            "
+
+// Vertical too — content fits in 5 rows
+console.log(panels.center('X', { width: 5, height: 5, align: 'center' }));
+
+// Combine with box for a centered card
+console.log(panels.center(ascii.box('Hello'), { width: 80 }));
+```
+
+Exported as `centerBlock` from the main barrel (to avoid colliding with the
+existing `center` text helper). The namespaced form `panels.center` works
+identically.
+
+### Added — `panels.frame(block, opts)`
+
+Lighter alternative to `ascii.box`: draws only top/bottom decorative rules
+(not full sides). Supports a centered title, padding, and custom characters.
+
+```js
+import { panels } from 'ansimax';
+
+// Simple rules
+console.log(panels.frame('Hello world!'));
+// ─────────────
+// Hello world!
+// ─────────────
+
+// With title + padding
+console.log(panels.frame('Body content\nMore content', {
+  title: 'Header',
+  padding: 1,
+}));
+// ───── Header ─────
+//
+//  Body content
+//  More content
+//
+// ──────────────────
+
+// Custom decoration chars
+console.log(panels.frame('Important!', {
+  topChar: '═',
+  padding: 2,
+}));
+```
+
+### Added — `json.pretty` option `sortKeys`
+
+Sort object keys alphabetically for deterministic output. Useful for diffs,
+snapshots, and visual scanning of large objects.
+
+```js
+import { json } from 'ansimax';
+
+console.log(json.pretty({ zebra: 1, apple: 2, mango: 3 }, { sortKeys: true }));
+// {
+//   "apple": 2,
+//   "mango": 3,
+//   "zebra": 1
+// }
+```
+
+Recursive — applies to all nested objects. Default `false` (preserves
+insertion order).
+
+### Added — `json.pretty` option `inlineArrayMaxLength`
+
+Arrays of primitives now render on a single line when their rendered length
+is short enough (default threshold: 60 visible characters). This improves
+readability significantly for typical configs:
+
+```js
+// Before v1.3.1:
+{
+  "tags": [
+    "frontend",
+    "react",
+    "typescript"
+  ]
+}
+
+// In v1.3.1 (default behavior):
+{
+  "tags": ["frontend", "react", "typescript"]
+}
+```
+
+Arrays containing objects/arrays never inline regardless of length. Set
+`inlineArrayMaxLength: 0` to restore the v1.3.0 always-expand behavior.
+
+### Improved — Tests
+
+- `+11` tests for `panels.center` + `panels.frame`
+- `+15` tests for `json.pretty` `sortKeys` + `inlineArrayMaxLength`
+- Total tests: 2,000+ → **~2,026** across 18 suites
+
+### Notes
+
+- No runtime dependencies — still zero
+- No breaking changes — drop-in replacement for `1.3.0`
+- `panels.center` is exposed as `centerBlock` at the top level to avoid
+  conflict with the existing `center` text helper; both `panels.center` and
+  `centerBlock` reference the same function
+
+---
+
 ## [1.3.0] — Phase 4 progress: Panels + JSON pretty-print
 
 Minor release adding **split layout primitives** and **JSON pretty-printing**.

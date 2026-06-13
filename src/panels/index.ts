@@ -279,12 +279,224 @@ export const hsplit = (blocks: string[], opts: HsplitOptions = {}): string => {
 };
 
 // ─────────────────────────────────────────────
+//  v1.3.1 — Additional layout helpers
+// ─────────────────────────────────────────────
+
+export interface CenterOptions {
+  /** Total width to center within. Required. */
+  width: number;
+  /**
+   * Vertical alignment if `height` is also specified.
+   * Default `'start'`.
+   */
+  align?: Alignment;
+  /**
+   * Total height to fit the block into. Optional — if omitted, only
+   * horizontal centering is applied.
+   */
+  height?: number;
+}
+
+/**
+ * Center a multi-line block horizontally (and optionally vertically)
+ * within a given width/height. Each line is padded with spaces on both
+ * sides; ANSI escapes are preserved.
+ *
+ * @example horizontal centering only
+ * ```js
+ * import { panels } from 'ansimax';
+ *
+ * console.log(panels.center('Hello!', { width: 30 }));
+ * //                "            Hello!            "
+ * ```
+ *
+ * @example multi-line centered in a fixed area
+ * ```js
+ * console.log(panels.center('Line 1\nLine 2\nLine 3', {
+ *   width: 30,
+ *   height: 7,
+ *   align: 'center',
+ * }));
+ * ```
+ *
+ * @example combined with box for a centered card
+ * ```js
+ * import { ascii, panels } from 'ansimax';
+ *
+ * console.log(panels.center(ascii.box('Hello'), { width: 80 }));
+ * // Box appears centered in a 80-wide terminal
+ * ```
+ */
+export const center = (block: string, opts: CenterOptions): string => {
+  if (!opts || typeof opts !== 'object') return block;
+  const width = Math.max(0, Math.floor(opts.width ?? 0));
+  if (width === 0) return block;
+
+  const { lines, maxWidth } = _splitBlock(block);
+
+  // Horizontal centering — pad each line to `width` with equal sides
+  const hCentered = lines.map((line) => {
+    const w = visibleLen(line);
+    const space = Math.max(0, width - w);
+    if (space === 0) return line.slice(0, width); // Already too wide — just emit as-is
+    const left = Math.floor(space / 2);
+    const right = space - left;
+    return ' '.repeat(left) + line + ' '.repeat(right);
+  });
+
+  // Vertical centering — only if height is provided
+  if (opts.height != null) {
+    const targetH = Math.max(1, Math.floor(opts.height));
+    return _alignVertical(hCentered, targetH, width, opts.align ?? 'center').join('\n');
+  }
+
+  // Silence unused-var lint when only h-centering
+  void maxWidth;
+  return hCentered.join('\n');
+};
+
+export interface FrameOptions {
+  /**
+   * Padding (in spaces) between the block content and the inner edge of
+   * the frame. Default `0`.
+   */
+  padding?: number;
+  /**
+   * Padding above + below the block. If unset, falls back to `padding`.
+   */
+  paddingY?: number;
+  /**
+   * Padding left + right of the block. If unset, falls back to `padding`.
+   */
+  paddingX?: number;
+  /**
+   * Top decoration character — e.g. `'─'`, `'═'`, `'━'`, `'·'`.
+   * Default `'─'`.
+   */
+  topChar?: string;
+  /**
+   * Bottom decoration character. Default same as `topChar`.
+   */
+  bottomChar?: string;
+  /**
+   * Optional title shown centered in the top edge.
+   */
+  title?: string;
+}
+
+/**
+ * Add decorative top/bottom rule lines around a block (lighter than `ascii.box`
+ * which draws four sides). Useful for visual separation without full borders.
+ *
+ * @example simple top/bottom rules
+ * ```js
+ * console.log(panels.frame('Hello world!'));
+ * // ─────────────
+ * // Hello world!
+ * // ─────────────
+ * ```
+ *
+ * @example with title and padding
+ * ```js
+ * console.log(panels.frame('Body content\nMore content', {
+ *   title: 'Header',
+ *   padding: 1,
+ * }));
+ * // ───── Header ─────
+ * //
+ * //  Body content
+ * //  More content
+ * //
+ * // ──────────────────
+ * ```
+ *
+ * @example custom decorations
+ * ```js
+ * console.log(panels.frame('Important!', {
+ *   topChar: '═',
+ *   bottomChar: '═',
+ *   padding: 2,
+ * }));
+ * ```
+ */
+export const frame = (block: string, opts: FrameOptions = {}): string => {
+  const {
+    padding = 0,
+    paddingY,
+    paddingX,
+    topChar = '─',
+    bottomChar,
+    title,
+  } = opts;
+
+  const safePadY = Math.max(0, Math.floor(paddingY ?? padding));
+  const safePadX = Math.max(0, Math.floor(paddingX ?? padding));
+  const safeTop = (typeof topChar === 'string' && topChar.length > 0) ? topChar.charAt(0) : '─';
+  const safeBot = (typeof bottomChar === 'string' && bottomChar.length > 0)
+    ? bottomChar.charAt(0)
+    : safeTop;
+
+  const { lines, maxWidth } = _splitBlock(block);
+  // Calculate inner width — must accommodate content + padding, AND title if present.
+  // When title is wider than content, the frame expands to fit the title;
+  // content lines get extra right-padding to align.
+  const contentInnerW = maxWidth + 2 * safePadX;
+  let innerW = contentInnerW;
+  let titleStr = '';
+  let titleW = 0;
+  if (typeof title === 'string' && title.length > 0) {
+    titleStr = ` ${title} `;
+    titleW = visibleLen(titleStr);
+    // Reserve at least 2 chars of decoration on each side of the title
+    const titleNeededW = titleW + 2;
+    if (titleNeededW > innerW) {
+      innerW = titleNeededW;
+    }
+  }
+
+  // Build top line — with optional centered title
+  let topLine: string;
+  if (titleStr.length > 0 && titleW < innerW) {
+    const before = Math.floor((innerW - titleW) / 2);
+    const after = innerW - titleW - before;
+    topLine = safeTop.repeat(before) + titleStr + safeTop.repeat(after);
+  } else {
+    topLine = safeTop.repeat(innerW);
+  }
+  const bottomLine = safeBot.repeat(innerW);
+
+  // Horizontal padding for each content line.
+  // Pad each line to innerW so they align with the (possibly wider) frame.
+  const padX = ' '.repeat(safePadX);
+  const padded = lines.map((line) => {
+    const w = visibleLen(line);
+    // Right-pad so content reaches innerW (which may exceed maxWidth + 2*padX)
+    const tail = ' '.repeat(Math.max(0, innerW - safePadX - w - safePadX));
+    return padX + line + tail + padX;
+  });
+
+  // Vertical padding (blank lines above/below)
+  const blank = ' '.repeat(innerW);
+  const out: string[] = [];
+  out.push(topLine);
+  for (let i = 0; i < safePadY; i++) out.push(blank);
+  out.push(...padded);
+  for (let i = 0; i < safePadY; i++) out.push(blank);
+  out.push(bottomLine);
+
+  return out.join('\n');
+};
+
+// ─────────────────────────────────────────────
 //  Namespace
 // ─────────────────────────────────────────────
 
 export const panels = {
   vsplit,
   hsplit,
+  // v1.3.1
+  center,
+  frame,
 };
 
 export default panels;
