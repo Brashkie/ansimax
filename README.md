@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -215,6 +215,8 @@ console.log(rainbow('built-in rainbow preset'));
 
 ### Animated Gradients (v1.2.0)
 
+<img src="media/animated_gradients.png" alt="Animated gradients preview" />
+
 ```js
 import { animateGradient, sleep } from 'ansimax';
 
@@ -273,6 +275,8 @@ console.log(gradientRect({
 
 ### Reusable Gradients (v1.2.3)
 
+<img src="media/reusable_gradients.png" alt="Reusable gradients preview" />
+
 ```js
 import { createGradient, reverseGradient, ascii } from 'ansimax';
 
@@ -318,6 +322,8 @@ console.log(ascii.box('Rainbow box!', { padding: 1, borderStyle: 'rounded' }));
 ```
 
 ### Image → ASCII (v1.2.5)
+
+<img src="media/image_to_ascii.png" alt="Image-to-ASCII preview" />
 
 ```js
 import { ascii } from 'ansimax';
@@ -370,6 +376,8 @@ console.log(ascii.fromImage(pixels, {
 ```
 
 ### Figlet Fonts (v1.2.5)
+
+<img src="media/figlet_fonts.png" alt="Figlet fonts preview" />
 
 ```js
 import { readFileSync } from 'node:fs';
@@ -445,7 +453,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.1'));
+console.log(components.badge('VERSION', 'v1.3.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -465,6 +473,8 @@ console.log(components.timeline([
 ```
 
 ### Loaders & Progress
+
+<img src="media/loaders.png" alt="Loaders and progress bars preview" />
 
 ```js
 import { loader, sleep } from 'ansimax';
@@ -494,6 +504,8 @@ await loader.tasks([
 ```
 
 ### Animations
+
+<img src="media/animations.png" alt="Animations preview" />
 
 ```js
 import { animate, gradient, sleep } from 'ansimax';
@@ -557,6 +569,8 @@ console.log('tenantB themes include custom?', tenantB.list().includes('custom'))
 
 ### Panels — Split Layouts (v1.3.0)
 
+<img src="media/panels.png" alt="Panels and split layouts preview" />
+
 ```js
 import { panels, ascii } from 'ansimax';
 
@@ -586,6 +600,8 @@ console.log(panels.hsplit([
 
 ### JSON Pretty-print (v1.3.0)
 
+<img src="media/json_pretty.png" alt="JSON pretty-print preview" />
+
 ```js
 import { json } from 'ansimax';
 
@@ -609,6 +625,22 @@ const obj = { name: 'foo' };
 obj.self = obj;
 console.log(json.pretty(obj));   // → "self": [Circular]
 ```
+
+---
+
+## 📖 Documentation
+
+The [`docs/`](./docs) folder contains comprehensive examples for every module:
+
+| Document | Description |
+|---|---|
+| [`docs/README.md`](./docs/README.md) | Documentation index — start here |
+| [`docs/examples-ts.md`](./docs/examples-ts.md) | 33 TypeScript examples (3 per module × 11 modules) |
+| [`docs/examples-mjs.md`](./docs/examples-mjs.md) | 33 JavaScript ESM examples |
+| [`docs/examples-cjs.md`](./docs/examples-cjs.md) | 33 JavaScript CommonJS examples |
+| [`docs/showcase.md`](./docs/showcase.md) | Complete demo app combining every module |
+
+Every example is **copy-paste runnable** with realistic, mid-complexity scenarios — not just one-liners.
 
 ---
 
@@ -1005,6 +1037,29 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.2 — Documentation polish for frames + images
+
+Patch release with significantly improved JSDoc + IntelliSense coverage:
+
+- 📝 **`frames` module** — `play`, `generate`, `live`, `morph`, `presets` now have full JSDoc with 17 runnable examples
+- 📝 **`images` module** — `renderPixelArt`, `gradientRect`, `createCanvas`, `SPRITES` now have 18 runnable examples
+- 🎯 **Total**: +35 new `@example` blocks visible in your editor
+
+```js
+// Hovering frames.play() in VS Code now shows usage patterns:
+import { frames } from 'ansimax';
+
+await frames.play(myFrames, {
+  interval: 80,
+  loop: true,
+  signal: ctrl.signal,
+  onFrame: (f, i) => color.cyan(`[${i}] ${f}`),
+}).promise;
+```
+
+Pure documentation release — no code, API, or test changes.
+Drop-in replacement for `1.3.1`.
 
 ### v1.3.1 — Polish for panels + json
 

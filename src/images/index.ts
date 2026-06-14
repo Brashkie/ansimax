@@ -166,6 +166,49 @@ const ensurePixelGrid = (pixels: unknown): PixelGrid | null => {
   return pixels.map((row) => (Array.isArray(row) ? row : [])) as PixelGrid;
 };
 
+/**
+ * Render a 2D grid of pixels (`{r, g, b, a?}` objects) as terminal output
+ * using half-block characters (`▀`) to fit two vertical pixels per row.
+ * This doubles vertical resolution compared to one-character-per-pixel.
+ *
+ * @param pixels - 2D grid of pixel objects.
+ * @param opts   - Render options (scale, background, etc.).
+ *
+ * @example basic pixel art
+ * ```js
+ * import { renderPixelArt } from 'ansimax';
+ *
+ * const heart = [
+ *   [null, {r:255,g:0,b:0}, null, {r:255,g:0,b:0}, null],
+ *   [{r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}],
+ *   [{r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}],
+ *   [null, {r:255,g:0,b:0}, {r:255,g:0,b:0}, {r:255,g:0,b:0}, null],
+ *   [null, null, {r:255,g:0,b:0}, null, null],
+ * ];
+ *
+ * console.log(renderPixelArt(heart));
+ * ```
+ *
+ * @example with scale (each pixel rendered as multiple chars)
+ * ```js
+ * console.log(renderPixelArt(myPixels, { scale: 2 }));
+ * // Each pixel becomes 2x2 in the output
+ * ```
+ *
+ * @example with background color (transparent pixels show through)
+ * ```js
+ * console.log(renderPixelArt(myPixels, {
+ *   background: { r: 30, g: 30, b: 30 },
+ * }));
+ * ```
+ *
+ * @example combined with a sprite from SPRITES
+ * ```js
+ * import { renderPixelArt, SPRITES } from 'ansimax';
+ *
+ * console.log(renderPixelArt(SPRITES.heart.pixels, { scale: 3 }));
+ * ```
+ */
 export const renderPixelArt = (
   pixels: PixelGrid,
   opts: RenderOptions = {},
@@ -343,6 +386,38 @@ const G: Pixel = { r: 255, g: 215, b: 0   };
 const K: Pixel = { r: 0,   g: 0,   b: 0   };
 const N: Pixel = null;
 
+/**
+ * Built-in sprite library — small pre-defined pixel art ready for use.
+ *
+ * Each entry has a `pixels` property containing a `PixelGrid`.
+ *
+ * Currently available: `heart`, `star`, `arrow`, `check`, `x`, `bell`,
+ * `gear`, `bolt`, `flag`, `crown`.
+ *
+ * @example render a built-in sprite
+ * ```js
+ * import { renderPixelArt, SPRITES } from 'ansimax';
+ *
+ * console.log(renderPixelArt(SPRITES.heart.pixels));
+ * console.log(renderPixelArt(SPRITES.star.pixels, { scale: 2 }));
+ * ```
+ *
+ * @example list all available sprites
+ * ```js
+ * console.log('Available sprites:', Object.keys(SPRITES).join(', '));
+ * ```
+ *
+ * @example compose sprites on a canvas
+ * ```js
+ * import { createCanvas, SPRITES } from 'ansimax';
+ *
+ * const canvas = createCanvas(30, 10);
+ * canvas.drawSprite(2,  2, SPRITES.heart.pixels);
+ * canvas.drawSprite(10, 2, SPRITES.star.pixels);
+ * canvas.drawSprite(18, 2, SPRITES.crown.pixels);
+ * canvas.print();
+ * ```
+ */
 export const SPRITES: Record<string, { pixels: PixelGrid }> = {
   heart: { pixels: [
     [N,R,N,R,N],
@@ -432,6 +507,78 @@ export interface GradientRectOptions {
   braille?: boolean;
 }
 
+/**
+ * Render a rectangle filled with a multi-color gradient. Supports horizontal,
+ * vertical, diagonal, arbitrary-angle, radial, and conic gradient styles.
+ *
+ * @param opts - Configuration: dimensions, colors, style, dithering.
+ *
+ * @example horizontal gradient (default)
+ * ```js
+ * import { gradientRect } from 'ansimax';
+ *
+ * console.log(gradientRect({
+ *   width: 40, height: 10,
+ *   colors: ['#ff0000', '#0000ff'],
+ * }));
+ * ```
+ *
+ * @example vertical gradient with multiple stops
+ * ```js
+ * console.log(gradientRect({
+ *   width: 30, height: 15,
+ *   colors: ['#ff0000', '#ffff00', '#00ff00', '#0000ff'],
+ *   style: 'vertical',
+ * }));
+ * ```
+ *
+ * @example arbitrary angle (45° = bottom-left to top-right)
+ * ```js
+ * console.log(gradientRect({
+ *   width: 40, height: 20,
+ *   colors: ['#bd93f9', '#ff79c6'],
+ *   style: 'diagonal',
+ *   angle: 45,
+ * }));
+ * ```
+ *
+ * @example radial gradient (center to edge)
+ * ```js
+ * console.log(gradientRect({
+ *   width: 30, height: 15,
+ *   colors: ['#ffffff', '#000000'],
+ *   style: 'radial',
+ * }));
+ * ```
+ *
+ * @example conic (rainbow wheel) — v1.2.0+
+ * ```js
+ * console.log(gradientRect({
+ *   width: 30, height: 15,
+ *   colors: ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ff0000'],
+ *   style: 'conic',
+ *   startAngle: 0,
+ * }));
+ * ```
+ *
+ * @example with Bayer dithering for smoother tonal transitions
+ * ```js
+ * console.log(gradientRect({
+ *   width: 60, height: 20,
+ *   colors: ['#000033', '#ffcc00'],
+ *   dither: 'bayer',
+ * }));
+ * ```
+ *
+ * @example braille mode (4× vertical resolution per cell)
+ * ```js
+ * console.log(gradientRect({
+ *   width: 60, height: 30,
+ *   colors: ['#ff0000', '#0000ff'],
+ *   braille: true,
+ * }));
+ * ```
+ */
 export const gradientRect = (opts: GradientRectOptions = {}): string => {
   const {
     width  = 40,
@@ -553,6 +700,61 @@ export interface Canvas {
   pixels:     PixelGrid;
 }
 
+/**
+ * Create a mutable in-memory canvas with drawing primitives (line, rect,
+ * circle, sprite). The canvas tracks dirty regions so subsequent renders
+ * can update only changed pixels (useful for animation).
+ *
+ * @param width     - Canvas width in pixels (1 to MAX_DIMENSION).
+ * @param height    - Canvas height in pixels (1 to MAX_DIMENSION).
+ * @param fillColor - Initial fill (`null` for transparent). Default `null`.
+ * @returns A Canvas object with drawing methods.
+ *
+ * @example draw and render a simple scene
+ * ```js
+ * import { createCanvas } from 'ansimax';
+ *
+ * const canvas = createCanvas(40, 20, { r: 20, g: 20, b: 30 });
+ *
+ * canvas.drawRect(5, 5, 30, 10, { r: 100, g: 200, b: 255 }, true);
+ * canvas.drawCircle(20, 10, 4, { r: 255, g: 200, b: 0 }, true);
+ * canvas.drawLine(0, 0, 39, 19, { r: 255, g: 0, b: 100 });
+ *
+ * canvas.print();  // render and write to stdout
+ * ```
+ *
+ * @example animated frame with dirty-region tracking
+ * ```js
+ * const canvas = createCanvas(60, 30);
+ *
+ * for (let frame = 0; frame < 100; frame++) {
+ *   canvas.setPixel(frame % 60, 15, { r: 255, g: 0, b: 0 });
+ *
+ *   // Only re-render changed pixels (much faster than full redraw)
+ *   process.stdout.write(canvas.render({ dirtyOnly: true }));
+ *   await new Promise(r => setTimeout(r, 50));
+ * }
+ * ```
+ *
+ * @example composite sprites
+ * ```js
+ * import { createCanvas, SPRITES } from 'ansimax';
+ *
+ * const canvas = createCanvas(40, 20);
+ * canvas.drawSprite(5, 5, SPRITES.heart.pixels);
+ * canvas.drawSprite(20, 5, SPRITES.star.pixels);
+ * canvas.print();
+ * ```
+ *
+ * @example resize while preserving content
+ * ```js
+ * const canvas = createCanvas(20, 10, { r: 50, g: 50, b: 50 });
+ * canvas.drawCircle(10, 5, 3, { r: 255, g: 0, b: 0 });
+ *
+ * canvas.resize(40, 20);  // existing pixels remain in upper-left
+ * canvas.print();
+ * ```
+ */
 export const createCanvas = (
   width: number,
   height: number,

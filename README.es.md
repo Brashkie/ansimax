@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -215,6 +215,8 @@ console.log(rainbow('preset rainbow integrado'));
 
 ### Gradientes animados (v1.2.0)
 
+<img src="media/animated_gradients.png" alt="Vista previa de gradientes animados" />
+
 ```js
 import { animateGradient, sleep } from 'ansimax';
 
@@ -273,6 +275,8 @@ console.log(gradientRect({
 
 ### Gradientes reusables (v1.2.3)
 
+<img src="media/reusable_gradients.png" alt="Vista previa de gradientes reusables" />
+
 ```js
 import { createGradient, reverseGradient, ascii } from 'ansimax';
 
@@ -318,6 +322,8 @@ console.log(ascii.box('¡Caja arcoiris!', { padding: 1, borderStyle: 'rounded' }
 ```
 
 ### Imagen → ASCII (v1.2.5)
+
+<img src="media/image_to_ascii.png" alt="Vista previa de Image-to-ASCII" />
 
 ```js
 import { ascii } from 'ansimax';
@@ -370,6 +376,8 @@ console.log(ascii.fromImage(pixels, {
 ```
 
 ### Fuentes Figlet (v1.2.5)
+
+<img src="media/figlet_fonts.png" alt="Vista previa de fuentes figlet" />
 
 ```js
 import { readFileSync } from 'node:fs';
@@ -445,7 +453,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.1'));
+console.log(components.badge('VERSION', 'v1.3.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -465,6 +473,8 @@ console.log(components.timeline([
 ```
 
 ### Loaders y Progreso
+
+<img src="media/loaders.png" alt="Vista previa de loaders y barras de progreso" />
 
 ```js
 import { loader, sleep } from 'ansimax';
@@ -494,6 +504,8 @@ await loader.tasks([
 ```
 
 ### Animaciones
+
+<img src="media/animations.png" alt="Vista previa de animaciones" />
 
 ```js
 import { animate, gradient, sleep } from 'ansimax';
@@ -557,6 +569,8 @@ console.log('tenantB incluye custom?', tenantB.list().includes('custom'));
 
 ### Panels — Layouts divididos (v1.3.0)
 
+<img src="media/panels.png" alt="Vista previa de panels y layouts divididos" />
+
 ```js
 import { panels, ascii } from 'ansimax';
 
@@ -586,6 +600,8 @@ console.log(panels.hsplit([
 
 ### JSON Pretty-print (v1.3.0)
 
+<img src="media/json_pretty.png" alt="Vista previa de JSON pretty-print" />
+
 ```js
 import { json } from 'ansimax';
 
@@ -609,6 +625,22 @@ const obj = { name: 'foo' };
 obj.self = obj;
 console.log(json.pretty(obj));   // → "self": [Circular]
 ```
+
+---
+
+## 📖 Documentación
+
+La carpeta [`docs/`](./docs) contiene ejemplos completos para cada módulo:
+
+| Documento | Descripción |
+|---|---|
+| [`docs/README.md`](./docs/README.md) | Índice de documentación — empieza aquí |
+| [`docs/examples-ts.md`](./docs/examples-ts.md) | 33 ejemplos en TypeScript (3 por módulo × 11 módulos) |
+| [`docs/examples-mjs.md`](./docs/examples-mjs.md) | 33 ejemplos en JavaScript ESM |
+| [`docs/examples-cjs.md`](./docs/examples-cjs.md) | 33 ejemplos en JavaScript CommonJS |
+| [`docs/showcase.md`](./docs/showcase.md) | App completa que combina todos los módulos |
+
+Cada ejemplo es **copy-paste ejecutable** con escenarios realistas de complejidad media — no solo one-liners.
 
 ---
 
@@ -1005,6 +1037,29 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.2 — Pulido de documentación para frames + images
+
+Release patch con cobertura JSDoc + IntelliSense significativamente mejorada:
+
+- 📝 **Módulo `frames`** — `play`, `generate`, `live`, `morph`, `presets` ahora tienen JSDoc completo con 17 ejemplos ejecutables
+- 📝 **Módulo `images`** — `renderPixelArt`, `gradientRect`, `createCanvas`, `SPRITES` ahora tienen 18 ejemplos ejecutables
+- 🎯 **Total**: +35 nuevos bloques `@example` visibles en tu editor
+
+```js
+// Pasando el cursor sobre frames.play() en VS Code ahora muestra patrones de uso:
+import { frames } from 'ansimax';
+
+await frames.play(myFrames, {
+  interval: 80,
+  loop: true,
+  signal: ctrl.signal,
+  onFrame: (f, i) => color.cyan(`[${i}] ${f}`),
+}).promise;
+```
+
+Release puramente de documentación — cero cambios en código, API o tests.
+Drop-in replacement para `1.3.1`.
 
 ### v1.3.1 — Pulido de panels + json
 

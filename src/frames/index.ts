@@ -223,6 +223,77 @@ const defaultOnFrame = (frame: string): string =>
 //  play — sequenced player with controller
 // ─────────────────────────────────────────────
 
+/**
+ * Play a sequence of frames in-place, with controls for pause/resume/stop.
+ * Each frame is rendered with cursor save/restore to overwrite the previous
+ * one cleanly. Resolves when all frames are played (or when stopped).
+ *
+ * @param frames - Array of pre-rendered frame strings.
+ * @param opts   - Playback options.
+ * @returns A controller with `.pause()`, `.resume()`, `.stop()`, `.promise`.
+ *
+ * @example basic loop animation
+ * ```js
+ * import { frames } from 'ansimax';
+ *
+ * const animation = frames.play([
+ *   '⠋ Loading',
+ *   '⠙ Loading',
+ *   '⠹ Loading',
+ *   '⠸ Loading',
+ * ], { interval: 80, loop: true });
+ *
+ * // Stop after 3 seconds
+ * setTimeout(() => animation.stop(), 3000);
+ * await animation.promise;
+ * ```
+ *
+ * @example play once, with completion handler
+ * ```js
+ * await frames.play(
+ *   ['frame 1', 'frame 2', 'frame 3'],
+ *   { interval: 200, loop: false }
+ * ).promise;
+ * console.log('Animation complete');
+ * ```
+ *
+ * @example abortable via AbortSignal
+ * ```js
+ * const ctrl = new AbortController();
+ * setTimeout(() => ctrl.abort(), 1000);
+ *
+ * try {
+ *   await frames.play(myFrames, {
+ *     interval: 100,
+ *     loop: true,
+ *     signal: ctrl.signal,
+ *   }).promise;
+ * } catch (err) {
+ *   // AbortError when signal fires
+ * }
+ * ```
+ *
+ * @example pause/resume control
+ * ```js
+ * const ani = frames.play(myFrames, { interval: 100, loop: true });
+ *
+ * setTimeout(() => ani.pause(),  1000);  // pause at 1s
+ * setTimeout(() => ani.resume(), 2000);  // resume at 2s
+ * setTimeout(() => ani.stop(),   3000);  // stop at 3s
+ * await ani.promise;
+ * ```
+ *
+ * @example custom rendering with `onFrame`
+ * ```js
+ * import { color } from 'ansimax';
+ *
+ * await frames.play(['→', '↓', '←', '↑'], {
+ *   interval: 200,
+ *   loop: true,
+ *   onFrame: (frame, index) => color.cyan(`[${index}] ${frame}`),
+ * }).promise;
+ * ```
+ */
 const play = (frames: string[], opts: PlayOptions = {}): PlayController => {
   // Input validation — non-array frames = fail fast with empty controller
   /* istanbul ignore if — defensive: non-array input rarely reaches play() */
@@ -425,6 +496,48 @@ const play = (frames: string[], opts: PlayOptions = {}): PlayController => {
 //  User errors in `fn` are swallowed (substitute empty string) so a
 //  single bad frame doesn't poison the whole sequence.
 // ─────────────────────────────────────────────
+
+/**
+ * Generate an array of frames by calling `fn(i, total)` for each frame index.
+ * Useful for building procedurally-animated sequences without manually
+ * writing each frame.
+ *
+ * @param count - Number of frames to generate (non-negative integer).
+ * @param fn    - Function `(index, total) => frameString`.
+ *
+ * @example pulsing dot animation
+ * ```js
+ * import { frames } from 'ansimax';
+ *
+ * const pulse = frames.generate(20, (i, total) => {
+ *   const intensity = Math.sin((i / total) * Math.PI * 2);
+ *   const size = Math.round(Math.abs(intensity) * 5);
+ *   return '●'.repeat(size + 1);
+ * });
+ *
+ * await frames.play(pulse, { interval: 80, loop: true }).promise;
+ * ```
+ *
+ * @example progress percentage
+ * ```js
+ * const bar = frames.generate(100, (i) => {
+ *   const filled = '█'.repeat(i);
+ *   const empty  = '░'.repeat(100 - i);
+ *   return `${filled}${empty} ${i}%`;
+ * });
+ *
+ * await frames.play(bar, { interval: 30, loop: false }).promise;
+ * ```
+ *
+ * @example errors in fn don't crash the sequence
+ * ```js
+ * const safe = frames.generate(10, (i) => {
+ *   if (i === 5) throw new Error('boom');
+ *   return `frame ${i}`;
+ * });
+ * // safe[5] === '' (error swallowed, sequence intact)
+ * ```
+ */
 const generate = (
   count: number,
   fn: (i: number, total: number) => string,
@@ -440,6 +553,51 @@ const generate = (
 // ─────────────────────────────────────────────
 //  live — push-based renderer
 // ─────────────────────────────────────────────
+
+/**
+ * Create a live renderer where you push frames manually instead of pre-computing
+ * them. Useful for reactive UIs where the next frame depends on external state
+ * (user input, network responses, computed values).
+ *
+ * @param opts - Configuration: target `fps`, `autoStart`, optional `signal`.
+ * @returns A controller with `.set(frameString)`, `.start()`, `.stop()`, `.promise`.
+ *
+ * @example reactive counter
+ * ```js
+ * import { frames } from 'ansimax';
+ *
+ * const renderer = frames.live({ fps: 30 });
+ *
+ * let count = 0;
+ * const timer = setInterval(() => {
+ *   count++;
+ *   renderer.set(`Count: ${count}`);
+ * }, 100);
+ *
+ * setTimeout(() => {
+ *   clearInterval(timer);
+ *   renderer.stop();
+ * }, 5000);
+ *
+ * await renderer.promise;
+ * ```
+ *
+ * @example connected to async data
+ * ```js
+ * const renderer = frames.live({ fps: 24 });
+ *
+ * for await (const event of streamEvents()) {
+ *   renderer.set(`Latest: ${event.data}`);
+ * }
+ * renderer.stop();
+ * ```
+ *
+ * @example FPS clamping (extreme values are coerced)
+ * ```js
+ * frames.live({ fps: 99999 });  // clamped to safe max
+ * frames.live({ fps: -1 });     // clamped to default 12
+ * ```
+ */
 const live = (opts: LiveOptions = {}): LiveController => {
   const { fps = 12, autoStart = true, signal } = opts;
 
@@ -514,6 +672,48 @@ const live = (opts: LiveOptions = {}): LiveController => {
 //  a more cinematic decryption effect (vs uniform random scramble that
 //  suddenly resolves at t=1).
 // ─────────────────────────────────────────────
+
+/**
+ * Generate a sequence of frames that morph between two strings using a
+ * cinematic "decryption" effect — characters scramble through `charset`
+ * before snapping to their target.
+ *
+ * Frame A and B must be the same length character-by-character for clean
+ * morphing; mismatched lengths are padded/truncated.
+ *
+ * @param frameA  - Starting frame.
+ * @param frameB  - Ending frame.
+ * @param steps   - Number of intermediate frames. Default `8`.
+ * @param charset - Characters to scramble through. Default `'░▒▓█▓▒░'`.
+ *
+ * @example basic morph
+ * ```js
+ * import { frames } from 'ansimax';
+ *
+ * const morphed = frames.morph('HELLO', 'WORLD', 12);
+ * await frames.play(morphed, { interval: 80, loop: false }).promise;
+ * // → HELLO ░▒▓X█▒░ ▓░▒▓░▒X ░▒▓░▒▓W ... WORLD
+ * ```
+ *
+ * @example custom charset for different effect
+ * ```js
+ * // Glitchy ASCII style
+ * const glitch = frames.morph('LOADING', 'COMPLETE', 15,
+ *   '!@#$%^&*?/\\|<>'
+ * );
+ * await frames.play(glitch, { interval: 60 }).promise;
+ * ```
+ *
+ * @example chain morphs for sequential text changes
+ * ```js
+ * const sequence = [
+ *   ...frames.morph('START', 'BUILD', 10),
+ *   ...frames.morph('BUILD', 'TEST', 10),
+ *   ...frames.morph('TEST', 'DONE', 10),
+ * ];
+ * await frames.play(sequence, { interval: 70 }).promise;
+ * ```
+ */
 const morph = (
   frameA: string,
   frameB: string,
@@ -576,6 +776,46 @@ export interface TypeDeleteOptions {
 // ─────────────────────────────────────────────
 //  Presets — all inputs clamped to safe ranges
 // ─────────────────────────────────────────────
+
+/**
+ * Pre-built frame sequences for common animations.
+ *
+ * Available:
+ *   • `loadingBar({ width, char, empty, label })` — progress bar 0 → 100%
+ *   • `pulse({ char, size, speed })` — radial pulse animation
+ *   • `wave({ width, char, length })` — traveling sine wave
+ *   • `dots({ count, char })` — bouncing dots
+ *   • `spinner({ frames, color })` — classic rotating spinner
+ *
+ * @example loading bar
+ * ```js
+ * import { frames } from 'ansimax';
+ *
+ * const bar = frames.presets.loadingBar({
+ *   width: 30,
+ *   label: 'Compiling',
+ * });
+ * await frames.play(bar, { interval: 50 }).promise;
+ * ```
+ *
+ * @example combine presets with custom rendering
+ * ```js
+ * import { color } from 'ansimax';
+ *
+ * const pulse = frames.presets.pulse({ size: 5, speed: 1.5 });
+ * await frames.play(pulse, {
+ *   interval: 60,
+ *   loop: true,
+ *   onFrame: (f) => color.magenta(f),
+ * }).promise;
+ * ```
+ *
+ * @example wave preset for traveling animation
+ * ```js
+ * const wave = frames.presets.wave({ width: 40, char: '≈' });
+ * await frames.play(wave, { interval: 50, loop: true }).promise;
+ * ```
+ */
 const presets = {
   loadingBar: (opts: LoadingBarOptions = {}): string[] => {
     /* istanbul ignore next — destructure defaults */

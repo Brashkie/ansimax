@@ -3,6 +3,43 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] — Documentation polish for frames + images
+
+Patch release improving JSDoc + IntelliSense coverage for the two largest
+modules that were under-documented. No code changes — pure DX upgrade.
+
+### Improved — JSDoc with runnable examples
+
+**`frames` module (previously 0 examples → now 17):**
+- `frames.play` — 5 examples (basic loop, play-once, abortable, pause/resume, custom onFrame)
+- `frames.generate` — 3 examples (pulsing dot, progress bar, error tolerance)
+- `frames.live` — 3 examples (reactive counter, async data stream, FPS clamping)
+- `frames.morph` — 3 examples (basic, custom charset, chained sequences)
+- `frames.presets` — 3 examples (loadingBar, pulse, wave with custom rendering)
+
+**`images` module (previously 0 examples → now 18):**
+- `renderPixelArt` — 4 examples (heart sprite, scaling, background, sprite lookup)
+- `gradientRect` — 7 examples (horizontal, vertical, diagonal, radial, conic, dithered, braille)
+- `createCanvas` — 4 examples (basic scene, animated frame, sprite composition, resize)
+- `SPRITES` — 3 examples (render single, list all, compose on canvas)
+
+### Why this matters
+
+Before v1.3.2, users hovering `frames.play(...)` in their editor saw just
+the signature `(frames: string[], opts?: PlayOptions): PlayController`.
+Now they see 5 runnable examples showing pause/resume patterns, AbortSignal
+integration, custom rendering callbacks — significantly reducing the
+"what do I pass here?" friction for new users.
+
+### Notes
+
+- No code changes — pure documentation
+- No runtime dependencies — still zero
+- No new tests required — existing test coverage unchanged
+- Drop-in replacement for `1.3.1`
+
+---
+
 ## [1.3.1] — Polish for panels + json
 
 Patch release improving the two modules introduced in v1.3.0 — adds layout
