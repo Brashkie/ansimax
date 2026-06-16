@@ -344,3 +344,109 @@ describe('panels: empty/invalid block input (coverage v1.3.1)', () => {
     expect(() => center(null, { width: 10 })).not.toThrow();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.3 — panels.grid + frame titleAlign
+// ─────────────────────────────────────────────
+import { grid } from '../panels/index.js';
+
+describe('panels.grid (v1.3.3)', () => {
+  it('returns empty string for empty input', () => {
+    expect(grid([], { columns: 2 })).toBe('');
+  });
+
+  it('arranges 4 blocks in a 2-column grid', () => {
+    const blocks = ['A', 'B', 'C', 'D'];
+    const result = grid(blocks, { columns: 2, gapX: 1, gapY: 0 });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(2);  // 2 rows of 2
+    expect(lines[0]).toBe('A B');
+    expect(lines[1]).toBe('C D');
+  });
+
+  it('handles partial last row (auto-flow)', () => {
+    // 7 items in 3 columns → 3 rows: [3, 3, 1]
+    const blocks = ['1', '2', '3', '4', '5', '6', '7'];
+    const result = grid(blocks, { columns: 3, gapX: 1, gapY: 0 });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toBe('1 2 3');
+    expect(lines[1]).toBe('4 5 6');
+    // Last row has only "7" padded to width
+    expect(lines[2]?.startsWith('7')).toBe(true);
+  });
+
+  it('uniformly aligns column widths across rows', () => {
+    // Row 1: 'short' + 'longer block'
+    // Row 2: 'longer' + 'X'
+    // Column 0 should match widest ('longer' = 6 chars)
+    // Column 1 should match widest ('longer block' = 12 chars)
+    const blocks = ['short', 'longer block', 'longer', 'X'];
+    const result = grid(blocks, { columns: 2, gapX: 1, gapY: 0 });
+    const lines = result.split('\n');
+    expect(lines[0]?.length).toBe(lines[1]?.length);
+  });
+
+  it('respects fixed cellWidth option', () => {
+    const blocks = ['a', 'b', 'c', 'd'];
+    const result = grid(blocks, { columns: 2, gapX: 0, cellWidth: 5 });
+    const lines = result.split('\n');
+    // Each cell is 5 chars wide, no gap → total 10 chars
+    expect(lines[0]?.length).toBe(10);
+  });
+
+  it('respects vertical gap (gapY)', () => {
+    const blocks = ['A', 'B', 'C', 'D'];
+    const result = grid(blocks, { columns: 2, gapX: 1, gapY: 1 });
+    const lines = result.split('\n');
+    // 2 rows + 1 blank line between = 3 lines
+    expect(lines.length).toBe(3);
+    expect(lines[1]?.trim()).toBe(''); // blank gap line
+  });
+
+  it('clamps columns to minimum 1', () => {
+    const blocks = ['A', 'B'];
+    const result = grid(blocks, { columns: 0 });   // illegal → clamped to 1
+    const lines = result.split('\n');
+    expect(lines.length).toBe(2);  // each block on its own row
+  });
+
+  it('panels.grid is accessible via namespace', () => {
+    expect(typeof panels.grid).toBe('function');
+  });
+
+  it('handles missing opts defensively', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(grid(['A', 'B'], null)).toBe('');
+  });
+});
+
+describe('panels.frame: titleAlign (v1.3.3)', () => {
+  it('titleAlign: center (default) puts title in middle', () => {
+    const result = frame('Body content here', { title: 'T' });
+    const lines = result.split('\n');
+    const topLine = lines[0] ?? '';
+    // " T " in middle of 17-char inner width
+    // ─── T ─────────── = 4 left, " T " title (3), 11 right (total 18)
+    const tIdx = topLine.indexOf(' T ');
+    expect(tIdx).toBeGreaterThan(2);  // not at very left
+    expect(tIdx).toBeLessThan(topLine.length - 5);  // not at very right
+  });
+
+  it('titleAlign: left puts title near the left edge', () => {
+    const result = frame('Body content here', { title: 'T', titleAlign: 'left' });
+    const lines = result.split('\n');
+    const topLine = lines[0] ?? '';
+    // Should be near position 1 (after 1 char of fill)
+    expect(topLine.indexOf(' T ')).toBe(1);
+  });
+
+  it('titleAlign: right puts title near the right edge', () => {
+    const result = frame('Body content here', { title: 'T', titleAlign: 'right' });
+    const lines = result.split('\n');
+    const topLine = lines[0] ?? '';
+    // " T " (3 chars) should end at position topLine.length - 1
+    const tEnd = topLine.indexOf(' T ') + 3;
+    expect(tEnd).toBe(topLine.length - 1);
+  });
+});

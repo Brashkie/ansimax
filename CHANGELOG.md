@@ -3,6 +3,147 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] — Feature additions to panels, json, ascii
+
+Patch release adding new functionality to three modules. No breaking changes —
+all additions are opt-in via new options/exports.
+
+### Added — `panels.grid(blocks, opts)`
+
+N-column grid layout with auto-flow (reading order). Each row auto-sizes to
+the tallest block; each column auto-sizes to its widest member.
+
+```js
+import { panels, ascii } from 'ansimax';
+
+const cards = [
+  ascii.box('FILES\n42',   { padding: 1 }),
+  ascii.box('LINES\n1247', { padding: 1 }),
+  ascii.box('TESTS\n38',   { padding: 1 }),
+  ascii.box('COV\n98%',    { padding: 1 }),
+];
+
+// 2×2 grid
+console.log(panels.grid(cards, { columns: 2, gapX: 2, gapY: 1 }));
+
+// 3-column with auto-flow (7 items → 3 rows: [3, 3, 1])
+console.log(panels.grid(items, { columns: 3, gapX: 4 }));
+
+// Fixed cell width for uniform appearance
+console.log(panels.grid(blocks, {
+  columns: 4,
+  cellWidth: 15,
+  alignX: 'center',
+}));
+```
+
+Options: `columns` (required), `gapX`, `gapY`, `alignX`, `alignY`, `cellWidth`.
+
+### Added — `panels.frame` option `titleAlign`
+
+Frame titles can now be aligned `'left'`, `'center'` (default), or `'right'`.
+
+```js
+panels.frame('Body', { title: 'Section', titleAlign: 'left' });
+// ─ Section ───────────
+//
+// Body
+// ────────────────────
+
+panels.frame('Body', { title: 'Section', titleAlign: 'right' });
+// ─────────── Section ─
+//
+// Body
+// ────────────────────
+```
+
+### Added — `ascii.box` options `title` + `titleAlign`
+
+Boxes can now have a title in the top border. When the title is wider than the
+content, the box expands to fit it.
+
+```js
+console.log(ascii.box('Body content', {
+  title: 'Header',
+  titleAlign: 'left',     // 'left' | 'center' (default) | 'right'
+  borderStyle: 'rounded',
+}));
+
+// ╭─ Header ──────╮
+// │ Body content  │
+// ╰───────────────╯
+```
+
+### Added — `ascii.divider` option `align`
+
+Divider labels can now be aligned similar to box titles.
+
+```js
+ascii.divider({ label: 'Section', align: 'left',   width: 40 });
+// ─ Section ──────────────────────────────
+ascii.divider({ label: 'Section', align: 'center', width: 40 });
+// ─────────────── Section ────────────────
+ascii.divider({ label: 'Section', align: 'right',  width: 40 });
+// ────────────────────────────── Section ─
+```
+
+### Added — `json.pretty` native types support: `Map`, `Set`, `Date`
+
+```js
+import { json } from 'ansimax';
+
+const data = {
+  created: new Date('2026-06-13'),
+  cache: new Map([['user1', 'Alice'], ['user2', 'Bob']]),
+  tags: new Set(['frontend', 'react']),
+};
+
+console.log(json.pretty(data));
+// {
+//   "created": Date(2026-06-13T00:00:00.000Z),
+//   "cache": Map(2) [...],
+//   "tags": Set(2) ["frontend", "react"]
+// }
+```
+
+### Added — `json.pretty` option `mode: 'json'`
+
+Produces **strict, parseable JSON** instead of display-only output. Useful
+for piping to files, scripts, or other tools.
+
+```js
+const out = json.pretty(myData, { mode: 'json' });
+const parsed = JSON.parse(out);   // ✓ works
+```
+
+In `'json'` mode:
+- Colors are forced off (output is always plain text)
+- `undefined` / functions / symbols are dropped from objects, become `null` in arrays
+- `NaN` / `Infinity` / `-Infinity` become `null`
+- `BigInt` becomes a number (if safe) or a string (if out of safe range)
+- `Date` becomes its ISO string
+- `Map` becomes a plain object (string-keys only)
+- `Set` becomes an array
+- Circular references throw `TypeError` (matches `JSON.stringify` behavior)
+
+Default `'display'` mode preserves all v1.3.2 behavior. **No breaking changes.**
+
+### Improved — Tests
+
+- `+8` tests for `panels.grid`
+- `+3` tests for `panels.frame` titleAlign
+- `+5` tests for `ascii.box` title/titleAlign
+- `+4` tests for `ascii.divider` align
+- `+18` tests for `json` Map/Set/Date/mode
+
+### Notes
+
+- No runtime dependencies — still zero
+- No breaking changes — drop-in replacement for `1.3.2`
+- All new options have backward-compatible defaults
+
+---
+
 ## [1.3.2] — Documentation polish for frames + images
 
 Patch release improving JSDoc + IntelliSense coverage for the two largest

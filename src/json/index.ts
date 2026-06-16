@@ -61,6 +61,23 @@ export interface PrettyOptions {
    * @since 1.3.1
    */
   inlineArrayMaxLength?: number;
+  /**
+   * Output mode controls what kind of string is produced:
+   *
+   * - `'display'` (default) — terminal-friendly output with colors (when
+   *   enabled) and informational placeholders like `[Circular]`,
+   *   `[Function: name]`, `Symbol(x)`, `Map(2) {...}`, `Set(3) {...}`,
+   *   `Date(2026-06-13T...)`, `BigInt(123n)`. Not parseable as JSON.
+   *
+   * - `'json'` — strict, parseable JSON output. Colors are forced off,
+   *   circular references throw `TypeError`, and types not representable
+   *   in JSON (functions, symbols, undefined) are omitted from objects /
+   *   replaced with `null` in arrays. Map/Set are converted to objects/arrays.
+   *   Dates become ISO strings. BigInt becomes a number (or string if too large).
+   *
+   * @since 1.3.3
+   */
+  mode?: 'display' | 'json';
 }
 
 // ─────────────────────────────────────────────
@@ -94,13 +111,18 @@ const _truncString = (s: string, maxLength: number): string => {
 };
 
 /** Format a primitive (string, number, boolean, null) with color. */
-const _formatPrimitive = (value: unknown, opts: { useColor: boolean; maxStringLength: number }): string => {
-  const { useColor, maxStringLength } = opts;
+const _formatPrimitive = (
+  value: unknown,
+  opts: { useColor: boolean; maxStringLength: number; mode: 'display' | 'json' },
+): string => {
+  const { useColor, maxStringLength, mode } = opts;
 
   if (value === null) {
     return _c('null', COLORS.null, useColor);
   }
   if (value === undefined) {
+    // In strict JSON mode, undefined → null (since JSON has no `undefined`)
+    if (mode === 'json') return _c('null', COLORS.null, useColor);
     return _c('undefined', COLORS.null, useColor);
   }
   if (typeof value === 'string') {
@@ -109,8 +131,13 @@ const _formatPrimitive = (value: unknown, opts: { useColor: boolean; maxStringLe
     return _c(quoted, COLORS.string, useColor);
   }
   if (typeof value === 'number') {
-    if (Number.isNaN(value)) return _c('NaN', COLORS.number, useColor);
+    if (Number.isNaN(value)) {
+      // NaN isn't valid JSON
+      if (mode === 'json') return _c('null', COLORS.null, useColor);
+      return _c('NaN', COLORS.number, useColor);
+    }
     if (!Number.isFinite(value)) {
+      if (mode === 'json') return _c('null', COLORS.null, useColor);
       return _c(value > 0 ? 'Infinity' : '-Infinity', COLORS.number, useColor);
     }
     return _c(String(value), COLORS.number, useColor);
@@ -119,18 +146,26 @@ const _formatPrimitive = (value: unknown, opts: { useColor: boolean; maxStringLe
     return _c(String(value), COLORS.boolean, useColor);
   }
   if (typeof value === 'bigint') {
+    // BigInt isn't valid JSON — best-effort: number if fits, string otherwise
+    if (mode === 'json') {
+      const big = value as bigint;
+      const asNum = Number(big);
+      if (Number.isSafeInteger(asNum) && BigInt(asNum) === big) {
+        return _c(String(asNum), COLORS.number, useColor);
+      }
+      return _c(JSON.stringify(String(big)), COLORS.string, useColor);
+    }
     return _c(`${value}n`, COLORS.number, useColor);
   }
   // Functions, symbols, etc. — render as descriptive placeholder
   if (typeof value === 'function') {
+    if (mode === 'json') return _c('null', COLORS.null, useColor);
     const name = (value as { name?: string }).name || 'anonymous';
     return _c(`[Function: ${name}]`, COLORS.comment, useColor);
   }
-  if (typeof value === 'symbol') {
-    return _c(value.toString(), COLORS.comment, useColor);
-  }
-  /* istanbul ignore next — defensive: all primitive typeof values are handled above */
-  return _c(String(value), COLORS.comment, useColor);
+  // typeof value === 'symbol' is the last possible primitive type
+  if (mode === 'json') return _c('null', COLORS.null, useColor);
+  return _c((value as symbol).toString(), COLORS.comment, useColor);
 };
 
 /**
@@ -149,23 +184,71 @@ const _renderValue = (
     // v1.3.1
     sortKeys: boolean;
     inlineArrayMaxLength: number;
+    // v1.3.3
+    mode: 'display' | 'json';
   },
 ): string => {
   const {
     indent, maxDepth, maxItems, maxStringLength, useColor, seen,
-    sortKeys, inlineArrayMaxLength,
+    sortKeys, inlineArrayMaxLength, mode,
   } = config;
 
   // Primitives (including null, undefined)
   if (value === null || typeof value !== 'object') {
-    return _formatPrimitive(value, { useColor, maxStringLength });
+    return _formatPrimitive(value, { useColor, maxStringLength, mode });
   }
 
   // Circular reference guard
   if (seen.has(value as object)) {
+    if (mode === 'json') {
+      // Strict JSON has no representation for circulars
+      throw new TypeError('Cannot serialize circular reference to JSON');
+    }
     return _c('[Circular]', COLORS.comment, useColor);
   }
   seen.add(value as object);
+
+  // v1.3.3 — Native built-ins that need special handling
+  if (value instanceof Date) {
+    const iso = value.toISOString();
+    if (mode === 'json') {
+      return _c(JSON.stringify(iso), COLORS.string, useColor);
+    }
+    return _c(`Date(${iso})`, COLORS.comment, useColor);
+  }
+  if (value instanceof Map) {
+    // In 'json' mode: convert to plain object (only string keys preserved)
+    if (mode === 'json') {
+      const obj: Record<string, unknown> = {};
+      for (const [k, v] of value as Map<unknown, unknown>) {
+        if (typeof k === 'string') obj[k] = v;
+        else obj[String(k)] = v;
+      }
+      return _renderValue(obj, depth, config);
+    }
+    // In 'display' mode: show entries as nested array
+    const entries = Array.from(value as Map<unknown, unknown>);
+    const sizeLabel = _c(`Map(${entries.length})`, COLORS.comment, useColor);
+    if (entries.length === 0) {
+      return `${sizeLabel} ${_c('{}', COLORS.bracket, useColor)}`;
+    }
+    if (depth >= maxDepth - 1 && depth > 0) {
+      return `${sizeLabel} ${_c('{...}', COLORS.bracket, useColor)}`;
+    }
+    return `${sizeLabel} ${_renderValue(entries, depth, config)}`;
+  }
+  if (value instanceof Set) {
+    if (mode === 'json') {
+      // Convert Set to array (standard JSON pattern)
+      return _renderValue(Array.from(value as Set<unknown>), depth, config);
+    }
+    const arr = Array.from(value as Set<unknown>);
+    const sizeLabel = _c(`Set(${arr.length})`, COLORS.comment, useColor);
+    if (arr.length === 0) {
+      return `${sizeLabel} ${_c('[]', COLORS.bracket, useColor)}`;
+    }
+    return `${sizeLabel} ${_renderValue(arr, depth, config)}`;
+  }
 
   // Depth limit
   if (depth >= maxDepth) {
@@ -195,7 +278,7 @@ const _renderValue = (
         const displayCount = Math.min(value.length, maxItems);
         const inlineItems: string[] = [];
         for (let i = 0; i < displayCount; i++) {
-          inlineItems.push(_formatPrimitive(value[i], { useColor, maxStringLength }));
+          inlineItems.push(_formatPrimitive(value[i], { useColor, maxStringLength, mode }));
         }
         if (value.length > maxItems) {
           const remaining = value.length - maxItems;
@@ -234,6 +317,16 @@ const _renderValue = (
 
   // Plain objects (and class instances — render their own enumerable keys)
   let keys = Object.keys(value as Record<string, unknown>);
+
+  // v1.3.3 — in 'json' mode, drop keys whose value is undefined/function/symbol
+  // (matches JSON.stringify behavior; those types have no JSON representation)
+  if (mode === 'json') {
+    keys = keys.filter((k) => {
+      const v = (value as Record<string, unknown>)[k];
+      return typeof v !== 'function' && typeof v !== 'symbol' && v !== undefined;
+    });
+  }
+
   if (keys.length === 0) {
     return _c('{}', COLORS.bracket, useColor);
   }
@@ -322,6 +415,8 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
     // v1.3.1
     sortKeys = false,
     inlineArrayMaxLength = 60,
+    // v1.3.3
+    mode = 'display',
   } = opts;
 
   // Defensive: clamp indent
@@ -338,8 +433,11 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
   const safeInlineMax = Number.isFinite(inlineArrayMaxLength)
     ? Math.max(0, Math.floor(inlineArrayMaxLength))
     : 60;
+  // Defensive: mode validation
+  const safeMode: 'display' | 'json' = mode === 'json' ? 'json' : 'display';
 
-  const useColor = colors && !isNoColor();
+  // In 'json' mode, colors are forced off (output must be parseable)
+  const useColor = safeMode === 'json' ? false : (colors && !isNoColor());
 
   return _renderValue(value, 0, {
     indent: safeIndent,
@@ -350,6 +448,7 @@ export const pretty = (value: unknown, opts: PrettyOptions = {}): string => {
     seen: new WeakSet<object>(),
     sortKeys: Boolean(sortKeys),
     inlineArrayMaxLength: safeInlineMax,
+    mode: safeMode,
   });
 };
 

@@ -676,3 +676,74 @@ describe('v1.2.0 barrel exports', () => {
   });
 });
 
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel exercise for v1.3.x re-exports
+// ─────────────────────────────────────────────
+//
+//  Many symbols are re-exported from index.ts but never imported by the
+//  module-specific tests (which import directly from src/<module>/index.js).
+//  These tests exercise the barrel re-export lines so coverage reflects
+//  their use.
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — re-exports', () => {
+  it('reverseGradient is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.reverseGradient).toBe('function');
+    // Smoke: reverseGradient flips an array of stops
+    const reversed = main.reverseGradient(['#000000', '#ffffff']);
+    expect(Array.isArray(reversed)).toBe(true);
+    expect(reversed.length).toBe(2);
+    expect(reversed[0]).toBe('#ffffff');
+  });
+
+  it('figletText, parseFiglet, fromImage are exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.figletText).toBe('function');
+    expect(typeof main.parseFiglet).toBe('function');
+    expect(typeof main.fromImage).toBe('function');
+  });
+
+  it('ASCII_RAMPS is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.ASCII_RAMPS).toBe('object');
+    expect(main.ASCII_RAMPS).not.toBeNull();
+  });
+
+  it('panels exports are accessible from main barrel (v1.3.0–v1.3.3)', async () => {
+    const main = await import('../index.js');
+    // v1.3.0
+    expect(typeof main.panels).toBe('object');
+    expect(typeof main.vsplit).toBe('function');
+    expect(typeof main.hsplit).toBe('function');
+    // v1.3.1 (centerBlock = panels.center renamed at barrel)
+    expect(typeof main.centerBlock).toBe('function');
+    expect(typeof main.frame).toBe('function');
+    // v1.3.3
+    expect(typeof main.grid).toBe('function');
+  });
+
+  it('centerBlock from barrel === panels.center', async () => {
+    const main = await import('../index.js');
+    // Same function, just exposed under a non-conflicting name at the barrel
+    const r1 = main.centerBlock('X', { width: 5 });
+    const r2 = main.panels.center('X', { width: 5 });
+    expect(r1).toBe(r2);
+  });
+
+  it('grid from barrel produces same output as panels.grid', async () => {
+    const main = await import('../index.js');
+    const r1 = main.grid(['A', 'B', 'C', 'D'], { columns: 2 });
+    const r2 = main.panels.grid(['A', 'B', 'C', 'D'], { columns: 2 });
+    expect(r1).toBe(r2);
+  });
+
+  it('json + jsonPretty are exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.json).toBe('object');
+    expect(typeof main.jsonPretty).toBe('function');
+    // jsonPretty is the same as json.pretty
+    expect(main.jsonPretty({ a: 1 })).toBe(main.json.pretty({ a: 1 }));
+  });
+});

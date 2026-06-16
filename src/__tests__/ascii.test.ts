@@ -1957,3 +1957,76 @@ describe('fromImage: empty rows in non-rectangular grid (v1.2.7)', () => {
     expect(() => fromImage(corrupted, { width: 4 })).not.toThrow();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.3 — box title + divider align
+// ─────────────────────────────────────────────
+
+describe('ascii.box: title support (v1.3.3)', () => {
+  it('renders box without title (backward compatible)', () => {
+    const result = ascii.box('Hello', { padding: 0 });
+    const lines = result.split('\n');
+    // 5 visible chars content, default rounded → first line is top border with corners
+    expect(lines[0]?.charAt(0)).toBe('╭');
+    expect(lines[0]).not.toContain('Hello'); // top border is plain
+  });
+
+  it('renders title in top border (default: center)', () => {
+    const result = ascii.box('Body content here', { title: 'Title' });
+    const lines = result.split('\n');
+    expect(lines[0]).toContain(' Title ');
+  });
+
+  it('expands box when title is wider than content', () => {
+    const result = ascii.box('Hi', { title: 'Very Long Title Here', padding: 0 });
+    const lines = result.split('\n');
+    // Top line must accommodate " Very Long Title Here " (22 chars) + 2 border chars + 2 corners
+    expect(lines[0]?.length).toBeGreaterThanOrEqual(24);
+  });
+
+  it('titleAlign: left positions title near left edge', () => {
+    const result = ascii.box('Body content here', { title: 'T', titleAlign: 'left' });
+    const lines = result.split('\n');
+    const topLine = lines[0] ?? '';
+    // Title should appear at index 2 (corner + 1 dash + " T ")
+    expect(topLine.indexOf(' T ')).toBe(2);
+  });
+
+  it('titleAlign: right positions title near right edge', () => {
+    const result = ascii.box('Body content here', { title: 'T', titleAlign: 'right' });
+    const lines = result.split('\n');
+    const topLine = lines[0] ?? '';
+    // Title ends at second-to-last position (right corner is last)
+    const tEnd = topLine.indexOf(' T ') + 3;
+    expect(tEnd).toBe(topLine.length - 2);
+  });
+});
+
+describe('ascii.divider: align (v1.3.3)', () => {
+  it('default align: center positions label in middle', () => {
+    const result = ascii.divider({ label: 'X', width: 20 });
+    // ──────── X ────────
+    const xIdx = result.indexOf(' X ');
+    expect(xIdx).toBeGreaterThan(5);
+    expect(xIdx).toBeLessThan(15);
+  });
+
+  it('align: left positions label near left edge', () => {
+    const result = ascii.divider({ label: 'X', width: 20, align: 'left' });
+    // ─ X ──────────────
+    expect(result.indexOf(' X ')).toBe(1);
+  });
+
+  it('align: right positions label near right edge', () => {
+    const result = ascii.divider({ label: 'X', width: 20, align: 'right' });
+    // ────────────── X ─
+    const xEnd = result.indexOf(' X ') + 3;
+    expect(xEnd).toBe(result.length - 1);
+  });
+
+  it('align without label has no effect', () => {
+    const r1 = ascii.divider({ width: 10 });
+    const r2 = ascii.divider({ width: 10, align: 'left' });
+    expect(r1).toBe(r2);
+  });
+});

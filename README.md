@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -215,7 +215,7 @@ console.log(rainbow('built-in rainbow preset'));
 
 ### Animated Gradients (v1.2.0)
 
-<img src="media/animated_gradients.png" alt="Animated gradients preview" />
+<img src="media/animated-gradients.gif" alt="Animated gradients preview" />
 
 ```js
 import { animateGradient, sleep } from 'ansimax';
@@ -275,7 +275,7 @@ console.log(gradientRect({
 
 ### Reusable Gradients (v1.2.3)
 
-<img src="media/reusable_gradients.png" alt="Reusable gradients preview" />
+<img src="media/reusable-gradients.gif" alt="Reusable gradients preview" />
 
 ```js
 import { createGradient, reverseGradient, ascii } from 'ansimax';
@@ -323,7 +323,32 @@ console.log(ascii.box('Rainbow box!', { padding: 1, borderStyle: 'rounded' }));
 
 ### Image → ASCII (v1.2.5)
 
-<img src="media/image_to_ascii.png" alt="Image-to-ASCII preview" />
+<div align="center">
+  <img src="media/image-ascii-original.png" alt="Original photo" width="40%" />
+</div>
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="media/image-ascii-1.png" alt="Monochrome mode" /><br/>
+      <sub><b>1. Monochrome</b></sub>
+    </td>
+    <td align="center">
+      <img src="media/image-ascii-2.png" alt="Color + Floyd-Steinberg dithering" /><br/>
+      <sub><b>2. Color + Floyd-Steinberg</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="media/image-ascii-3.png" alt="Edge detection (Sobel)" /><br/>
+      <sub><b>3. Edge detection (Sobel)</b></sub>
+    </td>
+    <td align="center">
+      <img src="media/image-ascii-4.png" alt="Face mode for portraits" /><br/>
+      <sub><b>4. Face mode (portraits)</b></sub>
+    </td>
+  </tr>
+</table>
 
 ```js
 import { ascii } from 'ansimax';
@@ -348,10 +373,10 @@ for (let y = 0; y < info.height; y++) {
 
 // Now use ansimax — multiple ways:
 
-// Monochrome
+// 1. Monochrome
 console.log(ascii.fromImage(pixels, { width: 80 }));
 
-// Color + Floyd-Steinberg dithering + detailed ramp
+// 2. Color + Floyd-Steinberg dithering + detailed ramp
 console.log(ascii.fromImage(pixels, {
   width: 100,
   color: true,
@@ -359,7 +384,7 @@ console.log(ascii.fromImage(pixels, {
   ramp: 'detailed',
 }));
 
-// Edge-detection mode (line art)
+// 3. Edge-detection mode (line art)
 console.log(ascii.fromImage(pixels, {
   width: 80,
   edgeDetect: 'sobel',
@@ -367,7 +392,7 @@ console.log(ascii.fromImage(pixels, {
   ramp: 'blocks',
 }));
 
-// Face mode for portraits (boosts midtone contrast)
+// 4. Face mode for portraits (boosts midtone contrast)
 console.log(ascii.fromImage(pixels, {
   width: 60,
   ramp: 'detailed',
@@ -453,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.2'));
+console.log(components.badge('VERSION', 'v1.3.3'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -505,7 +530,7 @@ await loader.tasks([
 
 ### Animations
 
-<img src="media/animations.png" alt="Animations preview" />
+<img src="media/animations-1.gif" alt="Animations preview" />
 
 ```js
 import { animate, gradient, sleep } from 'ansimax';
@@ -615,10 +640,12 @@ console.log(json.pretty({
 }));
 
 // Depth limit — collapses deep objects to {...}
+const deeplyNested = { a: { b: { c: { d: { e: 'too deep' } } } } };
 console.log(json.pretty(deeplyNested, { maxDepth: 2 }));
 
 // Item limit — huge arrays show "... (N more)"
-console.log(json.pretty(largeArray, { maxItems: 10 }));
+const largeArray = Array.from({ length: 50 }, (_, i) => `item_${i}`);
+console.log(json.pretty(largeArray, { maxItems: 5 }));
 
 // Circular references handled gracefully
 const obj = { name: 'foo' };
@@ -1037,6 +1064,33 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.3 — Features for panels, json, ascii
+
+Patch release with new opt-in features. Zero breaking changes:
+
+- 📐 **`panels.grid(blocks, opts)`** — N-column grid layout with auto-flow, gaps, alignment, and optional uniform cell width
+- 🎯 **`panels.frame` + `ascii.box` + `ascii.divider`** all get a `titleAlign` (or `align`) option: `'left'`, `'center'` (default), `'right'`
+- 🏷️ **`ascii.box` new `title` option** — show a label in the top border (expands box if title is wider than content)
+- 📅 **`json.pretty` supports Map / Set / Date natively** — `Date(...)`, `Map(N) [...]`, `Set(N) [...]` in display mode
+- 📤 **`json.pretty` new `mode: 'json'`** — produces strict, parseable JSON (no colors, drops undefined/functions/symbols, throws on circular)
+- 🧪 **+38 tests** across panels + json + ascii
+
+```js
+import { panels, json, ascii } from 'ansimax';
+
+// 2×2 grid of metric cards
+console.log(panels.grid(cards, { columns: 2, gapX: 2 }));
+
+// Title in box top border
+console.log(ascii.box('content', { title: 'Section', titleAlign: 'left' }));
+
+// Strict JSON output (parseable)
+const out = json.pretty(data, { mode: 'json' });
+JSON.parse(out);   // ✓ works
+```
+
+Drop-in replacement for `1.3.2`.
 
 ### v1.3.2 — Documentation polish for frames + images
 

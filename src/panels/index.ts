@@ -379,9 +379,16 @@ export interface FrameOptions {
    */
   bottomChar?: string;
   /**
-   * Optional title shown centered in the top edge.
+   * Optional title shown in the top edge.
    */
   title?: string;
+  /**
+   * Title alignment: `'left'` | `'center'` (default) | `'right'`.
+   * Only applies when `title` is set.
+   *
+   * @since 1.3.3
+   */
+  titleAlign?: 'left' | 'center' | 'right';
 }
 
 /**
@@ -427,6 +434,7 @@ export const frame = (block: string, opts: FrameOptions = {}): string => {
     topChar = '─',
     bottomChar,
     title,
+    titleAlign = 'center',   // v1.3.3
   } = opts;
 
   const safePadY = Math.max(0, Math.floor(paddingY ?? padding));
@@ -454,11 +462,22 @@ export const frame = (block: string, opts: FrameOptions = {}): string => {
     }
   }
 
-  // Build top line — with optional centered title
+  // Build top line — with optional aligned title (v1.3.3)
   let topLine: string;
   if (titleStr.length > 0 && titleW < innerW) {
-    const before = Math.floor((innerW - titleW) / 2);
-    const after = innerW - titleW - before;
+    let before: number;
+    let after: number;
+    if (titleAlign === 'left') {
+      before = 1;
+      after = innerW - titleW - before;
+    } else if (titleAlign === 'right') {
+      after = 1;
+      before = innerW - titleW - after;
+    } else {
+      // center (default)
+      before = Math.floor((innerW - titleW) / 2);
+      after = innerW - titleW - before;
+    }
     topLine = safeTop.repeat(before) + titleStr + safeTop.repeat(after);
   } else {
     topLine = safeTop.repeat(innerW);
@@ -488,6 +507,121 @@ export const frame = (block: string, opts: FrameOptions = {}): string => {
 };
 
 // ─────────────────────────────────────────────
+//  v1.3.3 — grid: N-column auto-flow layout
+// ─────────────────────────────────────────────
+
+export interface GridOptions {
+  /** Number of columns. Required. */
+  columns: number;
+  /** Horizontal gap between cells. Default `1`. */
+  gapX?: number;
+  /** Vertical gap between rows. Default `0`. */
+  gapY?: number;
+  /** Horizontal alignment of content within each cell. Default `'start'`. */
+  alignX?: Alignment;
+  /** Vertical alignment of content within each cell. Default `'start'`. */
+  alignY?: Alignment;
+  /**
+   * Fix each cell to this width (in visible characters). If omitted, cells
+   * use the max width of the widest block in their column.
+   */
+  cellWidth?: number | null;
+}
+
+/**
+ * Arrange blocks in a grid of N columns, flowing left-to-right then
+ * top-to-bottom. Each row is auto-sized to its tallest block, and each
+ * column is auto-sized to its widest block (unless `cellWidth` is fixed).
+ *
+ * Internally uses `vsplit` for rows + `hsplit` for the column stack, so
+ * all alignment + ANSI rules behave consistently.
+ *
+ * @param blocks - Pre-rendered string blocks. Flows in reading order.
+ * @param opts   - Grid configuration. `columns` is required.
+ *
+ * @example 2×2 grid of stats cards
+ * ```js
+ * import { panels, ascii } from 'ansimax';
+ *
+ * const cards = [
+ *   ascii.box('FILES\n42',   { borderStyle: 'rounded', padding: 1 }),
+ *   ascii.box('LINES\n1247', { borderStyle: 'rounded', padding: 1 }),
+ *   ascii.box('TESTS\n38',   { borderStyle: 'rounded', padding: 1 }),
+ *   ascii.box('COV\n98%',    { borderStyle: 'rounded', padding: 1 }),
+ * ];
+ *
+ * console.log(panels.grid(cards, { columns: 2, gapX: 2, gapY: 1 }));
+ * ```
+ *
+ * @example 3-column gallery with auto-flow
+ * ```js
+ * // 7 items in 3 columns → 3 rows: [3, 3, 1]
+ * const items = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'];
+ * console.log(panels.grid(items, { columns: 3, gapX: 4 }));
+ * ```
+ *
+ * @example uniform cell width for visual consistency
+ * ```js
+ * console.log(panels.grid(blocks, {
+ *   columns: 4,
+ *   cellWidth: 15,
+ *   alignX: 'center',
+ * }));
+ * ```
+ */
+export const grid = (blocks: string[], opts: GridOptions): string => {
+  if (!Array.isArray(blocks) || blocks.length === 0) return '';
+  if (!opts || typeof opts !== 'object') return '';
+
+  const columns = Math.max(1, Math.floor(opts.columns ?? 1));
+  const gapX    = Math.max(0, Math.floor(opts.gapX ?? 1));
+  const gapY    = Math.max(0, Math.floor(opts.gapY ?? 0));
+  const alignX: Alignment = opts.alignX ?? 'start';
+  const alignY: Alignment = opts.alignY ?? 'start';
+  const cellW   = opts.cellWidth != null ? Math.max(0, Math.floor(opts.cellWidth)) : null;
+
+  // Chunk blocks into rows of N columns
+  const rows: string[][] = [];
+  for (let i = 0; i < blocks.length; i += columns) {
+    rows.push(blocks.slice(i, i + columns));
+  }
+
+  // For uniform columns: each column width is the max across all rows in that column.
+  // Compute widths once so all rows align visually.
+  let widths: number[] | null = null;
+  if (cellW != null) {
+    widths = Array(columns).fill(cellW) as number[];
+  } else {
+    widths = Array(columns).fill(0) as number[];
+    for (const row of rows) {
+      for (let c = 0; c < row.length; c++) {
+        const { maxWidth } = _splitBlock(row[c] as string);
+        if (maxWidth > (widths[c] as number)) {
+          widths[c] = maxWidth;
+        }
+      }
+    }
+  }
+
+  // Render each row via vsplit (passing fixed widths for visual alignment)
+  const renderedRows = rows.map((row) => {
+    // Pad shorter rows with empty blocks so vsplit gives uniform widths
+    const padded: string[] = [];
+    for (let c = 0; c < columns; c++) {
+      padded.push(row[c] ?? '');
+    }
+    return vsplit(padded, {
+      gap: gapX,
+      align: alignY,
+      widths,
+    });
+  });
+
+  // Stack rows with hsplit (vertical gap)
+  return hsplit(renderedRows, { gap: gapY, align: alignX });
+};
+
+// ─────────────────────────────────────────────
 //  Namespace
 // ─────────────────────────────────────────────
 
@@ -497,6 +631,8 @@ export const panels = {
   // v1.3.1
   center,
   frame,
+  // v1.3.3
+  grid,
 };
 
 export default panels;

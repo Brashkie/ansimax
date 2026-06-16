@@ -396,3 +396,195 @@ describe('json.pretty: edge cases (coverage v1.3.1)', () => {
     expect(out.split('\n').length).toBeGreaterThan(2);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.3 — Map, Set, Date, mode: 'json'
+// ─────────────────────────────────────────────
+
+describe('json.pretty: Map/Set/Date (v1.3.3)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('renders Date in display mode with Date() wrapper', () => {
+    const d = new Date('2026-06-13T00:00:00.000Z');
+    const out = stripAnsi(pretty(d));
+    expect(out).toContain('Date(2026-06-13T00:00:00.000Z)');
+  });
+
+  it('renders Date in json mode as ISO string', () => {
+    const d = new Date('2026-06-13T00:00:00.000Z');
+    const out = pretty(d, { mode: 'json' });
+    expect(out).toBe('"2026-06-13T00:00:00.000Z"');
+  });
+
+  it('renders Map in display mode with size label', () => {
+    const m = new Map([['a', 1], ['b', 2]]);
+    const out = stripAnsi(pretty(m));
+    expect(out).toContain('Map(2)');
+  });
+
+  it('renders empty Map', () => {
+    const out = stripAnsi(pretty(new Map()));
+    expect(out).toContain('Map(0)');
+    expect(out).toContain('{}');
+  });
+
+  it('renders Map in json mode as plain object', () => {
+    const m = new Map([['a', 1], ['b', 2]]);
+    const out = pretty(m, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed.a).toBe(1);
+    expect(parsed.b).toBe(2);
+  });
+
+  it('renders Set in display mode with size label', () => {
+    const s = new Set([1, 2, 3]);
+    const out = stripAnsi(pretty(s));
+    expect(out).toContain('Set(3)');
+  });
+
+  it('renders empty Set', () => {
+    const out = stripAnsi(pretty(new Set()));
+    expect(out).toContain('Set(0)');
+    expect(out).toContain('[]');
+  });
+
+  it('renders Set in json mode as array', () => {
+    const s = new Set([1, 2, 3]);
+    const out = pretty(s, { mode: 'json' });
+    const parsed = JSON.parse(out) as number[];
+    expect(parsed).toEqual([1, 2, 3]);
+  });
+});
+
+describe('json.pretty: mode: "json" (v1.3.3)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('json mode produces valid JSON for simple object', () => {
+    const out = pretty({ a: 1, b: 'two', c: true }, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed).toEqual({ a: 1, b: 'two', c: true });
+  });
+
+  it('json mode strips colors regardless of colors option', () => {
+    const out = pretty({ a: 1 }, { mode: 'json', colors: true });
+    expect(out).not.toContain('\x1b[');
+  });
+
+  it('json mode drops undefined/function/symbol keys from objects', () => {
+    const obj = {
+      keep: 'visible',
+      undef: undefined,
+      fn: () => 1,
+      sym: Symbol('x'),
+    };
+    const out = pretty(obj, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed.keep).toBe('visible');
+    expect('undef' in parsed).toBe(false);
+    expect('fn' in parsed).toBe(false);
+    expect('sym' in parsed).toBe(false);
+  });
+
+  it('json mode converts undefined/function/symbol in arrays to null', () => {
+    const arr: unknown[] = [1, undefined, () => 1, Symbol('x'), 'end'];
+    const out = pretty(arr, { mode: 'json' });
+    const parsed = JSON.parse(out) as unknown[];
+    expect(parsed.length).toBe(5);
+    expect(parsed[0]).toBe(1);
+    expect(parsed[1]).toBe(null);
+    expect(parsed[2]).toBe(null);
+    expect(parsed[3]).toBe(null);
+    expect(parsed[4]).toBe('end');
+  });
+
+  it('json mode converts NaN/Infinity to null', () => {
+    const out = pretty({ a: NaN, b: Infinity, c: -Infinity }, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed.a).toBe(null);
+    expect(parsed.b).toBe(null);
+    expect(parsed.c).toBe(null);
+  });
+
+  it('json mode converts safe BigInt to number', () => {
+    const out = pretty({ n: BigInt(42) }, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed.n).toBe(42);
+  });
+
+  it('json mode converts unsafe BigInt to string', () => {
+    const big = BigInt('99999999999999999999');
+    const out = pretty({ n: big }, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(typeof parsed.n).toBe('string');
+    expect(parsed.n).toBe('99999999999999999999');
+  });
+
+  it('json mode throws on circular references', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    obj.self = obj;
+    expect(() => pretty(obj, { mode: 'json' })).toThrow(TypeError);
+  });
+
+  it('json mode + Map produces parseable output', () => {
+    const m = new Map<string, unknown>([['name', 'foo'], ['count', 42]]);
+    const out = pretty(m, { mode: 'json' });
+    expect(() => JSON.parse(out)).not.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Coverage: Map edge cases (lines 225, 236)
+// ─────────────────────────────────────────────
+
+describe('json.pretty: Map edge cases (coverage v1.3.3)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('Map in json mode with numeric keys coerces them to strings (line 225)', () => {
+    // Map keys can be anything; JSON requires string keys.
+    // Non-string keys (numbers, booleans, objects) get String()-ified.
+    const m = new Map<unknown, unknown>([
+      [1,         'one'],
+      [2,         'two'],
+      [true,      'yes'],
+    ]);
+    const out = pretty(m, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed['1']).toBe('one');
+    expect(parsed['2']).toBe('two');
+    expect(parsed['true']).toBe('yes');
+  });
+
+  it('Map in json mode with object keys coerces them (line 225)', () => {
+    // Object keys get String() → "[object Object]"
+    const m = new Map<unknown, unknown>();
+    m.set({ x: 1 }, 'first');
+    const out = pretty(m, { mode: 'json' });
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    expect(parsed['[object Object]']).toBe('first');
+  });
+
+  it('Map nested in object at maxDepth boundary collapses (line 236)', () => {
+    // Place a Map deep enough that it hits the depth limit branch
+    const m = new Map([['a', 1]]);
+    const data = { wrapper: m };
+    // wrapper is at depth 1, Map renders at depth 1 — with maxDepth=2, the
+    // Map itself reaches `depth >= maxDepth - 1 && depth > 0` (line 236)
+    const out = stripAnsi(pretty(data, { maxDepth: 2 }));
+    // Should contain Map(N) size label
+    expect(out).toContain('Map(1)');
+    // The Map contents should collapse to {...} due to depth budget
+    expect(out).toContain('{...}');
+  });
+
+  it('Map at depth 0 does NOT trigger the collapse branch', () => {
+    // At top-level (depth 0), `depth > 0` is false → branch skipped
+    const m = new Map([['a', 1]]);
+    const out = stripAnsi(pretty(m, { maxDepth: 5 }));
+    // Should render fully, not collapse
+    expect(out).toContain('Map(1)');
+    expect(out).not.toContain('{...}');
+  });
+});

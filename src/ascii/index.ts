@@ -430,6 +430,20 @@ export interface BoxOptions {
   borderStyle?: BoxStyle;
   /** Fix inner content width. Lines are padded/truncated to fit. */
   width?: number | null;
+  /**
+   * Optional title shown in the top border, e.g. `─ Title ─────`.
+   * When set, the box expands to fit the title if content is narrower.
+   *
+   * @since 1.3.3
+   */
+  title?: string | null;
+  /**
+   * Title alignment in the top border: `'left'` | `'center'` (default) | `'right'`.
+   * Only applies when `title` is set.
+   *
+   * @since 1.3.3
+   */
+  titleAlign?: 'left' | 'center' | 'right';
 }
 
 export interface BannerOptions {
@@ -447,6 +461,13 @@ export interface DividerOptions {
   width?: number | null;
   label?: string | null;
   style?: BoxStyle;
+  /**
+   * Label alignment: `'left'` | `'center'` (default) | `'right'`.
+   * Only applies when `label` is set.
+   *
+   * @since 1.3.3
+   */
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface LogoOptions {
@@ -622,7 +643,13 @@ const banner = (text: string, opts: BannerOptions = {}): string => {
  */
 const box = (text: string, opts: BoxOptions = {}): string => {
   const safe = ensureString(text, 'box(text)');
-  const { padding = 1, borderStyle = 'rounded', width = null } = opts;
+  const {
+    padding = 1,
+    borderStyle = 'rounded',
+    width = null,
+    title = null,            // v1.3.3
+    titleAlign = 'center',   // v1.3.3
+  } = opts;
   // Defensive: padding must be a finite number. If user passes an object,
   // string, NaN, etc., fall back to the default (1).
   const padNum = typeof padding === 'number' && Number.isFinite(padding) ? padding : 1;
@@ -637,14 +664,53 @@ const box = (text: string, opts: BoxOptions = {}): string => {
 
   // Math.max with no args returns -Infinity — guard with 0
   /* istanbul ignore next — `: 0` empty-box ternary defensive */
-  const w = inner.length > 0
+  const contentW = inner.length > 0
     ? Math.max(0, ...inner.map((l) => visibleLen(l)))
     : 0;
+
+  // v1.3.3 — title may force the box wider if it doesn't fit
+  let w = contentW;
+  let titleStr = '';
+  let titleW = 0;
+  if (typeof title === 'string' && title.length > 0) {
+    titleStr = ` ${title} `;
+    titleW = visibleLen(titleStr);
+    // Reserve 2 chars of border decoration on each side of the title
+    const titleNeeded = titleW + 2;
+    const innerNeeded = w + safePadding * 2;
+    if (titleNeeded > innerNeeded) {
+      // Expand inner content width so title fits with 2 chars of decoration
+      w = titleNeeded - safePadding * 2;
+    }
+  }
+
+  const innerW = w + safePadding * 2;
   const pad = ' '.repeat(safePadding);
 
-  const top = b.tl + b.h.repeat(w + safePadding * 2) + b.tr;
-  const bottom = b.bl + b.h.repeat(w + safePadding * 2) + b.br;
-  const emptyRow = b.v + ' '.repeat(w + safePadding * 2) + b.v;
+  // Build top line — with optional aligned title
+  let top: string;
+  if (titleStr.length > 0 && titleW < innerW) {
+    let before: number;
+    let after: number;
+    if (titleAlign === 'left') {
+      // Tiny padding on the left so title doesn't touch the corner
+      before = 1;
+      after = innerW - titleW - before;
+    } else if (titleAlign === 'right') {
+      after = 1;
+      before = innerW - titleW - after;
+    } else {
+      // center (default)
+      before = Math.floor((innerW - titleW) / 2);
+      after = innerW - titleW - before;
+    }
+    top = b.tl + b.h.repeat(before) + titleStr + b.h.repeat(after) + b.tr;
+  } else {
+    top = b.tl + b.h.repeat(innerW) + b.tr;
+  }
+
+  const bottom = b.bl + b.h.repeat(innerW) + b.br;
+  const emptyRow = b.v + ' '.repeat(innerW) + b.v;
   const rows = inner.map((l) => b.v + pad + padEnd(l, w) + pad + b.v);
   const vPad = Array(safePadding).fill(emptyRow) as string[];
 
@@ -652,7 +718,7 @@ const box = (text: string, opts: BoxOptions = {}): string => {
 };
 
 const divider = (opts: DividerOptions = {}): string => {
-  const { char, width = null, label = null, style = 'single' } = opts;
+  const { char, width = null, label = null, style = 'single', align = 'center' } = opts;
   const { cols } = termSize();
   const w = Math.max(0, width ?? cols);
   const b = BOX_STYLES[style] ?? BOX_STYLES.single;
@@ -664,8 +730,20 @@ const divider = (opts: DividerOptions = {}): string => {
     const labelLen = visibleLen(label);
     // Label too wide for the divider — show label alone (no fill)
     if (labelLen >= w - 2) return label;
-    const side = Math.max(0, Math.floor((w - labelLen - 2) / 2));
-    const trailLen = Math.max(0, w - side - labelLen - 2);
+    // v1.3.3 — alignment for label
+    let side: number;
+    let trailLen: number;
+    if (align === 'left') {
+      side = 1;
+      trailLen = Math.max(0, w - labelLen - side - 2);
+    } else if (align === 'right') {
+      trailLen = 1;
+      side = Math.max(0, w - labelLen - trailLen - 2);
+    } else {
+      // center (default)
+      side = Math.max(0, Math.floor((w - labelLen - 2) / 2));
+      trailLen = Math.max(0, w - side - labelLen - 2);
+    }
     return fill.repeat(side) + ' ' + label + ' ' + fill.repeat(trailLen);
   }
   return fill.repeat(w);
