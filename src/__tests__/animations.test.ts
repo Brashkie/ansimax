@@ -1506,3 +1506,236 @@ describe('animate.reveal custom steps', () => {
     expect(frames).toBeLessThanOrEqual(5);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — shake + countUp
+//
+//  These tests use the global `run()` helper (jest fake timers) and
+//  rely on the top-level captureMock() / useFakeTimers() setup so that
+//  stdout.write returns true synchronously and sleep() advances via
+//  jest.runAllTimersAsync().
+// ─────────────────────────────────────────────
+
+describe('animate.shake (v1.3.4)', () => {
+  it('is exported from animate namespace', () => {
+    expect(typeof animate.shake).toBe('function');
+  });
+
+  it('completes without throwing', async () => {
+    await expect(
+      run(() => animate.shake('Error!', { times: 1, interval: 5, newline: false })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('respects reducedMotion: skips animation, just writes text', async () => {
+    let frameCount = 0;
+    await run(() => animate.shake('Error!', {
+      times: 5,
+      interval: 100,
+      reducedMotion: true,
+      onFrame: () => frameCount++,
+      newline: false,
+    }));
+    expect(frameCount).toBe(0);  // no animation frames fired
+  });
+
+  it('respects AbortSignal — stops early', async () => {
+    const ctrl = new AbortController();
+    let aborted = false;
+    const p = animate.shake('Long text', {
+      times: 100,
+      interval: 20,
+      signal: ctrl.signal,
+      onAbort: () => { aborted = true; },
+      newline: false,
+    });
+    // Abort synchronously so the very next isAborted check sees it
+    ctrl.abort();
+    await jest.runAllTimersAsync();
+    await p;
+    expect(aborted).toBe(true);
+  });
+
+  it('clamps intensity to minimum 1', async () => {
+    await expect(
+      run(() => animate.shake('Hi', { times: 1, intensity: -5, interval: 5, newline: false })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('fires onFrame callback', async () => {
+    let frameCount = 0;
+    await run(() => animate.shake('Hi', {
+      times: 1,           // 1 cycle = 4 frames in pattern
+      interval: 5,
+      newline: false,
+      onFrame: () => frameCount++,
+    }));
+    expect(frameCount).toBeGreaterThan(0);
+  });
+});
+
+describe('animate.countUp (v1.3.4)', () => {
+  it('is exported from animate namespace', () => {
+    expect(typeof animate.countUp).toBe('function');
+  });
+
+  it('animates from `from` to `to` over duration', async () => {
+    await expect(
+      run(() => animate.countUp(0, 100, { duration: 50, steps: 5, newline: false })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('respects reducedMotion: jumps directly to final value', async () => {
+    let lastFrame = -1;
+    await run(() => animate.countUp(0, 100, {
+      duration: 1000,
+      steps: 20,
+      reducedMotion: true,
+      onFrame: (n) => { lastFrame = n; },
+      newline: false,
+    }));
+    // No animation frames should fire
+    expect(lastFrame).toBe(-1);
+  });
+
+  it('respects decimals option', async () => {
+    const values: string[] = [];
+    await run(() => animate.countUp(0, 10, {
+      duration: 50,
+      steps: 5,
+      decimals: 2,
+      format: (n) => {
+        values.push(n.toFixed(2));
+        return n.toFixed(2);
+      },
+      newline: false,
+    }));
+    // All formatted values should have exactly 2 decimal places
+    for (const v of values) {
+      expect(/^\d+\.\d{2}$/.test(v)).toBe(true);
+    }
+  });
+
+  it('respects custom format function', async () => {
+    let lastFormatted = '';
+    await run(() => animate.countUp(99, 100, {
+      duration: 30,
+      steps: 2,
+      format: (n) => {
+        lastFormatted = `$${n}`;
+        return lastFormatted;
+      },
+      newline: false,
+    }));
+    expect(lastFormatted).toContain('$');
+  });
+
+  it('respects easing function', async () => {
+    let easingCalled = false;
+    await run(() => animate.countUp(0, 100, {
+      duration: 50,
+      steps: 5,
+      easing: (t) => { easingCalled = true; return t * t; },
+      newline: false,
+    }));
+    expect(easingCalled).toBe(true);
+  });
+
+  it('handles AbortSignal — stops early', async () => {
+    const ctrl = new AbortController();
+    let aborted = false;
+    const p = animate.countUp(0, 1000, {
+      duration: 5000,
+      steps: 100,
+      signal: ctrl.signal,
+      onAbort: () => { aborted = true; },
+      newline: false,
+    });
+    ctrl.abort();
+    await jest.runAllTimersAsync();
+    await p;
+    expect(aborted).toBe(true);
+  });
+
+  it('handles non-finite from/to defensively', async () => {
+    await expect(
+      run(() => animate.countUp(NaN, 100, { duration: 30, steps: 3, newline: false })),
+    ).resolves.toBeUndefined();
+    await expect(
+      run(() => animate.countUp(0, Infinity, { duration: 30, steps: 3, newline: false })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('format function errors are caught (does not crash)', async () => {
+    await expect(
+      run(() => animate.countUp(0, 100, {
+        duration: 30,
+        steps: 3,
+        format: () => { throw new Error('format failed'); },
+        newline: false,
+      })),
+    ).resolves.toBeUndefined();
+  });
+
+  // ─── Coverage: newline=true and invalid format/easing branches ───
+
+  it('emits trailing newline when newline=true (default)', async () => {
+    output = '';
+    await run(() => animate.shake('Hi', { times: 1, interval: 5 }));
+    // newline=true is default → output should end with '\n'
+    expect(output.endsWith('\n')).toBe(true);
+  });
+
+  it('emits trailing newline when newline=true in reducedMotion path', async () => {
+    output = '';
+    await run(() => animate.shake('Hi', {
+      times: 1,
+      interval: 5,
+      reducedMotion: true,
+      // newline omitted → defaults to true
+    }));
+    expect(output.endsWith('\n')).toBe(true);
+  });
+
+  it('countUp emits trailing newline when newline=true (default)', async () => {
+    output = '';
+    await run(() => animate.countUp(0, 5, { duration: 30, steps: 3 }));
+    expect(output.endsWith('\n')).toBe(true);
+  });
+
+  it('countUp emits trailing newline when newline=true in reducedMotion path', async () => {
+    output = '';
+    await run(() => animate.countUp(0, 5, {
+      duration: 30,
+      steps: 3,
+      reducedMotion: true,
+    }));
+    expect(output.endsWith('\n')).toBe(true);
+  });
+
+  it('countUp falls back to default format when format is null', async () => {
+    // Passing null explicitly bypasses destructuring default → hits the
+    // `typeof format === 'function' ? format : (n) => n.toString()` fallback
+    await expect(
+      run(() => animate.countUp(0, 5, {
+        duration: 30,
+        steps: 3,
+        // @ts-expect-error testing fallback for non-function format
+        format: null,
+        newline: false,
+      })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('countUp falls back to default easing when easing is null', async () => {
+    await expect(
+      run(() => animate.countUp(0, 5, {
+        duration: 30,
+        steps: 3,
+        // @ts-expect-error testing fallback for non-function easing
+        easing: null,
+        newline: false,
+      })),
+    ).resolves.toBeUndefined();
+  });
+});

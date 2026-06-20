@@ -919,6 +919,180 @@ const delay = (ms: number) => async (
   catch { /* aborted — return cleanly */ }
 };
 
+// ─────────────────────────────────────────────
+//  v1.3.4 — SHAKE
+//
+//  Horizontal "tremble" effect — useful for error feedback or attention
+//  grabbing. The text shifts left/right by a few characters per frame.
+// ─────────────────────────────────────────────
+
+export interface ShakeOptions extends AnimationHooks {
+  /** Number of shake cycles. Default `5`. */
+  times?: number;
+  /** Pixels of horizontal displacement per frame. Default `2`. */
+  intensity?: number;
+  /** Milliseconds between frames. Default `50`. */
+  interval?: number;
+  /** Emit newline at end. Default `true`. */
+  newline?: boolean;
+  signal?: AbortSignal;
+  reducedMotion?: boolean;
+}
+
+const shake = async (text: string, opts: ShakeOptions = {}): Promise<void> => {
+  const {
+    times = 5, intensity = 2, interval = 50,
+    newline = true, signal, reducedMotion = false,
+    onFrame, onDone, onAbort,
+  } = opts;
+  const hooks: AnimationHooks = { onFrame, onDone, onAbort };
+
+  if (reducedMotion || isAborted(signal)) {
+    safeWrite(text);
+    if (newline) writeln();
+    fireDone(hooks, isAborted(signal));
+    return;
+  }
+
+  const safeText = typeof text === 'string' ? text : '';
+  const safeTimes = Math.max(1, Math.round(times));
+  const safeIntensity = Math.max(1, Math.round(intensity));
+  const safeInterval = Math.max(FRAME_MS, interval);
+
+  // Shake pattern: 0 (rest), +offset (right), 0, -offset (left)
+  const pattern = [0, safeIntensity, 0, -safeIntensity];
+
+  registerCrashHandlers();
+  hideCursorSafe();
+  let aborted = false;
+  let frame = 0;
+  try {
+    for (let cycle = 0; cycle < safeTimes; cycle++) {
+      for (const offset of pattern) {
+        if (isAborted(signal)) { aborted = true; break; }
+        const prefix = offset > 0 ? ' '.repeat(offset) : '';
+        // For negative offsets we still leave the cursor in column 0 — the
+        // visible result is the text shifted right or starting at column 0.
+        // True left-shift isn't possible without erasing prior content, so we
+        // approximate by reducing leading space.
+        await safeWriteAsync(
+          cursor.save() + screen.clearLine() + '\r' + prefix + safeText + cursor.restore(),
+        );
+        fireFrame(hooks, frame++);
+        await sleep(safeInterval, { signal });
+      }
+      if (aborted) break;
+    }
+    // Settle: clear the shake-prefix and render text at column 0
+    if (!aborted) {
+      await safeWriteAsync(cursor.save() + screen.clearLine() + '\r' + safeText + cursor.restore());
+    }
+  } finally {
+    showCursorSafe();
+    if (newline) writeln();
+    fireDone(hooks, aborted);
+  }
+};
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — COUNT UP
+//
+//  Animate a number from `from` to `to`. Useful for stat counters,
+//  loading percentages, etc. Supports optional `format` for prefixes/
+//  suffixes (e.g. "$", "%", "ms").
+// ─────────────────────────────────────────────
+
+export interface CountUpOptions extends AnimationHooks {
+  /** Total animation duration in ms. Default `1500`. */
+  duration?: number;
+  /** Frame count — more = smoother but slower. Default `60`. */
+  steps?: number;
+  /** Decimal places to show. Default `0`. */
+  decimals?: number;
+  /**
+   * Format the displayed value. Default: `(n) => n.toString()`.
+   * Use this to add prefixes/suffixes, commas, etc.
+   */
+  format?: (value: number) => string;
+  /**
+   * Easing function — input/output both in [0, 1]. Default linear.
+   * Try `(t) => t * t` for accelerate, `(t) => 1 - (1-t)**2` for decelerate.
+   */
+  easing?: (t: number) => number;
+  /** Emit newline at end. Default `true`. */
+  newline?: boolean;
+  signal?: AbortSignal;
+  reducedMotion?: boolean;
+}
+
+const countUp = async (
+  from: number,
+  to: number,
+  opts: CountUpOptions = {},
+): Promise<void> => {
+  const {
+    duration = 1500, steps = 60, decimals = 0,
+    format = (n: number) => n.toString(),
+    easing = (t: number) => t,
+    newline = true, signal, reducedMotion = false,
+    onFrame, onDone, onAbort,
+  } = opts;
+  const hooks: AnimationHooks = { onFrame, onDone, onAbort };
+
+  const safeFrom = Number.isFinite(from) ? from : 0;
+  const safeTo = Number.isFinite(to) ? to : 0;
+  const safeDecimals = Math.max(0, Math.min(20, Math.floor(decimals)));
+  const safeFormat = typeof format === 'function' ? format : (n: number) => n.toString();
+  const safeEasing = typeof easing === 'function' ? easing : (t: number) => t;
+
+  // Reduced motion / aborted: just print final value
+  if (reducedMotion || isAborted(signal)) {
+    safeWrite(safeFormat(parseFloat(safeTo.toFixed(safeDecimals))));
+    if (newline) writeln();
+    fireDone(hooks, isAborted(signal));
+    return;
+  }
+
+  const safeSteps = Math.max(1, Math.round(steps));
+  const interval = Math.max(FRAME_MS, Math.round(duration / safeSteps));
+
+  registerCrashHandlers();
+  hideCursorSafe();
+  let aborted = false;
+  let frame = 0;
+  try {
+    for (let i = 0; i <= safeSteps; i++) {
+      if (isAborted(signal)) { aborted = true; break; }
+      const t = i / safeSteps;
+      const eased = safeEasing(Math.max(0, Math.min(1, t)));
+      const current = safeFrom + (safeTo - safeFrom) * eased;
+      const rounded = parseFloat(current.toFixed(safeDecimals));
+      let display: string;
+      try { display = safeFormat(rounded); }
+      catch { display = String(rounded); }
+      await safeWriteAsync(
+        cursor.save() + screen.clearLine() + '\r' + display + cursor.restore(),
+      );
+      fireFrame(hooks, frame++);
+      if (i < safeSteps) await sleep(interval, { signal });
+    }
+    // Settle on exact final value (ensures no rounding drift)
+    if (!aborted) {
+      const final = parseFloat(safeTo.toFixed(safeDecimals));
+      let display: string;
+      try { display = safeFormat(final); }
+      catch { display = String(final); }
+      await safeWriteAsync(
+        cursor.save() + screen.clearLine() + '\r' + display + cursor.restore(),
+      );
+    }
+  } finally {
+    showCursorSafe();
+    if (newline) writeln();
+    fireDone(hooks, aborted);
+  }
+};
+
 export const animate = {
   typewriter,
   fadeIn,
@@ -932,6 +1106,9 @@ export const animate = {
   chain,
   parallel,
   delay,
+  // v1.3.4
+  shake,
+  countUp,
 };
 
 export default animate;

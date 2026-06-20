@@ -793,3 +793,83 @@ export const padBoth = (str: string, width: number, ch = ' '): string => {
   const r = pad - l;
   return ch.repeat(l) + str + ch.repeat(r);
 };
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — Additional utility helpers
+// ─────────────────────────────────────────────
+
+/**
+ * Interpolate a sequence of N colors between two endpoint hex colors.
+ * Useful for procedurally generating gradient stops without calling the
+ * full gradient pipeline.
+ *
+ * @param start - Start hex color (e.g. `'#ff0000'`).
+ * @param end   - End hex color (e.g. `'#0000ff'`).
+ * @param count - Number of stops (>= 2; clamped if smaller).
+ * @returns Array of hex strings, including both endpoints.
+ *
+ * @example
+ * ```ts
+ * import { gradientStops } from 'ansimax';
+ *
+ * const stops = gradientStops('#ff0000', '#0000ff', 5);
+ * // → ['#ff0000', '#bf003f', '#7f007f', '#3f00bf', '#0000ff']
+ * ```
+ */
+export const gradientStops = (start: string, end: string, count: number): string[] => {
+  const safeCount = Math.max(2, Math.floor(Number.isFinite(count) ? count : 2));
+  if (!isHexColor(start) || !isHexColor(end)) return [];
+  const a = hexToRgb(start);
+  const b = hexToRgb(end);
+  const result: string[] = [];
+  for (let i = 0; i < safeCount; i++) {
+    const t = i / (safeCount - 1);
+    const c = lerpColor(a, b, t);
+    result.push(rgbToHex(c.r, c.g, c.b));
+  }
+  return result;
+};
+
+/**
+ * Escape a string for safe use inside a regular expression literal.
+ * Escapes all 12 regex meta-characters: `. * + ? ^ $ { } ( ) | [ ] \`.
+ *
+ * @example
+ * ```ts
+ * import { escapeForRegex } from 'ansimax';
+ *
+ * const userInput = 'hello.world+code';
+ * const re = new RegExp(escapeForRegex(userInput));
+ * // Matches the literal string, not as a regex pattern
+ * ```
+ */
+export const escapeForRegex = (str: string): string => {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
+ * Measure a pre-rendered string block's dimensions: width (max visible
+ * width of any line) and height (line count). ANSI escapes are ignored.
+ *
+ * @example
+ * ```ts
+ * import { measureBlock } from 'ansimax';
+ *
+ * const box = ascii.box('Hello world!');
+ * const { width, height } = measureBlock(box);
+ * // → { width: 15, height: 3 }
+ * ```
+ */
+export const measureBlock = (block: string): { width: number; height: number } => {
+  if (typeof block !== 'string' || block.length === 0) {
+    return { width: 0, height: 0 };
+  }
+  const lines = block.split('\n');
+  let width = 0;
+  for (const line of lines) {
+    const w = visibleLen(line);
+    if (w > width) width = w;
+  }
+  return { width, height: lines.length };
+};

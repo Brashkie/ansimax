@@ -1247,3 +1247,125 @@ describe('helpers: branch coverage targets', () => {
     expect(fn).toHaveBeenCalledWith('arg1');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — gradientStops + escapeForRegex + measureBlock
+// ─────────────────────────────────────────────
+
+import { gradientStops, escapeForRegex, measureBlock } from '../utils/helpers.js';
+
+describe('gradientStops (v1.3.4)', () => {
+  it('returns array of N hex stops between two colors', () => {
+    const stops = gradientStops('#ff0000', '#0000ff', 5);
+    expect(stops.length).toBe(5);
+    // Both endpoints included
+    expect(stops[0]).toBe('#ff0000');
+    expect(stops[stops.length - 1]).toBe('#0000ff');
+    // Middle stop is purple-ish (50/50 mix)
+    const mid = stops[2] ?? '';
+    expect(mid.startsWith('#')).toBe(true);
+    expect(mid.length).toBe(7);
+  });
+
+  it('handles minimum count of 2 (just the endpoints)', () => {
+    const stops = gradientStops('#ff0000', '#0000ff', 2);
+    expect(stops.length).toBe(2);
+    expect(stops[0]).toBe('#ff0000');
+    expect(stops[1]).toBe('#0000ff');
+  });
+
+  it('clamps count to minimum 2', () => {
+    const stops = gradientStops('#000000', '#ffffff', 0);
+    expect(stops.length).toBe(2);
+  });
+
+  it('returns empty array for invalid hex colors', () => {
+    expect(gradientStops('notahex', '#0000ff', 3)).toEqual([]);
+    expect(gradientStops('#ff0000', 'invalid', 3)).toEqual([]);
+  });
+
+  it('handles non-finite count defensively', () => {
+    const stops = gradientStops('#000000', '#ffffff', NaN);
+    expect(stops.length).toBe(2);   // clamped to default 2
+  });
+
+  it('all stops are valid hex format', () => {
+    const stops = gradientStops('#bd93f9', '#ff79c6', 10);
+    for (const s of stops) {
+      expect(/^#[0-9a-f]{6}$/i.test(s)).toBe(true);
+    }
+  });
+});
+
+describe('escapeForRegex (v1.3.4)', () => {
+  it('escapes all 12 regex meta-characters', () => {
+    const input = '.*+?^${}()|[]\\';
+    const escaped = escapeForRegex(input);
+    // Every char should now have a backslash prefix
+    expect(escaped).toBe('\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
+  });
+
+  it('leaves non-special characters alone', () => {
+    expect(escapeForRegex('hello world')).toBe('hello world');
+    expect(escapeForRegex('abc123')).toBe('abc123');
+  });
+
+  it('produces a string usable as a regex literal', () => {
+    const userInput = 'foo.bar+baz';
+    const re = new RegExp(escapeForRegex(userInput));
+    expect(re.test('foo.bar+baz')).toBe(true);
+    expect(re.test('fooXbarXbaz')).toBe(false);  // dot/plus are literal now
+  });
+
+  it('handles empty string', () => {
+    expect(escapeForRegex('')).toBe('');
+  });
+
+  it('handles non-string input defensively', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(escapeForRegex(null)).toBe('');
+    // @ts-expect-error testing defensive behavior
+    expect(escapeForRegex(undefined)).toBe('');
+  });
+});
+
+describe('measureBlock (v1.3.4)', () => {
+  it('measures single-line block', () => {
+    const { width, height } = measureBlock('Hello');
+    expect(width).toBe(5);
+    expect(height).toBe(1);
+  });
+
+  it('measures multi-line block', () => {
+    const { width, height } = measureBlock('Short\nLonger line\nMid');
+    expect(width).toBe(11);  // 'Longer line'
+    expect(height).toBe(3);
+  });
+
+  it('ignores ANSI escape codes when measuring width', () => {
+    const colored = '\x1b[31mHello\x1b[0m';  // visible: "Hello" (5 chars)
+    const { width } = measureBlock(colored);
+    expect(width).toBe(5);
+  });
+
+  it('returns 0/0 for empty string', () => {
+    expect(measureBlock('')).toEqual({ width: 0, height: 0 });
+  });
+
+  it('handles non-string input defensively', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(measureBlock(null)).toEqual({ width: 0, height: 0 });
+  });
+
+  it('counts a single newline as 2 lines', () => {
+    // 'a\nb' splits to ['a', 'b'] → height 2
+    const { height } = measureBlock('a\nb');
+    expect(height).toBe(2);
+  });
+
+  it('counts trailing newline as empty last line', () => {
+    // 'a\n' splits to ['a', ''] → height 2
+    const { height } = measureBlock('a\n');
+    expect(height).toBe(2);
+  });
+});

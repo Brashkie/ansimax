@@ -1567,3 +1567,58 @@ describe('ansi: more branch coverage', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — hyperlink + clearLine
+// ─────────────────────────────────────────────
+
+import { hyperlink, clearLine } from '../utils/ansi.js';
+
+describe('hyperlink (v1.3.4)', () => {
+  it('wraps URL and label in OSC 8 sequence', () => {
+    const result = hyperlink('https://example.com', 'click here');
+    // Should contain OSC 8 with URL
+    expect(result).toContain('\x1b]8;;https://example.com\x1b\\');
+    // Should contain the visible label
+    expect(result).toContain('click here');
+    // Should end with the closing OSC 8
+    expect(result.endsWith('\x1b]8;;\x1b\\')).toBe(true);
+  });
+
+  it('uses URL as label when no label provided', () => {
+    const url = 'https://example.com';
+    const result = hyperlink(url);
+    expect(result).toContain(url);
+    // Verify visible label is the URL (between opening and closing OSC 8)
+    const stripped = result.replace(/\x1b\][^\x1b]*\x1b\\/g, '');
+    expect(stripped).toBe(url);
+  });
+
+  it('returns empty string for invalid URL', () => {
+    // @ts-expect-error testing defensive behavior
+    expect(hyperlink(null)).toBe('');
+    expect(hyperlink('')).toBe('');
+  });
+
+  it('returns just label when URL is missing but label exists', () => {
+    expect(hyperlink('', 'fallback')).toBe('fallback');
+  });
+
+  it('supports mailto: and file: schemes', () => {
+    const m = hyperlink('mailto:hi@example.com', 'email me');
+    expect(m).toContain('mailto:hi@example.com');
+    const f = hyperlink('file:///tmp/output.log');
+    expect(f).toContain('file:///tmp/output.log');
+  });
+});
+
+describe('clearLine (v1.3.4)', () => {
+  it('returns CSI 2K + carriage return', () => {
+    const result = clearLine();
+    expect(result).toBe('\x1b[2K\r');
+  });
+
+  it('is identical to manual screen.clearLine() + \\r combination', () => {
+    expect(clearLine()).toBe(screen.clearLine() + '\r');
+  });
+});

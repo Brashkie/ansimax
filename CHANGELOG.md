@@ -3,6 +3,147 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.4] — Feature additions across animations, configure, utils
+
+Patch release adding small but useful features to several modules. No
+breaking changes — every addition is opt-in.
+
+### Added — `animations` module
+
+**`animate.shake(text, opts)`** — horizontal tremble effect for errors or alerts:
+
+```js
+import { animate } from 'ansimax';
+
+await animate.shake('Connection failed', {
+  times: 5,
+  intensity: 2,
+  interval: 50,
+});
+```
+
+**`animate.countUp(from, to, opts)`** — numeric animation for counters:
+
+```js
+await animate.countUp(0, 100, {
+  duration: 1500,
+  decimals: 0,
+  format: (n) => `$${n.toLocaleString()}`,
+  easing: (t) => 1 - (1 - t) ** 3,   // ease-out cubic
+});
+// Animates from "$0" → "$100" over 1.5 seconds
+```
+
+Both functions support the standard animation pattern: `signal`, `reducedMotion`,
+`onFrame`, `onDone`, `onAbort`.
+
+### Added — `configure` module
+
+**`setConfigValue(key, value)`** — single-key shortcut:
+
+```js
+import { setConfigValue } from 'ansimax';
+
+setConfigValue('theme', 'dracula');
+setConfigValue('animationSpeed', 'fast');
+// equivalent to: configure({ theme: 'dracula' })
+```
+
+**`subscribeConfig(listener)`** — alias for `onConfigChange` matching the
+naming convention used by `themes.onChange`:
+
+```js
+import { subscribeConfig } from 'ansimax';
+
+const unsubscribe = subscribeConfig((newCfg, oldCfg) => {
+  console.log('Config changed:', newCfg);
+});
+```
+
+### Added — `utils/ansi` module
+
+**`hyperlink(url, label?)`** — OSC 8 escape sequence for clickable terminal links:
+
+```js
+import { hyperlink } from 'ansimax';
+
+console.log(`Visit ${hyperlink('https://github.com/Brashkie/ansimax', 'the repo')}`);
+console.log(`Email: ${hyperlink('mailto:hi@example.com')}`);
+```
+
+Supported terminals: VS Code, iTerm2, WezTerm, Kitty, Hyper, Alacritty, modern
+Windows Terminal. Terminals without support just show the label text.
+
+**`clearLine()`** — convenience for clearing current line + carriage return:
+
+```js
+import { clearLine } from 'ansimax';
+
+for (let i = 0; i <= 100; i++) {
+  process.stdout.write(clearLine() + `Progress: ${i}%`);
+  await sleep(30);
+}
+```
+
+### Added — `utils/helpers` module
+
+**`gradientStops(start, end, count)`** — interpolate N hex stops between two colors:
+
+```js
+import { gradientStops } from 'ansimax';
+
+const stops = gradientStops('#ff0000', '#0000ff', 5);
+// → ['#ff0000', '#bf003f', '#7f007f', '#3f00bf', '#0000ff']
+```
+
+**`escapeForRegex(str)`** — escape regex meta-characters in user input:
+
+```js
+import { escapeForRegex } from 'ansimax';
+
+const userInput = 'hello.world+code';
+const re = new RegExp(escapeForRegex(userInput));
+// Matches the literal string, not as a regex pattern
+```
+
+**`measureBlock(block)`** — get dimensions of a multi-line string (ANSI-aware):
+
+```js
+import { measureBlock, ascii } from 'ansimax';
+
+const box = ascii.box('Hello world!');
+const { width, height } = measureBlock(box);
+// → { width: 15, height: 3 }
+```
+
+### Improved — `node-globals.d.ts`
+
+Added ambient declarations for `AsyncIterator`, `AsyncIterable`, `AsyncGenerator`,
+and `Symbol.asyncIterator`. Lets code using `for await...of` type-check without
+needing `@types/node` installed at consumer projects.
+
+### Improved — Tests
+
+- `+6` tests for `gradientStops`
+- `+5` tests for `escapeForRegex`
+- `+7` tests for `measureBlock`
+- `+5` tests for `hyperlink`
+- `+2` tests for `clearLine`
+- `+4` tests for `setConfigValue`
+- `+3` tests for `subscribeConfig`
+- `+5` tests for `animate.shake`
+- `+8` tests for `animate.countUp`
+
+Total: **+45 tests** across utils, ansi, configure, animations.
+
+### Notes
+
+- No runtime dependencies — still zero
+- No breaking changes — drop-in replacement for `1.3.3`
+- All new exports backward-compatible by default
+
+---
+
 ## [1.3.3] — Feature additions to panels, json, ascii
 
 Patch release adding new functionality to three modules. No breaking changes —

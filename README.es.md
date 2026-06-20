@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.3'));
+console.log(components.badge('VERSION', 'v1.3.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,34 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.4 — Features para animations, configure, utils
+
+Release patch con features opt-in en varios módulos. Cero breaking changes:
+
+- 🎬 **`animate.shake(text, opts)`** — efecto tremor horizontal para errores
+- 🔢 **`animate.countUp(from, to, opts)`** — contadores numéricos animados con format/easing
+- ⚙️ **`setConfigValue(key, value)`** — atajo single-key + alias `subscribeConfig`
+- 🔗 **`hyperlink(url, label)`** — links clickables vía OSC 8 (VS Code, iTerm2, WezTerm, Kitty...)
+- 🧹 **`clearLine()`** — helper conveniente para render loops
+- 🎨 **`gradientStops(start, end, count)`** — N stops procedurales entre dos colores
+- 🛡️ **`escapeForRegex(str)`** — escapa input de usuario para regex literals
+- 📏 **`measureBlock(block)`** — dimensiones ANSI-aware de texto multi-línea
+- 📐 **`node-globals.d.ts`** — añadidos tipos `AsyncIterator`/`AsyncIterable`/`AsyncGenerator`
+- 🧪 **+45 tests** entre animations, configure, utils
+
+```js
+import { animate, hyperlink } from 'ansimax';
+
+await animate.countUp(0, 1000, {
+  duration: 1500,
+  format: (n) => `$${n.toLocaleString()}`,
+});
+
+console.log(`Ver ${hyperlink('https://npmjs.com/ansimax', 'la página de npm')}`);
+```
+
+Drop-in replacement para `1.3.3`.
 
 ### v1.3.3 — Features para panels, json, ascii
 

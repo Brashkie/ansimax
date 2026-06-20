@@ -415,4 +415,45 @@ export const withConfig = <T>(
   }
 };
 
+// ─────────────────────────────────────────────
+//  v1.3.4 — DX shortcuts
+// ─────────────────────────────────────────────
+
+/**
+ * Set a single config key without wrapping in an object. Convenience
+ * shortcut equivalent to `configure({ [key]: value })`.
+ *
+ * @example
+ * ```ts
+ * import { setConfigValue } from 'ansimax';
+ *
+ * setConfigValue('theme', 'dracula');
+ * setConfigValue('animationSpeed', 'fast');
+ * ```
+ */
+export const setConfigValue = <K extends keyof AnsimaxConfig>(
+  key: K,
+  value: AnsimaxConfig[K],
+): void => {
+  configure({ [key]: value } as AnsimaxConfig);
+};
+
+/**
+ * Alias for `onConfigChange` — matches the naming convention used by
+ * `themes.onChange` and other observers in the codebase. Returns an
+ * unsubscribe function.
+ *
+ * @example
+ * ```ts
+ * import { subscribeConfig } from 'ansimax';
+ *
+ * const unsubscribe = subscribeConfig((newCfg, oldCfg) => {
+ *   console.log('Config changed:', newCfg);
+ * });
+ *
+ * // Later: unsubscribe();
+ * ```
+ */
+export const subscribeConfig = onConfigChange;
+
 export default configure;

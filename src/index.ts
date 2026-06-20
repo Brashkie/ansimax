@@ -110,6 +110,8 @@ export {
   onConfigChange, onConfigKeyChange, getConfigValue,
   pauseListeners, resumeListeners, withConfig,
   DEFAULTS as CONFIG_DEFAULTS,
+  // v1.3.4 — DX shortcuts
+  setConfigValue, subscribeConfig,
 } from './configure.js';
 export type {
   AnsimaxConfig, ColorMode, AnimationSpeed, ConfigChangeListener,
@@ -130,6 +132,8 @@ export {
   createOutputBuffer,
   // OSC primitives
   setTitle, link, bell,
+  // v1.3.4
+  hyperlink, clearLine,
 } from './utils/ansi.js';
 export type {
   ColorSupport, ColorLevel, AnsiCode, EraseMode, SleepOptions,
@@ -155,6 +159,8 @@ export {
   diffLines,
   // New utilities
   once, escapeRegex, safeJson,
+  // v1.3.4
+  gradientStops, escapeForRegex, measureBlock,
 } from './utils/helpers.js';export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,
   LineDiff, DiffType, DebounceOptions, MemoizeOptions,

@@ -612,3 +612,62 @@ export const sleepFrame = (
   Math.max(FRAME_MS, Math.round((isFiniteNumber(ms) ? ms : FRAME_MS) / FRAME_MS) * FRAME_MS),
   opts,
 );
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — Hyperlinks (OSC 8)
+//
+//  Modern terminals (VS Code, iTerm2, WezTerm, Kitty, Hyper, Alacritty)
+//  support clickable hyperlinks via OSC 8 escape sequences. Older
+//  terminals just see the label text (graceful degradation).
+// ─────────────────────────────────────────────
+
+/**
+ * Wrap a label in an OSC 8 hyperlink escape sequence. Terminals that
+ * support hyperlinks (VS Code, iTerm2, WezTerm, Kitty, etc.) render it
+ * as clickable. Terminals without support just show the label text.
+ *
+ * @param url   - Target URL (https://, mailto:, file://, etc.)
+ * @param label - Visible text. Defaults to the URL itself.
+ * @returns String with OSC 8 wrappers around the label.
+ *
+ * @example
+ * ```ts
+ * import { hyperlink } from 'ansimax';
+ *
+ * console.log(`Visit ${hyperlink('https://github.com/Brashkie/ansimax', 'the repo')}`);
+ * console.log(`Email: ${hyperlink('mailto:hi@example.com')}`);
+ * ```
+ */
+export const hyperlink = (url: string, label?: string): string => {
+  if (typeof url !== 'string' || url.length === 0) {
+    return typeof label === 'string' ? label : '';
+  }
+  const safeLabel = typeof label === 'string' && label.length > 0 ? label : url;
+  // OSC 8 ; params ; URI ST  ...label...  OSC 8 ; ; ST
+  // params is empty (no extra attributes for plain links)
+  return `${OSC}8;;${url}${ST}${safeLabel}${OSC}8;;${ST}`;
+};
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — top-level clearLine alias
+//
+//  Convenience for the common case — equivalent to screen.clearLine() +
+//  cursor.start(). Useful in render loops where you want to overwrite the
+//  current line cleanly.
+// ─────────────────────────────────────────────
+
+/**
+ * Returns the escape sequence to clear the entire current line and move
+ * the cursor back to column 1. Equivalent to `screen.clearLine() + '\r'`.
+ *
+ * @example
+ * ```ts
+ * import { clearLine } from 'ansimax';
+ *
+ * for (let i = 0; i <= 100; i++) {
+ *   process.stdout.write(clearLine() + `Progress: ${i}%`);
+ *   await sleep(30);
+ * }
+ * ```
+ */
+export const clearLine = (): string => `${CSI}2K\r`;

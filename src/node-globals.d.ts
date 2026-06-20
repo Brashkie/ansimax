@@ -81,3 +81,39 @@ declare module 'node:os' {
   export default _default;
   export { release };
 }
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — AsyncIterator / AsyncIterable
+//
+//  Web-standard async iteration protocol. Available in Node.js >= 10,
+//  but without these ambient declarations, code using `for await...of`
+//  loops fails to type-check without @types/node installed.
+// ─────────────────────────────────────────────
+
+interface AsyncIteratorResult<T> {
+  value: T;
+  done: boolean;
+}
+
+interface AsyncIterator<T> {
+  next(): Promise<AsyncIteratorResult<T>>;
+  return?(value?: T): Promise<AsyncIteratorResult<T>>;
+  throw?(e?: unknown): Promise<AsyncIteratorResult<T>>;
+}
+
+interface AsyncIterable<T> {
+  [Symbol.asyncIterator](): AsyncIterator<T>;
+}
+
+interface AsyncGenerator<T = unknown, TReturn = unknown, TNext = unknown> extends AsyncIterator<T> {
+  next(value?: TNext): Promise<AsyncIteratorResult<T>>;
+  return(value: TReturn): Promise<AsyncIteratorResult<T>>;
+  throw(e: unknown): Promise<AsyncIteratorResult<T>>;
+  [Symbol.asyncIterator](): AsyncGenerator<T, TReturn, TNext>;
+}
+
+// Symbol.asyncIterator may not be declared depending on lib settings —
+// keep the well-known symbol available as a fallback ambient declaration.
+declare namespace Symbol {
+  const asyncIterator: unique symbol;
+}

@@ -747,3 +747,43 @@ describe('barrel coverage — re-exports', () => {
     expect(main.jsonPretty({ a: 1 })).toBe(main.json.pretty({ a: 1 }));
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel exercise for v1.3.4 additions
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — v1.3.4 re-exports', () => {
+  it('setConfigValue + subscribeConfig are exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.setConfigValue).toBe('function');
+    expect(typeof main.subscribeConfig).toBe('function');
+  });
+
+  it('hyperlink + clearLine are exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.hyperlink).toBe('function');
+    expect(typeof main.clearLine).toBe('function');
+    // Smoke: hyperlink produces OSC 8 wrapper
+    const result = main.hyperlink('https://example.com', 'link');
+    expect(result).toContain('https://example.com');
+    expect(result).toContain('link');
+    // Smoke: clearLine produces expected escape sequence
+    expect(main.clearLine()).toBe('\x1b[2K\r');
+  });
+
+  it('gradientStops + escapeForRegex + measureBlock are exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.gradientStops).toBe('function');
+    expect(typeof main.escapeForRegex).toBe('function');
+    expect(typeof main.measureBlock).toBe('function');
+    // Smoke: gradientStops produces valid hex array
+    const stops = main.gradientStops('#ff0000', '#0000ff', 3);
+    expect(stops.length).toBe(3);
+    expect(stops[0]).toBe('#ff0000');
+    expect(stops[2]).toBe('#0000ff');
+    // Smoke: escapeForRegex escapes meta chars
+    expect(main.escapeForRegex('a.b')).toBe('a\\.b');
+    // Smoke: measureBlock returns dimensions
+    expect(main.measureBlock('hello')).toEqual({ width: 5, height: 1 });
+  });
+});

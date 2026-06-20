@@ -592,3 +592,69 @@ describe('coverage: SPEED_MAP fallback', () => {
     expect(getSpeedMultiplier()).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.4 — setConfigValue + subscribeConfig
+// ─────────────────────────────────────────────
+
+import { setConfigValue, subscribeConfig } from '../configure.js';
+
+describe('setConfigValue (v1.3.4)', () => {
+  beforeEach(() => resetConfig());
+  afterEach(() => resetConfig());
+
+  it('sets a single config key without object wrapping', () => {
+    setConfigValue('theme', 'monokai');
+    expect(getConfig().theme).toBe('monokai');
+  });
+
+  it('multiple sequential calls work correctly', () => {
+    setConfigValue('theme', 'dracula');
+    setConfigValue('animationSpeed', 'fast');
+    expect(getConfig().theme).toBe('dracula');
+    expect(getConfig().animationSpeed).toBe('fast');
+  });
+
+  it('triggers change listeners', () => {
+    const listener = jest.fn();
+    const unsubscribe = onConfigChange(listener);
+    setConfigValue('theme', 'nord');
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it('validates the value just like configure() does', () => {
+    expect(() => {
+      // @ts-expect-error invalid value
+      setConfigValue('colorMode', 'invalid-mode');
+    }).toThrow();
+  });
+});
+
+describe('subscribeConfig (v1.3.4)', () => {
+  beforeEach(() => resetConfig());
+  afterEach(() => resetConfig());
+
+  it('is a reference to onConfigChange', () => {
+    expect(subscribeConfig).toBe(onConfigChange);
+  });
+
+  it('returns an unsubscribe function', () => {
+    const unsubscribe = subscribeConfig(() => { /* no-op */ });
+    expect(typeof unsubscribe).toBe('function');
+    unsubscribe();
+  });
+
+  it('listeners are notified of config changes', () => {
+    const calls: string[] = [];
+    const unsubscribe = subscribeConfig((newCfg) => {
+      calls.push(newCfg.theme);
+    });
+    // Default is 'dracula' — first change must be to a DIFFERENT value
+    configure({ theme: 'nord' });
+    configure({ theme: 'monokai' });
+    unsubscribe();
+    configure({ theme: 'matrix' });   // should NOT fire — unsubscribed
+    expect(calls).toEqual(['nord', 'monokai']);
+  });
+});
