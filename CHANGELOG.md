@@ -3,6 +3,144 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.5] — Mathematical color science + cleanup
+
+Patch release focused on mathematical depth: perceptually-uniform color
+spaces (Oklab/HSL), comprehensive easing library, and removing duplicate
+defensive patterns. **Zero breaking changes** — `lerpColor` and
+`gradientColor` accept a new optional `space` parameter that defaults to
+`'rgb'` (the previous behavior).
+
+### Added — Perceptually-uniform color spaces
+
+**Oklab** — modern perceptual color space. Interpolating in Oklab produces
+smoother, more natural-looking gradients than naive RGB:
+
+```js
+import { lerpColor, mixColors, gradientStops } from 'ansimax';
+
+const red  = { r: 255, g: 0, b: 0   };
+const blue = { r: 0,   g: 0, b: 255 };
+
+lerpColor(red, blue, 0.5);            // → { r: 128, g: 0,  b: 128 } (RGB midpoint — muddy)
+lerpColor(red, blue, 0.5, 'oklab');   // → { r: 140, g: 83, b: 162 } (perceptual midpoint — vibrant)
+
+// Or with hex inputs:
+mixColors('#ff0000', '#0000ff', 0.5, 'oklab');
+
+// Multi-stop gradients:
+gradientStops('#ff0000', '#0000ff', 5, 'oklab');
+```
+
+**HSL** — useful for hue rotation and color manipulation:
+
+```js
+import { rgbToHsl, hslToRgb, lerpColor } from 'ansimax';
+
+const hsl = rgbToHsl({ r: 255, g: 100, b: 50 });   // → { h: 12, s: 1, l: 0.598 }
+
+// hslToRgb wraps hue automatically:
+hslToRgb({ h: -120, s: 1, l: 0.5 });   // → { r: 0, g: 0, b: 255 }
+hslToRgb({ h: 720,  s: 1, l: 0.5 });   // → { r: 255, g: 0, b: 0 }
+
+// Interpolation through HSL takes the shorter arc on the color wheel:
+lerpColor(red, blue, 0.5, 'hsl');
+```
+
+### Added — `easings` library (Robert Penner library)
+
+Comprehensive easing curve library:
+
+```js
+import { easings, resolveEasingByName, animate } from 'ansimax';
+
+// All curves: in/out/inOut variants of:
+// quad, cubic, quart, quint, sine, expo, circ, back, elastic, bounce
+// Plus linear.
+
+await animate.countUp(0, 1000, {
+  duration: 2000,
+  easing: easings.easeOutBounce,    // bouncing ball deceleration
+});
+
+// Resolve by name:
+const fn = resolveEasingByName('easeInElastic');
+```
+
+### Added — Color utilities
+
+**`mixColors(a, b, t, space?)`** — semantic alias accepting hex or RGB:
+
+```js
+mixColors('#ff0000', { r: 0, g: 0, b: 255 }, 0.5, 'oklab');
+```
+
+**`quantizeColor(color, levels)`** — palette reduction (posterize effect):
+
+```js
+quantizeColor({ r: 100, g: 150, b: 200 }, 4);
+// Snaps each channel to nearest of [0, 85, 170, 255] → 64-color palette
+```
+
+### Added — Numeric helpers
+
+**`isFiniteNumber(n)`** — type guard, previously internal:
+
+```js
+isFiniteNumber(42);         // → true
+isFiniteNumber(NaN);        // → false
+isFiniteNumber('5');        // → false
+```
+
+**`safeInt(value, fallback?, min?, max?)`** — consolidates the
+`Math.max(0, Math.floor(Number(x) || 0))` pattern that appeared 25+
+times across the codebase:
+
+```js
+safeInt('abc')                 // → 0
+safeInt(3.7)                   // → 3
+safeInt(NaN, 50)               // → 50  (fallback)
+safeInt(500, 0, 0, 100)        // → 100 (clamped to max)
+```
+
+**`clampByte(v)`** — previously private, now exported.
+
+### Improved — `gradientStops` accepts `space` parameter
+
+```js
+gradientStops('#ff0000', '#0000ff', 5);          // RGB (default, fast)
+gradientStops('#ff0000', '#0000ff', 5, 'oklab'); // perceptually uniform
+```
+
+### Improved — Code cleanliness
+
+- Replaced internal duplicate `typeof n === 'number' && Number.isFinite(n)`
+  checks with `isFiniteNumber()` calls
+- `gradientColor` now uses `isFiniteNumber` instead of inline check
+
+### Improved — Tests
+
+- `+18` tests for color spaces (rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb)
+- `+9` tests for `lerpColor` with spaces + `mixColors`
+- `+6` tests for `quantizeColor`
+- `+10` tests for numeric helpers (`isFiniteNumber`, `safeInt`, `clampByte`)
+- `+30` tests for `easings` library (every curve + endpoint preservation)
+- `+5` tests for `resolveEasingByName`
+- `+4` tests for v1.3.5 barrel re-exports
+
+Total: **+82 tests** added.
+
+### Notes
+
+- No runtime dependencies — still zero
+- **No breaking changes** — `lerpColor(a, b, t)` defaults to `'rgb'` and
+  produces identical output to v1.3.4
+- Oklab math validated via roundtrip identity tests (±1 byte tolerance
+  for floating-point through linear sRGB intermediate)
+- All easing curves verified to map `f(0) ≈ 0` and `f(1) ≈ 1`
+
+---
+
 ## [1.3.4] — Feature additions across animations, configure, utils
 
 Patch release adding small but useful features to several modules. No

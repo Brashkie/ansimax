@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.4'));
+console.log(components.badge('VERSION', 'v1.3.5'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,36 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.5 — Color science matemático + limpieza
+
+Release patch enfocado en profundidad matemática y limpieza de código. Cero breaking changes:
+
+- 🎨 **Espacio de color Oklab** — `rgbToOklab` / `oklabToRgb`. Gradientes perceptualmente uniformes
+- 🌈 **Espacio de color HSL** — `rgbToHsl` / `hslToRgb`. Rotación de matiz, manipulación de color
+- 🎯 **`lerpColor` / `gradientColor` / `gradientStops`** ahora aceptan `space: 'rgb' | 'hsl' | 'oklab'` (default `'rgb'`, retro-compatible)
+- 🥄 **`mixColors(a, b, t, space)`** — alias semántico, acepta hex strings o RGB
+- 📐 **`quantizeColor(color, levels)`** — reducción de paleta (efecto posterize)
+- ⚡ **Librería `easings`** — set completo de Robert Penner (quad/cubic/quart/quint/sine/expo/circ/back/elastic/bounce en in/out/inOut)
+- 🧮 **`isFiniteNumber` + `safeInt` + `clampByte`** — helpers numéricos exportados (consolida 25+ patrones defensivos duplicados)
+- 🧪 **+82 tests** incluyendo validación de correctitud matemática
+
+```js
+import { lerpColor, easings, animate, mixColors } from 'ansimax';
+
+// Midpoint de gradiente perceptualmente uniforme
+mixColors('#ff0000', '#0000ff', 0.5, 'oklab');
+// → { r: 140, g: 83, b: 162 } — magenta vibrante
+// (vs RGB naive: { r: 128, g: 0, b: 128 } — púrpura turbio)
+
+// Contador con animación bouncing
+await animate.countUp(0, 1000, {
+  duration: 2000,
+  easing: easings.easeOutBounce,
+});
+```
+
+Drop-in replacement para `1.3.4`.
 
 ### v1.3.4 — Features para animations, configure, utils
 

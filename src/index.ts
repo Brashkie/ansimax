@@ -161,10 +161,21 @@ export {
   once, escapeRegex, safeJson,
   // v1.3.4
   gradientStops, escapeForRegex, measureBlock,
-} from './utils/helpers.js';export type {
+  // v1.3.5 — color science + numeric helpers
+  isFiniteNumber, safeInt, clampByte,
+  rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
+  mixColors, quantizeColor,
+} from './utils/helpers.js';
+export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,
   LineDiff, DiffType, DebounceOptions, MemoizeOptions,
+  // v1.3.5
+  HSL, Oklab, ColorSpace,
 } from './utils/helpers.js';
+
+// v1.3.5 — Easing curves (Robert Penner library)
+export { easings, resolveEasingByName } from './utils/easing.js';
+export type { EasingFunction, EasingLibraryName } from './utils/easing.js';
 
 // ── Default export: full API object ──
 import { color }      from './colors/index.js';

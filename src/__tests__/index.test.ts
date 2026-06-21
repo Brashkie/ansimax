@@ -787,3 +787,57 @@ describe('barrel coverage — v1.3.4 re-exports', () => {
     expect(main.measureBlock('hello')).toEqual({ width: 5, height: 1 });
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel exercise for v1.3.5 additions
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — v1.3.5 re-exports', () => {
+  it('numeric helpers exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.isFiniteNumber).toBe('function');
+    expect(typeof main.safeInt).toBe('function');
+    expect(typeof main.clampByte).toBe('function');
+    // Smoke tests
+    expect(main.isFiniteNumber(42)).toBe(true);
+    expect(main.safeInt('abc', 99)).toBe(99);
+    expect(main.clampByte(300)).toBe(255);
+  });
+
+  it('color space functions exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.rgbToHsl).toBe('function');
+    expect(typeof main.hslToRgb).toBe('function');
+    expect(typeof main.rgbToOklab).toBe('function');
+    expect(typeof main.oklabToRgb).toBe('function');
+    // Smoke: HSL roundtrip for red
+    const hsl = main.rgbToHsl({ r: 255, g: 0, b: 0 });
+    expect(hsl.h).toBe(0);
+    expect(hsl.s).toBe(1);
+    // Oklab smoke
+    const o = main.rgbToOklab({ r: 0, g: 0, b: 0 });
+    expect(o.L).toBeCloseTo(0, 2);
+  });
+
+  it('mixColors + quantizeColor exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.mixColors).toBe('function');
+    expect(typeof main.quantizeColor).toBe('function');
+    // Smoke
+    const m = main.mixColors('#ff0000', '#0000ff', 0.5);
+    expect(m).toEqual({ r: 128, g: 0, b: 128 });
+    const q = main.quantizeColor({ r: 0, g: 0, b: 0 }, 4);
+    expect(q).toEqual({ r: 0, g: 0, b: 0 });
+  });
+
+  it('easings + resolveEasingByName exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.easings).toBe('object');
+    expect(typeof main.easings.linear).toBe('function');
+    expect(typeof main.easings.easeInOutCubic).toBe('function');
+    expect(typeof main.resolveEasingByName).toBe('function');
+    // Smoke — strongly typed (Record<EasingName, ...>) so no optional chaining needed
+    expect(main.easings.linear(0.5)).toBe(0.5);
+    expect(main.resolveEasingByName('linear')).toBe(main.easings.linear);
+  });
+});

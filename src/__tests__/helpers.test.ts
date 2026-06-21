@@ -1369,3 +1369,269 @@ describe('measureBlock (v1.3.4)', () => {
     expect(height).toBe(2);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.5 — Color science + numeric helpers
+// ─────────────────────────────────────────────
+
+import {
+  isFiniteNumber as _isFiniteNumber, safeInt, clampByte as _clampByte,
+  rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
+  mixColors, quantizeColor,
+} from '../utils/helpers.js';
+
+describe('isFiniteNumber (v1.3.5)', () => {
+  it('returns true for finite numbers', () => {
+    expect(_isFiniteNumber(0)).toBe(true);
+    expect(_isFiniteNumber(-1.5)).toBe(true);
+    expect(_isFiniteNumber(1e100)).toBe(true);
+  });
+  it('returns false for non-numbers', () => {
+    expect(_isFiniteNumber('5')).toBe(false);
+    expect(_isFiniteNumber(null)).toBe(false);
+    expect(_isFiniteNumber(undefined)).toBe(false);
+    expect(_isFiniteNumber({})).toBe(false);
+  });
+  it('returns false for NaN/Infinity', () => {
+    expect(_isFiniteNumber(NaN)).toBe(false);
+    expect(_isFiniteNumber(Infinity)).toBe(false);
+    expect(_isFiniteNumber(-Infinity)).toBe(false);
+  });
+});
+
+describe('safeInt (v1.3.5)', () => {
+  it('coerces numeric strings', () => {
+    expect(safeInt('42')).toBe(42);
+    expect(safeInt('3.7')).toBe(3);
+  });
+  it('floors decimals', () => {
+    expect(safeInt(3.9)).toBe(3);
+    expect(safeInt(-2.3)).toBe(-3);
+  });
+  it('returns fallback for non-finite input', () => {
+    expect(safeInt(NaN, 50)).toBe(50);
+    expect(safeInt(Infinity, 99)).toBe(99);
+    expect(safeInt('abc', 7)).toBe(7);
+    expect(safeInt(null, 1)).toBe(1);
+  });
+  it('clamps to min/max', () => {
+    expect(safeInt(500, 0, 0, 100)).toBe(100);
+    expect(safeInt(-500, 0, 0, 100)).toBe(0);
+    expect(safeInt(50, 0, 0, 100)).toBe(50);
+  });
+  it('clamps fallback to min/max too', () => {
+    expect(safeInt(NaN, 200, 0, 100)).toBe(100);
+  });
+});
+
+describe('clampByte (v1.3.5)', () => {
+  it('clamps to 0-255', () => {
+    expect(_clampByte(-10)).toBe(0);
+    expect(_clampByte(300)).toBe(255);
+    expect(_clampByte(127)).toBe(127);
+  });
+  it('rounds non-integers', () => {
+    expect(_clampByte(127.4)).toBe(127);
+    expect(_clampByte(127.6)).toBe(128);
+  });
+});
+
+describe('rgbToHsl + hslToRgb (v1.3.5)', () => {
+  it('converts primary colors correctly', () => {
+    expect(rgbToHsl({ r: 255, g: 0,   b: 0   })).toEqual({ h: 0,   s: 1, l: 0.5 });
+    expect(rgbToHsl({ r: 0,   g: 255, b: 0   })).toEqual({ h: 120, s: 1, l: 0.5 });
+    expect(rgbToHsl({ r: 0,   g: 0,   b: 255 })).toEqual({ h: 240, s: 1, l: 0.5 });
+  });
+
+  it('handles grayscale (saturation 0)', () => {
+    const gray = rgbToHsl({ r: 128, g: 128, b: 128 });
+    expect(gray.s).toBe(0);
+    expect(gray.l).toBeCloseTo(0.502, 2);
+  });
+
+  it('roundtrips for primary colors', () => {
+    const red = { r: 255, g: 0, b: 0 };
+    expect(hslToRgb(rgbToHsl(red))).toEqual(red);
+    const blue = { r: 0, g: 0, b: 255 };
+    expect(hslToRgb(rgbToHsl(blue))).toEqual(blue);
+  });
+
+  it('hslToRgb wraps hue beyond 360', () => {
+    const a = hslToRgb({ h: 0, s: 1, l: 0.5 });
+    const b = hslToRgb({ h: 360, s: 1, l: 0.5 });
+    const c = hslToRgb({ h: 720, s: 1, l: 0.5 });
+    expect(a).toEqual(b);
+    expect(b).toEqual(c);
+  });
+
+  it('hslToRgb handles negative hue', () => {
+    expect(hslToRgb({ h: -120, s: 1, l: 0.5 })).toEqual({ r: 0, g: 0, b: 255 });
+  });
+
+  it('hslToRgb produces grayscale when s=0', () => {
+    const gray = hslToRgb({ h: 0, s: 0, l: 0.5 });
+    expect(gray.r).toBe(gray.g);
+    expect(gray.g).toBe(gray.b);
+  });
+
+  it('hslToRgb clamps out-of-range s/l', () => {
+    const overSat = hslToRgb({ h: 0, s: 5, l: 0.5 });
+    expect(overSat.r).toBeGreaterThanOrEqual(0);
+    expect(overSat.r).toBeLessThanOrEqual(255);
+  });
+});
+
+describe('rgbToOklab + oklabToRgb (v1.3.5)', () => {
+  it('roundtrips arbitrary colors', () => {
+    const colors = [
+      { r: 100, g: 150, b: 200 },
+      { r: 50,  g: 50,  b: 50  },
+      { r: 200, g: 100, b: 50  },
+      { r: 0,   g: 0,   b: 0   },
+      { r: 255, g: 255, b: 255 },
+    ];
+    for (const c of colors) {
+      const result = oklabToRgb(rgbToOklab(c));
+      // Allow ±1 tolerance for rounding through linear sRGB
+      expect(Math.abs(result.r - c.r)).toBeLessThanOrEqual(1);
+      expect(Math.abs(result.g - c.g)).toBeLessThanOrEqual(1);
+      expect(Math.abs(result.b - c.b)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('black has L=0', () => {
+    const o = rgbToOklab({ r: 0, g: 0, b: 0 });
+    expect(o.L).toBeCloseTo(0, 2);
+  });
+
+  it('white has L=1', () => {
+    const o = rgbToOklab({ r: 255, g: 255, b: 255 });
+    expect(o.L).toBeCloseTo(1, 2);
+  });
+
+  it('gray has near-zero a and b', () => {
+    const o = rgbToOklab({ r: 128, g: 128, b: 128 });
+    expect(Math.abs(o.a)).toBeLessThan(0.005);
+    expect(Math.abs(o.b)).toBeLessThan(0.005);
+  });
+});
+
+describe('lerpColor with color spaces (v1.3.5)', () => {
+  const { lerpColor } = jest.requireActual('../utils/helpers.js') as typeof import('../utils/helpers.js');
+  const red  = { r: 255, g: 0,   b: 0   };
+  const blue = { r: 0,   g: 0,   b: 255 };
+
+  it('rgb space (default) — backward compatible', () => {
+    const result = lerpColor(red, blue, 0.5);
+    expect(result).toEqual({ r: 128, g: 0, b: 128 });
+  });
+
+  it('rgb space with explicit "rgb" — same as default', () => {
+    expect(lerpColor(red, blue, 0.5, 'rgb')).toEqual({ r: 128, g: 0, b: 128 });
+  });
+
+  it('oklab space — produces perceptually different midpoint', () => {
+    const oklab = lerpColor(red, blue, 0.5, 'oklab');
+    const rgb = lerpColor(red, blue, 0.5, 'rgb');
+    // Should not be identical to RGB result
+    expect(oklab).not.toEqual(rgb);
+    // Should be valid RGB values
+    expect(oklab.r).toBeGreaterThanOrEqual(0);
+    expect(oklab.r).toBeLessThanOrEqual(255);
+  });
+
+  it('hsl space — takes shortest hue path', () => {
+    // red (h=0) → blue (h=240): shorter path is through purple (300) not green
+    const hsl = lerpColor(red, blue, 0.5, 'hsl');
+    // Should not be near green (0,255,0)
+    expect(hsl.g).toBeLessThan(100);
+  });
+
+  it('hsl space — wraps negative hue difference (line 344)', () => {
+    // blue (h=240) → red (h=0): dh = 0 - 240 = -240 → wraps to +120
+    // So interpolation goes through 300 (magenta) not 120 (green).
+    // Mid-point should be near magenta hue (~300°), so R and B both high, G low.
+    const hsl = lerpColor(blue, red, 0.5, 'hsl');
+    expect(hsl.g).toBeLessThan(100);   // not green
+    // R should be substantial (we're going through magenta)
+    expect(hsl.r).toBeGreaterThan(100);
+    expect(hsl.b).toBeGreaterThan(100);
+  });
+
+  it('all spaces preserve endpoints', () => {
+    for (const space of ['rgb', 'hsl', 'oklab'] as const) {
+      const at0 = lerpColor(red, blue, 0, space);
+      const at1 = lerpColor(red, blue, 1, space);
+      expect(at0.r).toBeCloseTo(red.r, 0);
+      expect(at1.b).toBeCloseTo(blue.b, 0);
+    }
+  });
+
+  it('clamps t outside [0,1] in all spaces', () => {
+    for (const space of ['rgb', 'hsl', 'oklab'] as const) {
+      expect(lerpColor(red, blue, -1, space)).toEqual(lerpColor(red, blue, 0, space));
+      expect(lerpColor(red, blue, 2, space)).toEqual(lerpColor(red, blue, 1, space));
+    }
+  });
+});
+
+describe('mixColors (v1.3.5)', () => {
+  it('accepts hex strings', () => {
+    expect(mixColors('#ff0000', '#0000ff', 0.5)).toEqual({ r: 128, g: 0, b: 128 });
+  });
+  it('accepts RGB objects', () => {
+    expect(
+      mixColors({ r: 255, g: 0, b: 0 }, { r: 0, g: 0, b: 255 }, 0.5)
+    ).toEqual({ r: 128, g: 0, b: 128 });
+  });
+  it('accepts mixed types', () => {
+    expect(mixColors('#ff0000', { r: 0, g: 0, b: 255 }, 0.5)).toEqual({ r: 128, g: 0, b: 128 });
+  });
+  it('respects space parameter', () => {
+    const rgb   = mixColors('#ff0000', '#0000ff', 0.5, 'rgb');
+    const oklab = mixColors('#ff0000', '#0000ff', 0.5, 'oklab');
+    expect(rgb).not.toEqual(oklab);
+  });
+});
+
+describe('quantizeColor (v1.3.5)', () => {
+  it('returns original for high level count (no quantization)', () => {
+    // 256 levels covers every byte value
+    const c = { r: 100, g: 150, b: 200 };
+    expect(quantizeColor(c, 256)).toEqual(c);
+  });
+
+  it('snaps to nearest step', () => {
+    // levels=2 → step=255 → snaps to 0 or 255 per channel
+    const c = quantizeColor({ r: 100, g: 200, b: 30 }, 2);
+    expect([0, 255]).toContain(c.r);
+    expect([0, 255]).toContain(c.g);
+    expect([0, 255]).toContain(c.b);
+  });
+
+  it('extremes stay at extremes', () => {
+    const black = quantizeColor({ r: 0,   g: 0,   b: 0   }, 4);
+    const white = quantizeColor({ r: 255, g: 255, b: 255 }, 4);
+    expect(black).toEqual({ r: 0,   g: 0,   b: 0   });
+    expect(white).toEqual({ r: 255, g: 255, b: 255 });
+  });
+
+  it('default 4 levels gives 64-color palette', () => {
+    // levels=4 → step=85 → values in {0, 85, 170, 255}
+    const c = quantizeColor({ r: 42, g: 128, b: 200 });
+    expect([0, 85, 170, 255]).toContain(c.r);
+    expect([0, 85, 170, 255]).toContain(c.g);
+    expect([0, 85, 170, 255]).toContain(c.b);
+  });
+
+  it('clamps levels to minimum 2', () => {
+    // levels=1 would div by zero; should clamp to 2
+    const c = quantizeColor({ r: 100, g: 100, b: 100 }, 1);
+    expect([0, 255]).toContain(c.r);
+  });
+
+  it('handles non-integer levels by flooring', () => {
+    const c = quantizeColor({ r: 100, g: 150, b: 200 }, 4.9);
+    expect([0, 85, 170, 255]).toContain(c.r);
+  });
+});

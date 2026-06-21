@@ -13,6 +13,59 @@
 export interface RGB { r: number; g: number; b: number }
 
 // ─────────────────────────────────────────────
+//  v1.3.5 — Numeric helpers (advanced)
+// ─────────────────────────────────────────────
+
+/**
+ * Type guard: true when `n` is a finite number (rejects NaN, ±Infinity,
+ * non-numbers). Useful for input validation.
+ *
+ * @since 1.3.5
+ */
+export const isFiniteNumber = (n: unknown): n is number =>
+  typeof n === 'number' && Number.isFinite(n);
+
+/**
+ * Coerce any value to a safe integer. Handles non-numbers, NaN, Infinity,
+ * and floats. Consolidates the `Math.max(0, Math.floor(Number(x) || 0))`
+ * pattern that appears across the codebase.
+ *
+ * @param value    - Any value (will be coerced via `Number()`).
+ * @param fallback - Returned when `value` is non-finite. Default `0`.
+ * @param min      - Lower bound (inclusive). Default `-Infinity`.
+ * @param max      - Upper bound (inclusive). Default `Infinity`.
+ *
+ * @example
+ * ```ts
+ * safeInt('abc')                  // → 0
+ * safeInt(3.7)                    // → 3
+ * safeInt(-5, 0, 0, 100)          // → 0  (clamped to min)
+ * safeInt(NaN, 50)                // → 50 (fallback)
+ * safeInt(null, 1)                // → 1  (fallback — null is not a real number)
+ * ```
+ *
+ * @since 1.3.5
+ */
+export const safeInt = (
+  value: unknown,
+  fallback = 0,
+  min = -Infinity,
+  max = Infinity,
+): number => {
+  // null, undefined, booleans, and empty strings should fall back —
+  // `Number()` coerces them to 0/1 which would silently mask invalid input.
+  const isRealNumeric = (typeof value === 'number')
+    || (typeof value === 'string' && value.trim().length > 0
+        && Number.isFinite(Number(value)));
+  if (!isRealNumeric) {
+    return Math.max(min, Math.min(max, Math.floor(fallback)));
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.max(min, Math.min(max, Math.floor(fallback)));
+  return Math.max(min, Math.min(max, Math.floor(n)));
+};
+
+// ─────────────────────────────────────────────
 //  Numeric helpers
 // ─────────────────────────────────────────────
 export const clamp = (n: number, min: number, max: number): number =>
@@ -20,7 +73,12 @@ export const clamp = (n: number, min: number, max: number): number =>
 
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
-const clampByte = (v: number): number => clamp(Math.round(v), 0, 255);
+/**
+ * Clamp + round a number to the 0–255 byte range. Exported as of v1.3.5.
+ *
+ * @since 1.3.5
+ */
+export const clampByte = (v: number): number => clamp(Math.round(v), 0, 255);
 
 // ─────────────────────────────────────────────
 //  Hex / RGB
@@ -53,13 +111,303 @@ export const rgbToHex = (r: number, g: number, b: number): string =>
     .map((v) => v.toString(16).padStart(2, '0'))
     .join('');
 
-/** Linearly interpolates between two RGB colors. t is clamped to [0, 1]. */
-export const lerpColor = (a: RGB, b: RGB, t: number): RGB => {
+// ─────────────────────────────────────────────
+//  v1.3.5 — HSL color space
+//
+//  HSL (Hue, Saturation, Lightness) is useful for color manipulation:
+//  rotating hues, adjusting saturation, building palettes. Conversions
+//  follow the standard formulae (https://www.w3.org/TR/css-color-3/).
+// ─────────────────────────────────────────────
+
+export interface HSL {
+  /** Hue in degrees, 0–360 (wraps; 360 ≡ 0). */
+  h: number;
+  /** Saturation in [0, 1] (0 = grayscale, 1 = pure color). */
+  s: number;
+  /** Lightness in [0, 1] (0 = black, 0.5 = pure, 1 = white). */
+  l: number;
+}
+
+/**
+ * Convert RGB (0–255) to HSL.
+ *
+ * @example
+ * rgbToHsl({ r: 255, g: 0, b: 0 })  // → { h: 0,   s: 1, l: 0.5 }
+ * rgbToHsl({ r: 0, g: 255, b: 0 })  // → { h: 120, s: 1, l: 0.5 }
+ *
+ * @since 1.3.5
+ */
+export const rgbToHsl = (rgb: RGB): HSL => {
+  const r = clamp(rgb.r, 0, 255) / 255;
+  const g = clamp(rgb.g, 0, 255) / 255;
+  const b = clamp(rgb.b, 0, 255) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+
+  if (max === min) {
+    return { h: 0, s: 0, l };   // achromatic
+  }
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+  let h: number;
+  if (max === r) {
+    h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  } else if (max === g) {
+    h = ((b - r) / d + 2) * 60;
+  } else {
+    h = ((r - g) / d + 4) * 60;
+  }
+
+  return { h, s, l };
+};
+
+/**
+ * Convert HSL to RGB (0–255). Hue wraps modulo 360.
+ *
+ * @example
+ * hslToRgb({ h: 0,   s: 1, l: 0.5 })  // → { r: 255, g: 0,   b: 0   }
+ * hslToRgb({ h: 240, s: 1, l: 0.5 })  // → { r: 0,   g: 0,   b: 255 }
+ *
+ * @since 1.3.5
+ */
+export const hslToRgb = (hsl: HSL): RGB => {
+  // Normalize hue to [0, 360)
+  const h = ((hsl.h % 360) + 360) % 360 / 360;
+  const s = clamp(hsl.s, 0, 1);
+  const l = clamp(hsl.l, 0, 1);
+
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return { r: v, g: v, b: v };
+  }
+
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  };
+};
+
+// ─────────────────────────────────────────────
+//  v1.3.5 — Oklab color space (perceptually uniform)
+//
+//  Oklab is a modern perceptual color space — interpolating in Oklab
+//  produces smoother, more natural-looking gradients than naive RGB.
+//  Reference: https://bottosson.github.io/posts/oklab/
+//
+//  RGB ⇄ Oklab via linear sRGB intermediate. Values:
+//    L ∈ [0, 1]  (perceptual lightness)
+//    a ∈ ~[-0.4, 0.4]  (green ↔ red axis)
+//    b ∈ ~[-0.4, 0.4]  (blue ↔ yellow axis)
+// ─────────────────────────────────────────────
+
+export interface Oklab {
+  /** Perceptual lightness in [0, 1]. */
+  L: number;
+  /** Green↔Red axis, roughly [-0.4, 0.4]. */
+  a: number;
+  /** Blue↔Yellow axis, roughly [-0.4, 0.4]. */
+  b: number;
+}
+
+/** sRGB byte → linear sRGB (gamma-decoded). */
+const _srgbToLinear = (c: number): number => {
+  const x = c / 255;
+  return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+};
+
+/** Linear sRGB → sRGB byte (gamma-encoded). */
+const _linearToSrgb = (c: number): number => {
+  const x = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return clampByte(x * 255);
+};
+
+/**
+ * Convert RGB (0–255) to Oklab. Perceptually uniform — interpolating in
+ * this space produces smoother gradients than naive RGB.
+ *
+ * @since 1.3.5
+ */
+export const rgbToOklab = (rgb: RGB): Oklab => {
+  const r = _srgbToLinear(rgb.r);
+  const g = _srgbToLinear(rgb.g);
+  const b = _srgbToLinear(rgb.b);
+
+  // Linear sRGB → LMS (long, medium, short cone responses)
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+  // Non-linear compression
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+
+  // LMS → Oklab
+  return {
+    L: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+  };
+};
+
+/**
+ * Convert Oklab back to RGB (0–255). Out-of-gamut values are clamped.
+ *
+ * @since 1.3.5
+ */
+export const oklabToRgb = (oklab: Oklab): RGB => {
+  const l_ = oklab.L + 0.3963377774 * oklab.a + 0.2158037573 * oklab.b;
+  const m_ = oklab.L - 0.1055613458 * oklab.a - 0.0638541728 * oklab.b;
+  const s_ = oklab.L - 0.0894841775 * oklab.a - 1.2914855480 * oklab.b;
+
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+
+  // LMS → linear sRGB
+  const r = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+  return {
+    r: _linearToSrgb(r),
+    g: _linearToSrgb(g),
+    b: _linearToSrgb(b),
+  };
+};
+
+// ─────────────────────────────────────────────
+//  Color interpolation (v1.3.5: multi-space)
+// ─────────────────────────────────────────────
+
+/** Color space to interpolate in. Default `'rgb'` for backward compatibility. */
+export type ColorSpace = 'rgb' | 'hsl' | 'oklab';
+
+/**
+ * Linearly interpolate between two RGB colors. `t` is clamped to [0, 1].
+ *
+ * **v1.3.5+**: Accepts an optional 4th argument `space` to control which
+ * color space the interpolation happens in. `'oklab'` produces the
+ * smoothest, most perceptually uniform gradients but is ~3× slower than
+ * naive RGB. `'hsl'` is useful for hue rotation.
+ *
+ * @param a     - Start color (RGB, 0–255).
+ * @param b     - End color (RGB, 0–255).
+ * @param t     - Mixing factor in [0, 1] (clamped).
+ * @param space - Interpolation space. Default `'rgb'` (backward-compat).
+ *
+ * @example
+ * ```ts
+ * lerpColor(red, blue, 0.5);                   // naive RGB midpoint
+ * lerpColor(red, blue, 0.5, 'oklab');          // perceptual midpoint
+ * lerpColor(red, blue, 0.5, 'hsl');            // through purple via hue
+ * ```
+ */
+export const lerpColor = (a: RGB, b: RGB, t: number, space: ColorSpace = 'rgb'): RGB => {
   const ct = clamp(t, 0, 1);
+
+  if (space === 'oklab') {
+    const la = rgbToOklab(a);
+    const lb = rgbToOklab(b);
+    return oklabToRgb({
+      L: lerp(la.L, lb.L, ct),
+      a: lerp(la.a, lb.a, ct),
+      b: lerp(la.b, lb.b, ct),
+    });
+  }
+
+  if (space === 'hsl') {
+    const ha = rgbToHsl(a);
+    const hb = rgbToHsl(b);
+    // Hue interpolation along the SHORTER arc on the color wheel.
+    // Standard practice — avoids weird detours when going 350° → 10°.
+    let dh = hb.h - ha.h;
+    if (dh > 180) dh -= 360;
+    else if (dh < -180) dh += 360;
+    const h = ha.h + dh * ct;
+    return hslToRgb({
+      h,
+      s: lerp(ha.s, hb.s, ct),
+      l: lerp(ha.l, hb.l, ct),
+    });
+  }
+
+  // Default — naive RGB lerp (preserves pre-v1.3.5 behavior)
   return {
     r: Math.round(lerp(a.r, b.r, ct)),
     g: Math.round(lerp(a.g, b.g, ct)),
     b: Math.round(lerp(a.b, b.b, ct)),
+  };
+};
+
+/**
+ * Semantic alias for `lerpColor`. Reads more naturally for the "blend
+ * two colors" use case, especially with a named color space.
+ *
+ * @example
+ * ```ts
+ * mixColors('#ff0000', '#0000ff', 0.5, 'oklab');
+ * // Accepts hex strings OR RGB objects
+ * ```
+ *
+ * @since 1.3.5
+ */
+export const mixColors = (
+  a: RGB | string,
+  b: RGB | string,
+  t: number,
+  space: ColorSpace = 'rgb',
+): RGB => {
+  const ra = typeof a === 'string' ? hexToRgb(a) : a;
+  const rb = typeof b === 'string' ? hexToRgb(b) : b;
+  return lerpColor(ra, rb, t, space);
+};
+
+/**
+ * Quantize a color to N levels per channel. Useful for palette
+ * reduction, posterization effects, or matching a constrained color
+ * palette (e.g., 16-color terminals).
+ *
+ * Mathematically: maps each channel to the nearest of `levels` evenly
+ * spaced values in [0, 255]. With `levels=2` you get pure on/off per
+ * channel (8 colors total). With `levels=4` you get a 64-color palette.
+ *
+ * @param color  - Input RGB (0–255).
+ * @param levels - Number of discrete levels per channel (≥2, default `4`).
+ *
+ * @example
+ * ```ts
+ * quantizeColor({ r: 100, g: 150, b: 200 }, 4);
+ * // → snaps each channel to nearest of [0, 85, 170, 255]
+ * ```
+ *
+ * @since 1.3.5
+ */
+export const quantizeColor = (color: RGB, levels = 4): RGB => {
+  const safeLevels = Math.max(2, Math.floor(levels));
+  const step = 255 / (safeLevels - 1);
+  return {
+    r: Math.round(clampByte(color.r) / step) * step | 0,
+    g: Math.round(clampByte(color.g) / step) * step | 0,
+    b: Math.round(clampByte(color.b) / step) * step | 0,
   };
 };
 
@@ -76,18 +424,18 @@ export const lerpColor = (a: RGB, b: RGB, t: number): RGB => {
  * gradientColor([red, blue], -1)  → red (t clamped to 0)
  * gradientColor([red, blue], 99)  → blue (t clamped to 1)
  */
-export const gradientColor = (colors: RGB[], t: number): RGB => {
+export const gradientColor = (colors: RGB[], t: number, space: ColorSpace = 'rgb'): RGB => {
   if (!Array.isArray(colors) || colors.length === 0) {
     throw new Error('gradientColor requires at least one color stop');
   }
   if (colors.length === 1) return colors[0] as RGB;
   // Defensive — NaN/non-finite t falls back to 0
-  const safeT = typeof t === 'number' && Number.isFinite(t) ? t : 0;
+  const safeT = isFiniteNumber(t) ? t : 0;
   const ct = clamp(safeT, 0, 1);
   const scaled = ct * (colors.length - 1);
   const lo = Math.floor(scaled);
   const hi = Math.min(lo + 1, colors.length - 1);
-  return lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo);
+  return lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo, space);
 };
 
 // Maps a 24-bit RGB value to the nearest xterm-256 palette index.
@@ -806,17 +1154,28 @@ export const padBoth = (str: string, width: number, ch = ' '): string => {
  * @param start - Start hex color (e.g. `'#ff0000'`).
  * @param end   - End hex color (e.g. `'#0000ff'`).
  * @param count - Number of stops (>= 2; clamped if smaller).
+ * @param space - **v1.3.5+** Color space for interpolation:
+ *                `'rgb'` (default, fast), `'hsl'` (hue rotation),
+ *                or `'oklab'` (perceptually uniform).
  * @returns Array of hex strings, including both endpoints.
  *
  * @example
  * ```ts
  * import { gradientStops } from 'ansimax';
  *
+ * // Naive RGB (default)
  * const stops = gradientStops('#ff0000', '#0000ff', 5);
- * // → ['#ff0000', '#bf003f', '#7f007f', '#3f00bf', '#0000ff']
+ *
+ * // Perceptually uniform (smoother visual transition)
+ * const smooth = gradientStops('#ff0000', '#0000ff', 5, 'oklab');
  * ```
  */
-export const gradientStops = (start: string, end: string, count: number): string[] => {
+export const gradientStops = (
+  start: string,
+  end: string,
+  count: number,
+  space: ColorSpace = 'rgb',
+): string[] => {
   const safeCount = Math.max(2, Math.floor(Number.isFinite(count) ? count : 2));
   if (!isHexColor(start) || !isHexColor(end)) return [];
   const a = hexToRgb(start);
@@ -824,7 +1183,7 @@ export const gradientStops = (start: string, end: string, count: number): string
   const result: string[] = [];
   for (let i = 0; i < safeCount; i++) {
     const t = i / (safeCount - 1);
-    const c = lerpColor(a, b, t);
+    const c = lerpColor(a, b, t, space);
     result.push(rgbToHex(c.r, c.g, c.b));
   }
   return result;
