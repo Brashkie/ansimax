@@ -31,6 +31,8 @@ import {
   stripAnsi,
   supportsColor,
 } from '../utils/ansi.js';
+// v1.3.7 — consolidated isFiniteNumber (formerly duplicated in this file)
+import { isFiniteNumber } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Types
@@ -92,9 +94,6 @@ export interface LiveController {
 // ─────────────────────────────────────────────
 //  Validation helpers
 // ─────────────────────────────────────────────
-
-const isFiniteNumber = (n: unknown): n is number =>
-  typeof n === 'number' && Number.isFinite(n);
 
 const ensureString = (v: unknown): string =>
   typeof v === 'string' ? v : String(v ?? '');

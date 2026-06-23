@@ -3,6 +3,76 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.7] — Internal consolidation + new clamp helpers
+
+Maintenance release focused on code cleanup. Zero behavior changes —
+internal duplications consolidated into the existing `utils/helpers`
+module, plus two new exported helpers that codify the most common
+defensive patterns.
+
+### Added — New exported helpers
+
+**`clampPercent(value)`** — clamp + coerce to 0–100 range, with 0 fallback
+for non-finite input. Previously duplicated as a private function in
+`components/index.ts` and `loaders/index.ts`:
+
+```js
+import { clampPercent } from 'ansimax';
+
+clampPercent(50)      // → 50
+clampPercent(150)     // → 100
+clampPercent(-5)      // → 0
+clampPercent(NaN)     // → 0
+clampPercent('abc')   // → 0
+```
+
+**`clampInt(value, min, max, fallback?)`** — coerce to integer clamped
+between `[min, max]`. Falls back (and clamps) when input is non-finite:
+
+```js
+import { clampInt } from 'ansimax';
+
+clampInt(50.7, 0, 100)         // → 50  (floored)
+clampInt(150, 0, 100)          // → 100 (clamped)
+clampInt(NaN, 0, 100, 25)      // → 25  (fallback, also clamped)
+clampInt(NaN, 10, 20, 999)     // → 20  (fallback clamped to range)
+```
+
+### Improved — Internal consolidation (DRY)
+
+Removed 5 copies of the inline `isFiniteNumber` definition that were
+duplicated across modules. They now all import the canonical version
+from `utils/helpers` (exported since v1.3.5):
+
+- `components/index.ts` — was 1 inline copy + 1 inline `clampPercent`
+- `frames/index.ts` — was 1 inline copy
+- `images/index.ts` — was 1 inline copy + 1 inline `clampInt`
+- `loaders/index.ts` — was 1 inline copy + 1 inline `clampPercent`
+- `trees/index.ts` — was 1 inline copy
+
+`utils/ansi.ts` intentionally keeps its private copy to avoid creating a
+dependency on `utils/helpers` (the two modules are deliberately
+independent at the bottom of the dependency graph).
+
+### Improved — Tests
+
+- `+6` tests for `clampPercent` (range, fallback, fractional values, non-numeric input)
+- `+6` tests for `clampInt` (clamping, fallback behavior, edge cases)
+- `+1` test for barrel re-exports
+
+Total: **+13 tests**.
+
+### Notes
+
+- **No behavior changes** — the consolidated helpers are byte-identical
+  to the inline copies they replaced
+- **No API changes** — only additions (`clampPercent`, `clampInt`)
+- **No breaking changes** — drop-in replacement for `1.3.6`
+- Smaller bundle output expected as TypeScript can dedupe the
+  consolidated implementations
+
+---
+
 ## [1.3.6] — Branch coverage improvements
 
 Maintenance release. Zero behavior changes — only adds tests covering

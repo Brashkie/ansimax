@@ -19,7 +19,11 @@
 // ─────────────────────────────────────────────
 
 import { fgRgb, bgRgb as bgRgbCode, reset, write } from '../utils/ansi.js';
-import { hexToRgb, clamp, lerpColor, RGB } from '../utils/helpers.js';
+import {
+  hexToRgb, clamp, lerpColor, RGB,
+  // v1.3.7 — consolidated helpers (formerly inlined here)
+  isFiniteNumber, clampInt,
+} from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Types — RGB/RGBA, Pixel, Grid
@@ -40,18 +44,6 @@ export type PixelGrid = Pixel[][];
 const FULL_BLOCK = '█';
 const UPPER_HALF = '▀';
 const LOWER_HALF = '▄';
-
-// ─────────────────────────────────────────────
-//  Validation helpers
-// ─────────────────────────────────────────────
-
-const isFiniteNumber = (n: unknown): n is number =>
-  typeof n === 'number' && Number.isFinite(n);
-
-const clampInt = (n: unknown, min: number, max: number, fallback: number): number => {
-  if (!isFiniteNumber(n)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(n)));
-};
 
 const clampByte = (n: number): number => {
   if (!isFiniteNumber(n)) return 0;

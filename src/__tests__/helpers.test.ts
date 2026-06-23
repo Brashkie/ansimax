@@ -1635,3 +1635,93 @@ describe('quantizeColor (v1.3.5)', () => {
     expect([0, 85, 170, 255]).toContain(c.r);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.7 — Consolidated clamp helpers
+// ─────────────────────────────────────────────
+
+import { clampPercent, clampInt } from '../utils/helpers.js';
+
+describe('clampPercent (v1.3.7)', () => {
+  it('passes values in 0-100 range unchanged', () => {
+    expect(clampPercent(0)).toBe(0);
+    expect(clampPercent(50)).toBe(50);
+    expect(clampPercent(100)).toBe(100);
+  });
+
+  it('clamps above 100 → 100', () => {
+    expect(clampPercent(150)).toBe(100);
+    expect(clampPercent(99999)).toBe(100);
+  });
+
+  it('clamps below 0 → 0', () => {
+    expect(clampPercent(-5)).toBe(0);
+    expect(clampPercent(-99999)).toBe(0);
+  });
+
+  it('returns 0 for non-finite input', () => {
+    expect(clampPercent(NaN)).toBe(0);
+    expect(clampPercent(Infinity)).toBe(0);
+    expect(clampPercent(-Infinity)).toBe(0);
+  });
+
+  it('returns 0 for non-numeric input', () => {
+    expect(clampPercent('50')).toBe(0);   // string, not number
+    expect(clampPercent(null)).toBe(0);
+    expect(clampPercent(undefined)).toBe(0);
+    expect(clampPercent({})).toBe(0);
+  });
+
+  it('preserves fractional percents (no rounding)', () => {
+    expect(clampPercent(33.5)).toBe(33.5);
+    expect(clampPercent(99.999)).toBe(99.999);
+  });
+});
+
+describe('clampInt (v1.3.7)', () => {
+  it('clamps + floors to [min, max]', () => {
+    expect(clampInt(50, 0, 100)).toBe(50);
+    expect(clampInt(50.7, 0, 100)).toBe(50);  // floored
+    expect(clampInt(150, 0, 100)).toBe(100);
+    expect(clampInt(-5, 0, 100)).toBe(0);
+  });
+
+  it('returns clamped fallback for non-finite', () => {
+    expect(clampInt(NaN, 0, 100, 25)).toBe(25);
+    expect(clampInt(Infinity, 0, 100, 25)).toBe(25);
+    expect(clampInt('abc', 0, 100, 50)).toBe(50);
+    expect(clampInt(null, 10, 90, 30)).toBe(30);
+  });
+
+  it('uses default fallback of 0 when omitted', () => {
+    expect(clampInt(NaN, 0, 100)).toBe(0);
+  });
+
+  it('clamps fallback to [min, max] too', () => {
+    // If fallback is outside the range, it gets clamped to the range.
+    expect(clampInt(NaN, 10, 20, 999)).toBe(20);
+    expect(clampInt(NaN, 10, 20, -5)).toBe(10);
+  });
+
+  it('floors fallback', () => {
+    expect(clampInt(NaN, 0, 100, 33.7)).toBe(33);
+  });
+
+  it('handles edge case min > max gracefully (returns clamped value)', () => {
+    // Implementation: Math.max(min, Math.min(max, ...)) — when min > max,
+    // Math.min(max, x) is at most max, then Math.max(min, ...) returns min.
+    // This is consistent with general clamp behavior.
+    const result = clampInt(50, 100, 0);
+    expect(Number.isFinite(result)).toBe(true);
+  });
+});
+
+describe('v1.3.7 — clampPercent/clampInt exported from main barrel', () => {
+  it('clampPercent + clampInt accessible from barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.clampPercent).toBe('function');
+    expect(typeof main.clampInt).toBe('function');
+    expect(main.clampPercent(150)).toBe(100);
+    expect(main.clampInt(50.5, 0, 100)).toBe(50);
+  });
+});

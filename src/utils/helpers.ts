@@ -80,6 +80,57 @@ export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
  */
 export const clampByte = (v: number): number => clamp(Math.round(v), 0, 255);
 
+/**
+ * Clamp + coerce a number to the 0–100 percentage range. Returns `0` for
+ * non-finite input. Consolidates duplicate `clampPercent` definitions
+ * previously living in `components/index.ts` and `loaders/index.ts`.
+ *
+ * @example
+ * ```ts
+ * clampPercent(50)     // → 50
+ * clampPercent(150)    // → 100
+ * clampPercent(-5)     // → 0
+ * clampPercent(NaN)    // → 0
+ * clampPercent('abc')  // → 0
+ * ```
+ *
+ * @since 1.3.7
+ */
+export const clampPercent = (p: unknown): number => {
+  if (!isFiniteNumber(p)) return 0;
+  return Math.max(0, Math.min(100, p));
+};
+
+/**
+ * Coerce any value to an integer clamped between `[min, max]`. Returns
+ * `fallback` (which is also clamped) when input is non-finite.
+ *
+ * More flexible than `safeInt` for the common pattern
+ * `Math.max(min, Math.min(max, Math.floor(n)))` that appears 30+ times
+ * across the codebase.
+ *
+ * @example
+ * ```ts
+ * clampInt(50, 0, 100)             // → 50
+ * clampInt(150, 0, 100)            // → 100
+ * clampInt(NaN, 0, 100, 25)        // → 25 (fallback)
+ * clampInt('abc', 0, 100, 25)      // → 25 (fallback)
+ * ```
+ *
+ * @since 1.3.7
+ */
+export const clampInt = (
+  value: unknown,
+  min: number,
+  max: number,
+  fallback = 0,
+): number => {
+  if (!isFiniteNumber(value)) {
+    return Math.max(min, Math.min(max, Math.floor(fallback)));
+  }
+  return Math.max(min, Math.min(max, Math.floor(value)));
+};
+
 // ─────────────────────────────────────────────
 //  Hex / RGB
 // ─────────────────────────────────────────────

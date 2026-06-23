@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.6'));
+console.log(components.badge('VERSION', 'v1.3.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.7 — Internal consolidation + clamp helpers
+
+Maintenance release focused on code cleanup. Zero behavior changes:
+
+- ➕ **`clampPercent(value)`** — clamp + coerce to 0–100 range (NaN/non-numeric → 0)
+- ➕ **`clampInt(value, min, max, fallback?)`** — integer clamp with safe fallback
+- 🧹 Removed 5 duplicate copies of `isFiniteNumber` across modules (now imported from `utils/helpers`)
+- 🧹 Removed 2 duplicate copies of `clampPercent` (components + loaders)
+- 🧹 Removed 1 duplicate `clampInt` from images
+- 🧪 **+13 tests** for the consolidated helpers
+
+```js
+import { clampPercent, clampInt } from 'ansimax';
+
+clampPercent(150)              // → 100  (clamped)
+clampPercent(NaN)              // → 0    (safe fallback)
+clampInt(50.7, 0, 100)         // → 50   (floored + clamped)
+clampInt(NaN, 0, 100, 25)      // → 25   (fallback when invalid)
+```
+
+Drop-in replacement for `1.3.6`.
 
 ### v1.3.6 — Branch coverage improvements
 

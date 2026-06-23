@@ -25,7 +25,11 @@ import {
   createOutputBuffer,
 } from '../utils/ansi.js';
 import { color, isNoColor } from '../colors/index.js';
-import { hexToRgb, visibleLen, stripAnsi } from '../utils/helpers.js';
+import {
+  hexToRgb, visibleLen, stripAnsi,
+  // v1.3.7 — consolidated helpers (formerly inlined here)
+  isFiniteNumber, clampPercent,
+} from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Capability detection
@@ -39,9 +43,6 @@ const canAnimate = (): boolean =>
 //  Validation helpers — defensive against bad input
 // ─────────────────────────────────────────────
 
-const isFiniteNumber = (n: unknown): n is number =>
-  typeof n === 'number' && Number.isFinite(n);
-
 /* istanbul ignore next — ensureString fallbacks for non-string inputs */
 const ensureString = (v: unknown): string =>
   typeof v === 'string' ? v : String(v ?? '');
@@ -50,12 +51,6 @@ const ensureString = (v: unknown): string =>
 const clampPositiveInt = (n: unknown, fallback: number): number => {
   if (!isFiniteNumber(n)) return fallback;
   return Math.max(1, Math.floor(n));
-};
-
-/** Clamp percent to [0, 100]. NaN/Infinity → 0. */
-const clampPercent = (p: unknown): number => {
-  if (!isFiniteNumber(p)) return 0;
-  return Math.max(0, Math.min(100, p));
 };
 
 /**

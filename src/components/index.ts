@@ -12,7 +12,11 @@
 // ─────────────────────────────────────────────
 
 import { sgr, FG, BG, STYLE, reset, cursor, screen } from '../utils/ansi.js';
-import { padEnd, visibleLen, termSize, stripAnsi } from '../utils/helpers.js';
+import {
+  padEnd, visibleLen, termSize, stripAnsi,
+  // v1.3.7 — consolidated helpers (formerly inlined here)
+  isFiniteNumber, clampPercent,
+} from '../utils/helpers.js';
 import { ascii } from '../ascii/index.js';
 import { gradient as gradientFn } from '../colors/index.js';
 
@@ -20,17 +24,8 @@ import { gradient as gradientFn } from '../colors/index.js';
 //  Internal helpers
 // ─────────────────────────────────────────────
 
-const isFiniteNumber = (n: unknown): n is number =>
-  typeof n === 'number' && Number.isFinite(n);
-
 const ensureString = (v: unknown): string =>
   typeof v === 'string' ? v : String(v ?? '');
-
-/** Clamp percent to [0, 100]. NaN/Infinity → 0. */
-const clampPercent = (p: unknown): number => {
-  if (!isFiniteNumber(p)) return 0;
-  return Math.max(0, Math.min(100, p));
-};
 
 /** Clamp a non-negative integer (width, padding). Falls back to `fallback`. */
 const clampNonNeg = (n: unknown, fallback: number): number => {

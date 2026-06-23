@@ -23,7 +23,11 @@
 //   - Pure functions where possible — no side effects on input data
 // ─────────────────────────────────────────────
 
-import { visibleLen } from '../utils/helpers.js';
+import {
+  visibleLen,
+  // v1.3.7 — consolidated isFiniteNumber (formerly duplicated in this file)
+  isFiniteNumber,
+} from '../utils/helpers.js';
 import type { ColorFn } from '../colors/index.js';
 
 // ─────────────────────────────────────────────
@@ -49,9 +53,6 @@ const STYLES: Record<TreeStyle, TreeChars> = {
 // ─────────────────────────────────────────────
 //  Validation helpers
 // ─────────────────────────────────────────────
-
-const isFiniteNumber = (n: unknown): n is number =>
-  typeof n === 'number' && Number.isFinite(n);
 
 const ensureString = (v: unknown): string =>
   typeof v === 'string' ? v : String(v ?? '');

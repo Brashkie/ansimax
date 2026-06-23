@@ -165,6 +165,8 @@ export {
   isFiniteNumber, safeInt, clampByte,
   rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
   mixColors, quantizeColor,
+  // v1.3.7 — consolidated clamp helpers
+  clampPercent, clampInt,
 } from './utils/helpers.js';
 export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,

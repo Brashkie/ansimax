@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.6'));
+console.log(components.badge('VERSION', 'v1.3.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.7 — Consolidación interna + helpers clamp
+
+Release de mantenimiento enfocado en limpieza de código. Cero cambios de comportamiento:
+
+- ➕ **`clampPercent(value)`** — clamp + coerce a rango 0–100 (NaN/no-numérico → 0)
+- ➕ **`clampInt(value, min, max, fallback?)`** — clamp de enteros con fallback seguro
+- 🧹 Removidas 5 copias duplicadas de `isFiniteNumber` entre módulos (ahora importadas desde `utils/helpers`)
+- 🧹 Removidas 2 copias duplicadas de `clampPercent` (components + loaders)
+- 🧹 Removida 1 copia duplicada de `clampInt` en images
+- 🧪 **+13 tests** para los helpers consolidados
+
+```js
+import { clampPercent, clampInt } from 'ansimax';
+
+clampPercent(150)              // → 100  (clamped)
+clampPercent(NaN)              // → 0    (fallback seguro)
+clampInt(50.7, 0, 100)         // → 50   (floored + clamped)
+clampInt(NaN, 0, 100, 25)      // → 25   (fallback con inválidos)
+```
+
+Drop-in replacement para `1.3.6`.
 
 ### v1.3.6 — Mejoras de branch coverage
 
