@@ -450,3 +450,87 @@ describe('panels.frame: titleAlign (v1.3.3)', () => {
     expect(tEnd).toBe(topLine.length - 1);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.6 — Branch coverage gaps
+// ─────────────────────────────────────────────
+
+import { vsplit as vs, hsplit as hs, frame as fr, grid as gr } from '../panels/index.js';
+
+describe('panels — branch coverage (v1.3.6)', () => {
+  it('vsplit uses default gap=1 when omitted (line 177)', () => {
+    // No `gap` option → default 1 applies → blocks separated by 1 space
+    const result = vs(['A', 'B'], {});
+    expect(result).toBe('A B');
+  });
+
+  it('vsplit handles columns of unequal heights (line 207 — block[r] ?? "" branch)', () => {
+    // Left has 3 lines, right has 1 line. When iterating row 1 and 2,
+    // right.block[r] is undefined → triggers the ?? '' fallback.
+    const tall  = 'L1\nL2\nL3';
+    const short = 'R';
+    const result = vs([tall, short], { gap: 1, align: 'start' });
+    const lines = result.split('\n');
+    // Row 0: 'L1 R', row 1: 'L2 ', row 2: 'L3 '
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toContain('L1');
+    expect(lines[0]).toContain('R');
+    // Rows 1 and 2 should have empty padding on right side, not undefined
+    expect(lines[1]).toContain('L2');
+    expect(lines[2]).toContain('L3');
+    // No 'undefined' string accidentally rendered
+    expect(result).not.toContain('undefined');
+  });
+
+  it('centerBlock uses default align="center" when align omitted (line 350)', () => {
+    const card = 'XX';   // 2 chars
+    // Width 10, no align passed → default 'center' → 4 spaces each side
+    const result = panels.center(card, { width: 10 });
+    expect(result.split('\n')[0]).toBe('    XX    ');
+  });
+
+  it('centerBlock with height triggers vertical alignment + default align (line 350)', () => {
+    // Vertical centering only runs when `height` is provided.
+    // Omitting `align` triggers the `?? "center"` fallback at line 350.
+    const result = panels.center('X', { width: 5, height: 5 });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(5);
+    // Middle line (index 2) should contain the X
+    expect(lines[2]).toContain('X');
+  });
+
+  it('centerBlock with height + explicit align uses provided value (line 350 — other branch)', () => {
+    const result = panels.center('X', { width: 5, height: 5, align: 'start' });
+    const lines = result.split('\n');
+    // align='start' → X on top line
+    expect(lines[0]).toContain('X');
+  });
+
+  it('frame falls back to "─" when topChar is empty string (line 442)', () => {
+    // topChar = '' has length 0 → ternary takes the fallback branch '─'
+    const result = fr('body', { topChar: '', padding: 0 });
+    const lines = result.split('\n');
+    // First line should contain '─' (the fallback)
+    expect(lines[0]).toContain('─');
+  });
+
+  it('frame falls back to "─" when topChar is non-string (line 442)', () => {
+    // @ts-expect-error testing defensive fallback
+    const result = fr('body', { topChar: 42, padding: 0 });
+    expect(result.split('\n')[0]).toContain('─');
+  });
+
+  it('grid uses default columns=1 when columns omitted (line 576)', () => {
+    // @ts-expect-error testing default branch — required field omitted
+    const result = gr(['A', 'B', 'C'], {});
+    // 1 column → each block on its own row
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3);
+  });
+
+  it('grid uses opts.columns ?? 1 — undefined goes to fallback (line 576)', () => {
+    // Explicit undefined triggers the ?? fallback
+    const result = gr(['A', 'B'], { columns: undefined as unknown as number });
+    expect(result.split('\n').length).toBe(2);
+  });
+});

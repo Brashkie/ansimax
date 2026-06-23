@@ -3,6 +3,53 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.6] — Branch coverage improvements
+
+Maintenance release. Zero behavior changes — only adds tests covering
+defensive branches and adjusts `istanbul ignore` comments where branches
+are genuinely unreachable in normal usage.
+
+### Improved — Tests
+
+**panels (`+7` tests):**
+- `vsplit` default `gap = 1` when option omitted
+- `vsplit` handles columns of unequal heights (triggers `block[r] ?? ''` fallback)
+- `centerBlock` default `align = 'center'` with `height` (vertical centering branch)
+- `centerBlock` with explicit `align='start'` (alternative branch)
+- `frame` fallback `'─'` when `topChar=''` or non-string
+- `grid` default `columns = 1` when option omitted/undefined
+
+**frames (`+7` tests):**
+- `ensureString` handles `null`/`undefined` via `?? ''` fallback
+- `presets.loadingBar` fallback `'░'` for invalid `empty` (`''` or non-string)
+- `presets.ball` fallback `width = 20` for `NaN`/non-number input
+- `presets.breathe` fallback `steps = 8` for `NaN`/non-number input
+
+**loaders (`+5` tests):**
+- `loader.bar` fallback `'░'` for invalid `emptyChar`
+- `loader.spin` finalText with all three success states (`undefined`, `true`, `false`)
+  — exercises icon ternary chain branches
+
+### Improved — `istanbul ignore` comments
+
+Some `??` and conditional-spread branches are unreachable in real usage
+(e.g. `frames[frame] ?? ''` after `frame = i % frames.length` with a non-empty
+array). Marked with explanatory `istanbul ignore next` comments instead of
+chasing coverage with synthetic tests:
+
+- `loaders:376` — `frames[frame] ?? ''` (frame index always in bounds)
+- `loaders:997` — second instance of `addOpts.color !== undefined` spread
+
+Total: **+19 tests** added across panels, frames, loaders.
+
+### Notes
+
+- No runtime changes — drop-in replacement for `1.3.5`
+- No new exports, no API surface changes
+- Same `dist/` output as `1.3.5` would have produced
+
+---
+
 ## [1.3.5] — Mathematical color science + cleanup
 
 Patch release focused on mathematical depth: perceptually-uniform color

@@ -984,3 +984,63 @@ describe('frames: branch coverage', () => {
     ctrl.stop();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.3.6 — Branch coverage gaps
+// ─────────────────────────────────────────────
+
+describe('frames — branch coverage (v1.3.6)', () => {
+  it('ensureString handles null/undefined via ?? "" fallback (line 100)', () => {
+    // generate's frame function may return null/undefined; ensureString
+    // is called via the generate pipeline. We test indirectly by generating
+    // frames whose function returns mixed types including null.
+    const result = frames.generate(3, (i) => {
+      // Return non-strings of different types to exercise ensureString:
+      if (i === 0) return null as unknown as string;
+      if (i === 1) return undefined as unknown as string;
+      return 'ok';
+    });
+    expect(result.length).toBe(3);
+    // null and undefined should both become ''
+    expect(result[0]).toBe('');
+    expect(result[1]).toBe('');
+    expect(result[2]).toBe('ok');
+  });
+
+  it('presets.loadingBar uses fallback "░" for empty=""  (line 826)', () => {
+    // empty: '' has length 0 → fallback to '░'
+    const result = frames.presets.loadingBar({ width: 5, empty: '' });
+    // First frame: all empty character (5 of them)
+    expect(result[0]).toContain('░');
+  });
+
+  it('presets.loadingBar uses fallback "░" for empty=non-string (line 826)', () => {
+    // @ts-expect-error testing defensive fallback
+    const result = frames.presets.loadingBar({ width: 5, empty: 42 });
+    expect(result[0]).toContain('░');
+  });
+
+  it('presets.ball uses fallback width=20 for NaN (line 840)', () => {
+    const result = frames.presets.ball({ width: NaN });
+    // Should fall back to 20 width → forward + backward = 2*20 - 2 = 38 frames
+    expect(result.length).toBeGreaterThan(20);
+  });
+
+  it('presets.ball uses fallback width=20 for non-number (line 840)', () => {
+    // @ts-expect-error testing defensive fallback
+    const result = frames.presets.ball({ width: 'abc' });
+    expect(result.length).toBeGreaterThan(20);
+  });
+
+  it('presets.breathe uses fallback steps=8 for NaN (line 853)', () => {
+    const result = frames.presets.breathe('Hi', { steps: NaN });
+    // Falls back to 8 → safeSteps*2 = 16 frames
+    expect(result.length).toBe(16);
+  });
+
+  it('presets.breathe uses fallback steps=8 for non-number (line 853)', () => {
+    // @ts-expect-error testing defensive fallback
+    const result = frames.presets.breathe('Hi', { steps: 'oops' });
+    expect(result.length).toBe(16);
+  });
+});

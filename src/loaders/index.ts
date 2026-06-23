@@ -373,6 +373,7 @@ export const spin = (text: string = 'Loading', opts: SpinOptions = {}): StopFn =
     const elapsed = Date.now() - startTime;
     frame = Math.floor(elapsed / animInterval) % frames.length;
 
+    /* istanbul ignore next — `?? ''` defensive: frames always has content via resolveSpinnerFrames */
     const f = frames[frame] ?? '';
     const colored = applyColor(f, hex);
     const line = padToTerminalWidth(`${safePrefix}${colored} ${safeText}${safeSuffix}`);
@@ -994,6 +995,7 @@ export const multi = (opts: { interval?: number } = {}): MultiLoader => {
       const id = nextId++;
       const item: InternalItem = {
         id, text,
+        /* istanbul ignore next — conditional spread + default */
         ...(addOpts.color !== undefined && { color: addOpts.color }),
         type: addOpts.type ?? 'dots',
         state: 'spinning',

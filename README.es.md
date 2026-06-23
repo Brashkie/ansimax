@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.3.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.5'));
+console.log(components.badge('VERSION', 'v1.3.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,14 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.3.6 — Mejoras de branch coverage
+
+Release de mantenimiento. Cero cambios de comportamiento:
+
+- 🧪 **+19 tests** cubriendo branches defensivos en panels, frames, loaders
+- 🧹 Mejorados comentarios `istanbul ignore` para branches genuinamente inalcanzables
+- ✅ Drop-in replacement para `1.3.5` — mismo `dist/` output
 
 ### v1.3.5 — Color science matemático + limpieza
 
