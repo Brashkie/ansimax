@@ -1,6 +1,7 @@
 import { markdown, render, parseBlocks, parseInline } from '../markdown/index.js';
 import { stripAnsi } from '../utils/helpers.js';
-import { setNoColor, resetNoColor } from '../colors/index.js';
+import { setNoColor, resetNoColor, clearColorCache } from '../colors/index.js';
+import { resetColorSupportCache } from '../utils/ansi.js';
 
 // ─────────────────────────────────────────────
 //  parseBlocks — block tokenization
@@ -299,26 +300,54 @@ describe('markdown.render (v1.4.0)', () => {
   });
 
   it('h2 visually differs from h1 (different ANSI codes)', () => {
-    const h1 = render('# Same Text');
-    const h2 = render('## Same Text');
-    // Same plain text
-    expect(stripAnsi(h1)).toBe(stripAnsi(h2));
-    // Different rendering
-    expect(h1).not.toBe(h2);
+    // Force colors on so the difference is observable
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    clearColorCache();
+    try {
+      const h1 = render('# Same Text');
+      const h2 = render('## Same Text');
+      // Same plain text
+      expect(stripAnsi(h1)).toBe(stripAnsi(h2));
+      // Different rendering (h1 uses gradient, h2 uses solid + underline)
+      expect(h1).not.toBe(h2);
+    } finally {
+      delete process.env['FORCE_COLOR'];
+      resetColorSupportCache();
+      clearColorCache();
+    }
   });
 
-  it('h3, h4, h5, h6 each have distinct colors', () => {
-    const h3 = render('### Text');
-    const h4 = render('#### Text');
-    const h5 = render('##### Text');
-    const h6 = render('###### Text');
-    // All produce same plain text
-    expect(stripAnsi(h3)).toBe(stripAnsi(h4));
-    expect(stripAnsi(h4)).toBe(stripAnsi(h5));
-    // But different ANSI codes (different colors)
-    expect(h3).not.toBe(h4);
-    expect(h4).not.toBe(h5);
-    expect(h5).not.toBe(h6);
+  it('h3, h4, h5, h6 each execute their distinct color branch', () => {
+    // The goal of this test is to ensure every level 3-6 hits the switch
+    // branch (lines 425-429). We force color on to observe the differences.
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    clearColorCache();
+    try {
+      const h3 = render('### Text');
+      const h4 = render('#### Text');
+      const h5 = render('##### Text');
+      const h6 = render('###### Text');
+      // All produce the same plain text
+      expect(stripAnsi(h3)).toBe('Text');
+      expect(stripAnsi(h4)).toBe('Text');
+      expect(stripAnsi(h5)).toBe('Text');
+      expect(stripAnsi(h6)).toBe('Text');
+      // And each contains bold ANSI marker
+      for (const r of [h3, h4, h5, h6]) {
+        expect(r).toContain('\x1b[1m');
+      }
+      // The branch t[colorKey] should produce visible color differences
+      // when FORCE_COLOR is active. We compare any two adjacent levels.
+      expect(h3).not.toBe(h4);
+      expect(h4).not.toBe(h5);
+      expect(h5).not.toBe(h6);
+    } finally {
+      delete process.env['FORCE_COLOR'];
+      resetColorSupportCache();
+      clearColorCache();
+    }
   });
 
   it('renders paragraph as plain text (with inline styling)', () => {
@@ -419,18 +448,36 @@ const x = 42;
   });
 
   it('respects light theme', () => {
-    const dark = render('# Title', { theme: 'dark' });
-    const light = render('# Title', { theme: 'light' });
-    // Different colors → different ANSI codes
-    expect(dark).not.toBe(light);
-    expect(stripAnsi(dark)).toBe(stripAnsi(light));
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    clearColorCache();
+    try {
+      const dark = render('# Title', { theme: 'dark' });
+      const light = render('# Title', { theme: 'light' });
+      // Different colors → different ANSI codes
+      expect(dark).not.toBe(light);
+      expect(stripAnsi(dark)).toBe(stripAnsi(light));
+    } finally {
+      delete process.env['FORCE_COLOR'];
+      resetColorSupportCache();
+      clearColorCache();
+    }
   });
 
   it('respects custom heading gradient', () => {
-    const a = render('# Title', { headingGradient: ['#ff0000', '#00ff00'] });
-    const b = render('# Title');
-    expect(stripAnsi(a)).toBe(stripAnsi(b));
-    expect(a).not.toBe(b);   // different colors
+    process.env['FORCE_COLOR'] = '3';
+    resetColorSupportCache();
+    clearColorCache();
+    try {
+      const a = render('# Title', { headingGradient: ['#ff0000', '#00ff00'] });
+      const b = render('# Title');
+      expect(stripAnsi(a)).toBe(stripAnsi(b));
+      expect(a).not.toBe(b);   // different colors
+    } finally {
+      delete process.env['FORCE_COLOR'];
+      resetColorSupportCache();
+      clearColorCache();
+    }
   });
 
   it('ignores invalid heading gradient (length < 2)', () => {
