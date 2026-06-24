@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.7'));
+console.log(components.badge('VERSION', 'v1.4.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,38 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.0 — Phase 4 closure: Markdown rendering 🎉
+
+**Minor release** completing Phase 4 with the new `markdown` module:
+
+- 📝 **`markdown.render(source, opts?)`** — full markdown → terminal pipeline
+- 🧩 **`markdown.parseBlocks` + `markdown.parseInline`** — low-level helpers
+- 🎨 **Themes**: `'dark'` (default) and `'light'`
+- 📐 Renders headings (h1–h6), bold/italic/strikethrough/code, lists, tables, blockquotes, HRs, links
+- 🔗 Links use OSC 8 hyperlinks (clickable in modern terminals)
+- 📦 Code blocks rendered in `ascii.box` with language label
+- 🚀 **Zero new dependencies** — reuses existing `color`, `gradient`, `ascii`, `components`, `hyperlink`
+- 🧪 **+54 tests** for parser + renderer
+
+```js
+import { markdown } from 'ansimax';
+
+console.log(markdown.render(`
+# Welcome
+
+This is **bold** with \`code\` and [a link](https://example.com).
+
+- Feature one
+- Feature two
+
+\`\`\`js
+const x = 42;
+\`\`\`
+`));
+```
+
+Phase 4 is now complete. v1.4.x will refine markdown (CommonMark strict, syntax highlighting, nested lists).
 
 ### v1.3.7 — Internal consolidation + clamp helpers
 

@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.3.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.3.7'));
+console.log(components.badge('VERSION', 'v1.4.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,38 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.0 — Cierre de Fase 4: Renderizado Markdown 🎉
+
+**Release minor** completando la Fase 4 con el nuevo módulo `markdown`:
+
+- 📝 **`markdown.render(source, opts?)`** — pipeline completo markdown → terminal
+- 🧩 **`markdown.parseBlocks` + `markdown.parseInline`** — helpers de bajo nivel
+- 🎨 **Temas**: `'dark'` (default) y `'light'`
+- 📐 Renderiza headings (h1–h6), bold/italic/strikethrough/code, listas, tablas, blockquotes, HRs, links
+- 🔗 Links usan hyperlinks OSC 8 (clickables en terminales modernos)
+- 📦 Bloques de código renderizados en `ascii.box` con label de lenguaje
+- 🚀 **Cero dependencias nuevas** — reusa `color`, `gradient`, `ascii`, `components`, `hyperlink`
+- 🧪 **+54 tests** para parser + renderer
+
+```js
+import { markdown } from 'ansimax';
+
+console.log(markdown.render(`
+# Bienvenido
+
+Esto es **bold** con \`code\` y [un link](https://example.com).
+
+- Feature uno
+- Feature dos
+
+\`\`\`js
+const x = 42;
+\`\`\`
+`));
+```
+
+La Fase 4 está completa. v1.4.x refinará markdown (CommonMark estricto, syntax highlighting, listas anidadas).
 
 ### v1.3.7 — Consolidación interna + helpers clamp
 

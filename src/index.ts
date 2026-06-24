@@ -105,6 +105,10 @@ export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptio
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';
 
+// v1.4.0 — Phase 4 closure: Markdown rendering
+export { markdown, render as renderMarkdown, parseBlocks as parseMarkdownBlocks, parseInline as parseMarkdownInline } from './markdown/index.js';
+export type { MarkdownOptions, MarkdownTheme } from './markdown/index.js';
+
 export {
   configure, getConfig, getSpeedMultiplier, resetConfig,
   onConfigChange, onConfigKeyChange, getConfigValue,
@@ -190,6 +194,16 @@ import { trees }      from './trees/index.js';
 import { themes }     from './themes/index.js';
 import { images }     from './images/index.js';
 import { configure }  from './configure.js';
+import { panels as panelsNs }       from './panels/index.js';
+import { json as jsonNs }           from './json/index.js';
+import { markdown as markdownNs }   from './markdown/index.js';
 
-const ansimax = { color, animate, ascii, loader, frames, components, trees, themes, images, configure };
+const ansimax = {
+  color, animate, ascii, loader, frames, components, trees, themes, images, configure,
+  // v1.3.0+
+  panels: panelsNs,
+  json: jsonNs,
+  // v1.4.0
+  markdown: markdownNs,
+};
 export default ansimax;

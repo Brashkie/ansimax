@@ -3,6 +3,118 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — Phase 4 closure: Markdown rendering
+
+**Minor release** introducing the long-planned `markdown` module — the
+final piece of Phase 4 (after `panels` v1.3.0 and `json` v1.3.0).
+
+Renders standard Markdown to ANSI-styled terminal output using the
+existing ansimax primitives (`color`, `gradient`, `ascii.box`,
+`components.table`, `hyperlink`). **Zero new runtime dependencies.**
+
+### Added — `markdown` module
+
+```js
+import { markdown } from 'ansimax';
+
+console.log(markdown.render(`
+# Welcome
+
+This is **bold** and *italic* with \`code\` and [a link](https://example.com).
+
+- Item 1
+- Item 2
+
+\`\`\`js
+const x = 42;
+\`\`\`
+
+> Quoted wisdom
+
+---
+
+| Name | Value |
+|---|---|
+| foo | 1 |
+| bar | 2 |
+`));
+```
+
+### Supported markdown
+
+| Markdown | Rendered using |
+|---|---|
+| `#` to `######` headings | `gradient` (h1) + `color.hex` (h2–h6) |
+| **Bold** (`**` or `__`) | `color.bold` |
+| *Italic* (`*` or `_`) | `color.italic` |
+| ~~Strikethrough~~ (`~~`) | `color.strikethrough` |
+| `Inline code` (``` ` ```) | dim + tinted background |
+| ```` ```code blocks``` ```` | `ascii.box` with language label as title |
+| `- item` / `* item` / `1.` lists | indented bullets |
+| `> blockquote` | `│` prefix + dim |
+| `--- / *** / ___` HRs | `ascii.divider` |
+| `[label](url)` | `hyperlink` (OSC 8) |
+| `\| a \| b \|` tables | `components.table` |
+
+### API
+
+```ts
+// Main entry — high-level render
+markdown.render(source: string, opts?: MarkdownOptions): string
+
+// Lower-level helpers (advanced use)
+markdown.parseBlocks(source: string): Block[]
+markdown.parseInline(text: string, opts?): string
+```
+
+### Options
+
+```ts
+interface MarkdownOptions {
+  width?: number;                     // default: terminal width or 80
+  theme?: 'dark' | 'light';           // default 'dark'
+  headingGradient?: string[];         // override h1 gradient colors
+  boxCodeBlocks?: boolean;            // default true; false = indented dim
+  inlineCodeBackground?: boolean;     // default true
+}
+```
+
+### Design notes
+
+- **Pure functions** — `parseBlocks` and `parseInline` are deterministic
+- **No regex backtracking** — all patterns are anchored, single-pass
+- **Code blocks protect contents** — `**bold**` inside `` ` `` stays literal
+- **Inline parser precedence**: code > links > strikethrough > bold > italic
+- **Graceful degradation** — malformed markdown renders as plain text
+  rather than throwing
+
+### Tests
+
+- `+18` tests for `parseBlocks` (headings, lists, code, tables, blockquotes, HRs, edge cases)
+- `+13` tests for `parseInline` (bold/italic/code/links/strikethrough, precedence, protection)
+- `+19` tests for `render` (full pipeline, integration, options, theming)
+- `+2` tests for namespace + `+2` for barrel re-exports
+
+Total: **+54 tests** in a new `markdown.test.ts` file.
+
+### Roadmap note
+
+Phase 4 of the project is now closed. Future v1.4.x patches will refine
+the markdown module:
+- v1.4.1+ — CommonMark spec strict mode (escapes, reference links, setext headings)
+- v1.4.2+ — Optional syntax highlighting for code blocks (basic JS/TS/JSON/Bash)
+- v1.4.3+ — Nested lists (currently flat)
+- v1.4.4+ — Custom themes / theme registry
+
+### Notes
+
+- **No breaking changes** — new module, all existing APIs unchanged
+- **Drop-in replacement** for `1.3.7`
+- Zero runtime dependencies maintained
+- All markdown features implemented in ~450 lines of source
+
+---
+
 ## [1.3.7] — Internal consolidation + new clamp helpers
 
 Maintenance release focused on code cleanup. Zero behavior changes —
