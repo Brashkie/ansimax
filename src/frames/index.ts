@@ -32,7 +32,8 @@ import {
   supportsColor,
 } from '../utils/ansi.js';
 // v1.3.7 — consolidated isFiniteNumber (formerly duplicated in this file)
-import { isFiniteNumber } from '../utils/helpers.js';
+// v1.4.2 — consolidated ensureString (formerly duplicated in this file)
+import { isFiniteNumber, ensureString } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Types
@@ -94,9 +95,6 @@ export interface LiveController {
 // ─────────────────────────────────────────────
 //  Validation helpers
 // ─────────────────────────────────────────────
-
-const ensureString = (v: unknown): string =>
-  typeof v === 'string' ? v : String(v ?? '');
 
 /** Clamp fps to [1, MAX_FPS]. Non-finite or non-numeric falls back to default. */
 const MAX_FPS = 60;

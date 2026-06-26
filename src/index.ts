@@ -171,6 +171,8 @@ export {
   mixColors, quantizeColor,
   // v1.3.7 — consolidated clamp helpers
   clampPercent, clampInt,
+  // v1.4.2 — further consolidation
+  ensureString, clampNonNeg, clampPositiveInt,
 } from './utils/helpers.js';
 export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,

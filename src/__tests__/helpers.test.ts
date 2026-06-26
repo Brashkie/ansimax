@@ -1725,3 +1725,115 @@ describe('v1.3.7 — clampPercent/clampInt exported from main barrel', () => {
     expect(main.clampInt(50.5, 0, 100)).toBe(50);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.2 — Consolidated string + clamp helpers
+// ─────────────────────────────────────────────
+
+import {
+  ensureString,
+  clampNonNeg,
+  clampPositiveInt,
+} from '../utils/helpers.js';
+
+describe('ensureString (v1.4.2)', () => {
+  it('returns string unchanged', () => {
+    expect(ensureString('hello')).toBe('hello');
+    expect(ensureString('')).toBe('');
+  });
+
+  it('coerces numbers, booleans via String()', () => {
+    expect(ensureString(42)).toBe('42');
+    expect(ensureString(3.14)).toBe('3.14');
+    expect(ensureString(true)).toBe('true');
+    expect(ensureString(false)).toBe('false');
+  });
+
+  it('returns "" for null and undefined (not "null" / "undefined")', () => {
+    expect(ensureString(null)).toBe('');
+    expect(ensureString(undefined)).toBe('');
+  });
+
+  it('coerces objects via toString', () => {
+    expect(ensureString({})).toBe('[object Object]');
+    expect(ensureString([1, 2, 3])).toBe('1,2,3');
+  });
+});
+
+describe('clampNonNeg (v1.4.2)', () => {
+  it('passes non-negative integers unchanged', () => {
+    expect(clampNonNeg(0)).toBe(0);
+    expect(clampNonNeg(5)).toBe(5);
+    expect(clampNonNeg(999)).toBe(999);
+  });
+
+  it('floors fractional values', () => {
+    expect(clampNonNeg(5.9)).toBe(5);
+    expect(clampNonNeg(0.5)).toBe(0);
+  });
+
+  it('clamps negatives to 0', () => {
+    expect(clampNonNeg(-1)).toBe(0);
+    expect(clampNonNeg(-999)).toBe(0);
+  });
+
+  it('returns fallback for non-finite', () => {
+    expect(clampNonNeg(NaN, 10)).toBe(10);
+    expect(clampNonNeg(Infinity, 5)).toBe(5);
+    expect(clampNonNeg('abc', 7)).toBe(7);
+    expect(clampNonNeg(null, 3)).toBe(3);
+  });
+
+  it('default fallback is 0', () => {
+    expect(clampNonNeg(NaN)).toBe(0);
+  });
+
+  it('clamps fallback to non-negative too', () => {
+    // Negative fallback → clamped to 0
+    expect(clampNonNeg(NaN, -5)).toBe(0);
+  });
+});
+
+describe('clampPositiveInt (v1.4.2)', () => {
+  it('passes positive integers unchanged', () => {
+    expect(clampPositiveInt(1)).toBe(1);
+    expect(clampPositiveInt(42)).toBe(42);
+  });
+
+  it('clamps 0 and negatives to 1', () => {
+    expect(clampPositiveInt(0)).toBe(1);
+    expect(clampPositiveInt(-5)).toBe(1);
+  });
+
+  it('floors fractional values', () => {
+    expect(clampPositiveInt(5.9)).toBe(5);
+    expect(clampPositiveInt(1.0001)).toBe(1);
+  });
+
+  it('returns fallback for non-finite', () => {
+    expect(clampPositiveInt(NaN, 10)).toBe(10);
+    expect(clampPositiveInt(Infinity, 99)).toBe(99);
+  });
+
+  it('default fallback is 1', () => {
+    expect(clampPositiveInt(NaN)).toBe(1);
+  });
+
+  it('clamps fallback to >= 1 too', () => {
+    expect(clampPositiveInt(NaN, 0)).toBe(1);
+    expect(clampPositiveInt(NaN, -5)).toBe(1);
+  });
+});
+
+describe('v1.4.2 — barrel re-exports', () => {
+  it('ensureString, clampNonNeg, clampPositiveInt all accessible from barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.ensureString).toBe('function');
+    expect(typeof main.clampNonNeg).toBe('function');
+    expect(typeof main.clampPositiveInt).toBe('function');
+    // Smoke
+    expect(main.ensureString(null)).toBe('');
+    expect(main.clampNonNeg(-1)).toBe(0);
+    expect(main.clampPositiveInt(0)).toBe(1);
+  });
+});

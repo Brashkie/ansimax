@@ -131,6 +131,70 @@ export const clampInt = (
   return Math.max(min, Math.min(max, Math.floor(value)));
 };
 
+/**
+ * Coerce any value to a string. Non-strings go through `String()`. `null`
+ * and `undefined` become `''` (not `'null'`/`'undefined'`). Consolidates
+ * the `typeof v === 'string' ? v : String(v ?? '')` pattern previously
+ * duplicated across 5 modules (components, frames, loaders, trees, ansi).
+ *
+ * @example
+ * ```ts
+ * ensureString('hello')      // → 'hello'
+ * ensureString(42)           // → '42'
+ * ensureString(null)         // → ''
+ * ensureString(undefined)    // → ''
+ * ensureString({})           // → '[object Object]'
+ * ```
+ *
+ * @since 1.4.2
+ */
+export const ensureString = (v: unknown): string =>
+  typeof v === 'string' ? v : String(v ?? '');
+
+/**
+ * Coerce to a non-negative integer (≥ 0). Falls back to `fallback` for
+ * non-finite input. Floors fractional values.
+ *
+ * Consolidates the `Math.max(0, Math.floor(n))` pattern previously
+ * duplicated as a private `clampNonNeg` in components + trees.
+ *
+ * @example
+ * ```ts
+ * clampNonNeg(5.7)            // → 5
+ * clampNonNeg(-3)             // → 0
+ * clampNonNeg(NaN, 10)        // → 10
+ * clampNonNeg('abc', 5)       // → 5
+ * ```
+ *
+ * @since 1.4.2
+ */
+export const clampNonNeg = (n: unknown, fallback = 0): number => {
+  if (!isFiniteNumber(n)) return Math.max(0, Math.floor(fallback));
+  return Math.max(0, Math.floor(n));
+};
+
+/**
+ * Coerce to a positive integer (≥ 1). Falls back to `fallback` for
+ * non-finite input. Floors fractional values.
+ *
+ * Consolidates the `Math.max(1, Math.floor(n))` pattern previously
+ * duplicated as private `clampPositive` / `clampPositiveInt` in
+ * components + loaders.
+ *
+ * @example
+ * ```ts
+ * clampPositiveInt(5.7)       // → 5
+ * clampPositiveInt(0)         // → 1 (clamped up)
+ * clampPositiveInt(NaN, 10)   // → 10
+ * ```
+ *
+ * @since 1.4.2
+ */
+export const clampPositiveInt = (n: unknown, fallback = 1): number => {
+  if (!isFiniteNumber(n)) return Math.max(1, Math.floor(fallback));
+  return Math.max(1, Math.floor(n));
+};
+
 // ─────────────────────────────────────────────
 //  Hex / RGB
 // ─────────────────────────────────────────────

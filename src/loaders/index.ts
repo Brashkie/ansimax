@@ -29,6 +29,8 @@ import {
   hexToRgb, visibleLen, stripAnsi,
   // v1.3.7 — consolidated helpers (formerly inlined here)
   isFiniteNumber, clampPercent,
+  // v1.4.2 — further consolidation
+  ensureString, clampPositiveInt,
 } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
@@ -43,15 +45,8 @@ const canAnimate = (): boolean =>
 //  Validation helpers — defensive against bad input
 // ─────────────────────────────────────────────
 
-/* istanbul ignore next — ensureString fallbacks for non-string inputs */
-const ensureString = (v: unknown): string =>
-  typeof v === 'string' ? v : String(v ?? '');
-
-/** Clamp to a positive integer with fallback for NaN/Infinity. */
-const clampPositiveInt = (n: unknown, fallback: number): number => {
-  if (!isFiniteNumber(n)) return fallback;
-  return Math.max(1, Math.floor(n));
-};
+// v1.4.2 — `ensureString` and `clampPositiveInt` consolidated into
+// utils/helpers (formerly duplicated in this file).
 
 /**
  * Detect Unicode-capable terminal. Falls back to false when running in

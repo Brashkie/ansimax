@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.1'));
+console.log(components.badge('VERSION', 'v1.4.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,27 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.2 — Consolidación interna v3
+
+Release patch continuando el trabajo DRY de v1.3.7. Cero cambios de comportamiento:
+
+- ➕ **`ensureString(value)`** — coerce a string (null/undefined → '')
+- ➕ **`clampNonNeg(n, fallback?)`** — entero no-negativo con fallback seguro
+- ➕ **`clampPositiveInt(n, fallback?)`** — entero positivo (≥ 1) con fallback seguro
+- 🧹 Removidas **10 implementaciones inline duplicadas** entre components, frames, loaders, trees
+- 🧪 **+18 tests** para los helpers consolidados
+
+```js
+import { ensureString, clampNonNeg, clampPositiveInt } from 'ansimax';
+
+ensureString(null)              // → ''
+clampNonNeg(-3)                 // → 0
+clampPositiveInt(0)             // → 1  (clamped up)
+clampPositiveInt(NaN, 10)       // → 10 (fallback)
+```
+
+Drop-in replacement para `1.4.1`.
 
 ### v1.4.1 — Grid v2 + refactor markdown
 

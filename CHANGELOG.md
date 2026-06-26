@@ -3,6 +3,89 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] — Internal consolidation v3
+
+Patch release continuing the DRY work from v1.3.7. Three more helper
+patterns that were duplicated across modules are now consolidated into
+`utils/helpers` and exported. **Zero behavior changes** — the
+consolidated implementations are byte-identical to the inline copies
+they replace.
+
+### Added — Three new exported helpers
+
+**`ensureString(value)`** — coerce any value to a string, with `null`
+and `undefined` becoming `''` (not `'null'`/`'undefined'`):
+
+```js
+import { ensureString } from 'ansimax';
+
+ensureString('hello')      // → 'hello'
+ensureString(42)           // → '42'
+ensureString(null)         // → ''
+ensureString(undefined)    // → ''
+ensureString({})           // → '[object Object]'
+```
+
+**`clampNonNeg(value, fallback?)`** — coerce to a non-negative integer
+(≥ 0), with floor and fallback for non-finite input:
+
+```js
+import { clampNonNeg } from 'ansimax';
+
+clampNonNeg(5.7)            // → 5
+clampNonNeg(-3)             // → 0
+clampNonNeg(NaN, 10)        // → 10
+clampNonNeg('abc', 5)       // → 5
+```
+
+**`clampPositiveInt(value, fallback?)`** — coerce to a positive integer
+(≥ 1), with floor and fallback. Default fallback is `1`:
+
+```js
+import { clampPositiveInt } from 'ansimax';
+
+clampPositiveInt(5.7)       // → 5
+clampPositiveInt(0)         // → 1 (clamped up)
+clampPositiveInt(NaN, 10)   // → 10
+```
+
+### Improved — Internal consolidation
+
+Removed **10 duplicate inline implementations** across modules:
+
+| Helper | Was duplicated in | Now imported from |
+|---|---|---|
+| `ensureString` | components, frames, loaders, trees (×4 identical) | `utils/helpers` |
+| `clampNonNeg` | components, trees (×2 identical) | `utils/helpers` |
+| `clampPositive` / `clampPositiveInt` | components, loaders (×3 identical) | `utils/helpers` |
+
+What's left intentionally:
+- `utils/ansi.ts` keeps its own private versions (architectural choice
+  from v1.3.7 — `ansi` and `helpers` stay at the bottom of the
+  dependency graph with no cross-imports)
+- `ascii/index.ts` keeps a distinct `ensureString(value, paramName)`
+  variant that throws with parameter info (different semantics, not a
+  duplicate)
+
+### Improved — Tests
+
+- `+5` tests for `ensureString` (string/number/boolean/null/object)
+- `+6` tests for `clampNonNeg` (range, floor, fallback, default, clamp)
+- `+6` tests for `clampPositiveInt` (clamp-up, range, floor, fallback)
+- `+1` test for barrel re-exports
+
+Total: **+18 tests**.
+
+### Notes
+
+- **Zero behavior changes** — drop-in replacement for `1.4.1`
+- **Zero API changes** — only additions (3 new exports)
+- All call sites use explicit `fallback` arguments → compatible with
+  default-arg signatures of the exported helpers
+- ~30 lines of duplicated source removed across 4 modules
+
+---
+
 ## [1.4.1] — Grid v2 + markdown internal refactor
 
 Patch release with two improvements: **grid** gains CSS Grid-style

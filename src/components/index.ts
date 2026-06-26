@@ -16,6 +16,8 @@ import {
   padEnd, visibleLen, termSize, stripAnsi,
   // v1.3.7 — consolidated helpers (formerly inlined here)
   isFiniteNumber, clampPercent,
+  // v1.4.2 — further consolidation
+  ensureString, clampNonNeg, clampPositiveInt as clampPositive,
 } from '../utils/helpers.js';
 import { ascii } from '../ascii/index.js';
 import { gradient as gradientFn } from '../colors/index.js';
@@ -23,21 +25,6 @@ import { gradient as gradientFn } from '../colors/index.js';
 // ─────────────────────────────────────────────
 //  Internal helpers
 // ─────────────────────────────────────────────
-
-const ensureString = (v: unknown): string =>
-  typeof v === 'string' ? v : String(v ?? '');
-
-/** Clamp a non-negative integer (width, padding). Falls back to `fallback`. */
-const clampNonNeg = (n: unknown, fallback: number): number => {
-  if (!isFiniteNumber(n)) return fallback;
-  return Math.max(0, Math.floor(n));
-};
-
-/** Clamp a positive integer (width, columns). Falls back to `fallback`. */
-const clampPositive = (n: unknown, fallback: number): number => {
-  if (!isFiniteNumber(n)) return fallback;
-  return Math.max(1, Math.floor(n));
-};
 
 /** Clamp an SGR code to a sensible range. Bad values return reset. */
 const safeSgrCode = (code: unknown, fallback: number): number => {

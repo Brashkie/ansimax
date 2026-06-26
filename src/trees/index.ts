@@ -27,6 +27,8 @@ import {
   visibleLen,
   // v1.3.7 — consolidated isFiniteNumber (formerly duplicated in this file)
   isFiniteNumber,
+  // v1.4.2 — consolidated ensureString + clampNonNeg
+  ensureString, clampNonNeg,
 } from '../utils/helpers.js';
 import type { ColorFn } from '../colors/index.js';
 
@@ -54,13 +56,7 @@ const STYLES: Record<TreeStyle, TreeChars> = {
 //  Validation helpers
 // ─────────────────────────────────────────────
 
-const ensureString = (v: unknown): string =>
-  typeof v === 'string' ? v : String(v ?? '');
-
-const clampNonNeg = (n: unknown, fallback: number): number => {
-  if (!isFiniteNumber(n)) return fallback;
-  return Math.max(0, Math.floor(n));
-};
+// v1.4.2 — `ensureString` and `clampNonNeg` consolidated into utils/helpers.
 
 /** Normalize CRLF + lone CR to LF for consistent line splitting. */
 const normalizeNewlines = (s: string): string =>

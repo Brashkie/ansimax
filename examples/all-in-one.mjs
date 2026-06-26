@@ -117,7 +117,7 @@ console.log();
 console.log(components.section('🏷️  Badges & Status', { width: 60 }));
 console.log();
 console.log(' ',
-  components.badge('VERSION', 'v1.4.1'),
+  components.badge('VERSION', 'v1.4.2'),
   components.badge('BUILD', 'passing'),
   components.badge('LICENSE', 'Apache 2.0'));
 console.log();
