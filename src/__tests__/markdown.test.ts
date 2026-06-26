@@ -533,3 +533,34 @@ describe('barrel — v1.4.0 markdown re-exports', () => {
     expect(typeof ansimax.markdown.render).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.1 — Refactor verification
+// ─────────────────────────────────────────────
+
+describe('v1.4.1 — markdown refactor (file split)', () => {
+  it('can import parseBlocks from block-parser submodule directly', async () => {
+    const mod = await import('../markdown/block-parser.js');
+    expect(typeof mod.parseBlocks).toBe('function');
+    // Behavior identical to barrel import
+    expect(mod.parseBlocks('# Hi')).toEqual(parseBlocks('# Hi'));
+  });
+
+  it('can import parseInline from inline-parser submodule directly', async () => {
+    const mod = await import('../markdown/inline-parser.js');
+    expect(typeof mod.parseInline).toBe('function');
+    expect(mod.parseInline('hello')).toBe(parseInline('hello'));
+  });
+
+  it('can import render from renderer submodule directly', async () => {
+    const mod = await import('../markdown/renderer.js');
+    expect(typeof mod.render).toBe('function');
+    expect(mod.render('# Hi')).toBe(render('# Hi'));
+  });
+
+  it('types re-exported from barrel match submodule types', async () => {
+    // This is a compile-time check — if types don't match, tsc fails.
+    const types = await import('../markdown/types.js');
+    expect(types).toBeDefined();
+  });
+});

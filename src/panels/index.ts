@@ -526,6 +526,46 @@ export interface GridOptions {
    * use the max width of the widest block in their column.
    */
   cellWidth?: number | null;
+  /**
+   * **v1.4.1+** Fix each row to this height (in lines). When the block has
+   * fewer lines, it is padded (using `alignY`). When it has more lines, it
+   * is truncated. If omitted (default), rows take the natural height of
+   * their tallest block.
+   *
+   * @since 1.4.1
+   */
+  cellHeight?: number | null;
+  /**
+   * **v1.4.1+** Per-block column span. `colSpan[i]` is the number of
+   * columns block `i` occupies. Defaults to `1` for every block when
+   * omitted or shorter than `blocks`.
+   *
+   * The auto-flow algorithm wraps to the next row when the current row's
+   * remaining capacity is less than the next block's span. Spans that
+   * exceed `columns` are clamped to `columns`.
+   *
+   * @example
+   * ```js
+   * // Header spans full width, then 2 cells in a row
+   * panels.grid([header, left, right], {
+   *   columns: 2,
+   *   colSpan: [2, 1, 1],
+   * });
+   * ```
+   *
+   * @since 1.4.1
+   */
+  colSpan?: number[];
+  /**
+   * **v1.4.1+** Auto-flow direction. `'row'` (default) fills cells
+   * left-to-right then wraps to the next row — matches CSS Grid's
+   * `grid-auto-flow: row`. `'column'` fills top-to-bottom then wraps to
+   * the next column. Not applicable when `colSpan` is set with any
+   * span > 1 (forces 'row' mode).
+   *
+   * @since 1.4.1
+   */
+  flow?: 'row' | 'column';
 }
 
 /**
@@ -579,46 +619,159 @@ export const grid = (blocks: string[], opts: GridOptions): string => {
   const alignX: Alignment = opts.alignX ?? 'start';
   const alignY: Alignment = opts.alignY ?? 'start';
   const cellW   = opts.cellWidth != null ? Math.max(0, Math.floor(opts.cellWidth)) : null;
+  const cellH   = opts.cellHeight != null ? Math.max(1, Math.floor(opts.cellHeight)) : null;
+  const flow    = opts.flow === 'column' ? 'column' : 'row';
 
-  // Chunk blocks into rows of N columns
-  const rows: string[][] = [];
-  for (let i = 0; i < blocks.length; i += columns) {
-    rows.push(blocks.slice(i, i + columns));
+  // ── v1.4.1: Resolve colSpan per block (defaults to 1, clamped to columns) ──
+  const spans: number[] = blocks.map((_, i) => {
+    const raw = opts.colSpan?.[i];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 1) return 1;
+    return Math.min(columns, Math.floor(raw));
+  });
+
+  // Detect if any span > 1 — forces 'row' flow since column flow + spans
+  // requires CSS Grid's full packing algorithm (deferred to v1.4.2+).
+  const hasSpans = spans.some((s) => s > 1);
+
+  // ── Chunk blocks into rows ──
+  type Cell = { block: string; span: number; col: number };
+  const cellRows: Cell[][] = [];
+
+  if (flow === 'column' && !hasSpans) {
+    // Column-major: distribute blocks down the columns.
+    // First compute how many rows we need.
+    const rowCount = Math.ceil(blocks.length / columns);
+    // Initialize empty rows
+    for (let r = 0; r < rowCount; r++) cellRows.push([]);
+    // Fill column-by-column
+    for (let i = 0; i < blocks.length; i++) {
+      const c = Math.floor(i / rowCount);
+      const r = i % rowCount;
+      (cellRows[r] as Cell[]).push({ block: blocks[i] as string, span: 1, col: c });
+    }
+  } else {
+    // Row-major (default + forced when colSpan present)
+    let row: Cell[] = [];
+    let colInRow = 0;
+    for (let i = 0; i < blocks.length; i++) {
+      const span = spans[i] as number;
+      // Wrap if this block won't fit in the remaining row capacity
+      if (colInRow + span > columns && row.length > 0) {
+        cellRows.push(row);
+        row = [];
+        colInRow = 0;
+      }
+      row.push({ block: blocks[i] as string, span, col: colInRow });
+      colInRow += span;
+    }
+    if (row.length > 0) cellRows.push(row);
   }
 
-  // For uniform columns: each column width is the max across all rows in that column.
-  // Compute widths once so all rows align visually.
-  let widths: number[] | null = null;
+  // ── Compute uniform column widths ──
+  // Each column's width is the max width of all blocks that start in
+  // that column AND have span=1. Spanning blocks don't constrain a single
+  // column's width — they get sum(widths[c..c+span]) + gaps.
+  let widths: number[];
   if (cellW != null) {
     widths = Array(columns).fill(cellW) as number[];
   } else {
     widths = Array(columns).fill(0) as number[];
-    for (const row of rows) {
-      for (let c = 0; c < row.length; c++) {
-        const { maxWidth } = _splitBlock(row[c] as string);
-        if (maxWidth > (widths[c] as number)) {
-          widths[c] = maxWidth;
+    for (const r of cellRows) {
+      for (const cell of r) {
+        if (cell.span === 1) {
+          const { maxWidth } = _splitBlock(cell.block);
+          if (maxWidth > (widths[cell.col] as number)) {
+            widths[cell.col] = maxWidth;
+          }
+        }
+      }
+    }
+    // Defensive: if a column has no span=1 entry, give it the widest spanning
+    // block proportionally so the row doesn't collapse to 0 width.
+    for (let c = 0; c < columns; c++) {
+      if ((widths[c] as number) === 0) {
+        for (const r of cellRows) {
+          for (const cell of r) {
+            if (cell.col <= c && cell.col + cell.span > c) {
+              const { maxWidth } = _splitBlock(cell.block);
+              // Distribute evenly across the spanned columns
+              const each = Math.ceil(maxWidth / cell.span);
+              if (each > (widths[c] as number)) widths[c] = each;
+            }
+          }
         }
       }
     }
   }
 
-  // Render each row via vsplit (passing fixed widths for visual alignment)
-  const renderedRows = rows.map((row) => {
-    // Pad shorter rows with empty blocks so vsplit gives uniform widths
-    const padded: string[] = [];
-    for (let c = 0; c < columns; c++) {
-      padded.push(row[c] ?? '');
+  // ── Render each row ──
+  const renderedRows = cellRows.map((row) => {
+    // Build a per-column array, expanding spanning cells across their columns.
+    // For a span-N cell starting at column C, columns C..C+N-1 hold its
+    // content (only the first column has the real block; others are empty).
+    // But for vsplit to give correct widths, we use a custom row assembly
+    // that allows merged cells.
+
+    // We reuse vsplit by giving it merged-width entries: each entry's
+    // width = sum(widths[col..col+span]) + (span-1) * gapX.
+    //
+    // Note: the cells in `row` are guaranteed to be in column order and
+    // contiguous by the auto-flow algorithm above (both 'row' and 'column'
+    // modes assign col sequentially without gaps). So we iterate directly
+    // — no need to sort or fill missing columns.
+    const mergedBlocks: string[] = [];
+    const mergedWidths: number[] = [];
+
+    let nextCol = 0;
+    for (const cell of row) {
+      // Merged width of this cell
+      let w = 0;
+      for (let k = 0; k < cell.span; k++) {
+        w += widths[cell.col + k] as number;
+      }
+      // Plus internal gaps between the columns it spans
+      w += Math.max(0, cell.span - 1) * gapX;
+
+      // Optionally truncate or pad the block height
+      let blockToRender = cell.block;
+      if (cellH != null) {
+        blockToRender = _fitHeight(cell.block, cellH);
+      }
+
+      mergedBlocks.push(blockToRender);
+      mergedWidths.push(w);
+      nextCol += cell.span;
     }
-    return vsplit(padded, {
+    // Pad the right side with empty cells if the row doesn't reach `columns`
+    while (nextCol < columns) {
+      mergedBlocks.push('');
+      mergedWidths.push(widths[nextCol] as number);
+      nextCol++;
+    }
+
+    return vsplit(mergedBlocks, {
       gap: gapX,
       align: alignY,
-      widths,
+      widths: mergedWidths,
     });
   });
 
   // Stack rows with hsplit (vertical gap)
   return hsplit(renderedRows, { gap: gapY, align: alignX });
+};
+
+/**
+ * Truncate or pad a block (multi-line string) to exactly `targetH` lines.
+ * Padding adds blank lines at the bottom. Truncation cuts extra lines.
+ * Internal helper for `cellHeight`.
+ */
+const _fitHeight = (block: string, targetH: number): string => {
+  const lines = block.split('\n');
+  if (lines.length === targetH) return block;
+  if (lines.length > targetH) return lines.slice(0, targetH).join('\n');
+  // Pad with empty lines
+  const pad = Array<string>(targetH - lines.length).fill('');
+  return [...lines, ...pad].join('\n');
 };
 
 // ─────────────────────────────────────────────

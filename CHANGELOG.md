@@ -3,6 +3,111 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] — Grid v2 + markdown internal refactor
+
+Patch release with two improvements: **grid** gains CSS Grid-style
+column spans + uniform row heights + flow direction control, and the
+**markdown** module is internally refactored from a 522-line monolith
+into 4 focused files (no API changes).
+
+### Added — `panels.grid` v2
+
+**`colSpan: number[]`** — per-block column span (CSS Grid-style):
+
+```js
+import { panels, ascii } from 'ansimax';
+
+const header   = ascii.box('Dashboard', { borderStyle: 'rounded' });
+const sidebar  = ascii.box('Sidebar', { borderStyle: 'rounded' });
+const content  = ascii.box('Main content area', { borderStyle: 'rounded' });
+const footer   = ascii.box('Footer', { borderStyle: 'rounded' });
+
+// 2 columns, header + footer span the full width
+console.log(panels.grid([header, sidebar, content, footer], {
+  columns: 2,
+  colSpan: [2, 1, 1, 2],
+}));
+```
+
+Auto-flow: each block consumes its `span` columns. If a row's remaining
+capacity can't fit the next block, the layout wraps to a new row.
+Invalid spans (NaN, negative, > columns) are normalized to safe values.
+
+**`cellHeight: number | null`** — uniform vertical sizing per row:
+
+```js
+// All rows exactly 5 lines tall — short blocks padded, tall blocks truncated
+panels.grid(blocks, { columns: 3, cellHeight: 5 });
+```
+
+Complements the existing `cellWidth` option for fully uniform grids.
+
+**`flow: 'row' | 'column'`** — auto-flow direction:
+
+```js
+// Default: row flow (left-to-right, then wrap down)
+panels.grid([1, 2, 3, 4, 5, 6], { columns: 3, flow: 'row' });
+//   1 2 3
+//   4 5 6
+
+// Column flow (top-to-bottom, then wrap right)
+panels.grid([1, 2, 3, 4, 5, 6], { columns: 3, flow: 'column' });
+//   1 3 5
+//   2 4 6
+```
+
+When `colSpan` contains values > 1, flow is forced to `'row'` (the
+column-flow + spans combination requires a full packing algorithm,
+deferred to a later release).
+
+### Improved — `markdown` module refactored
+
+The single-file `src/markdown/index.ts` (522 lines) split into 5 files
+of focused responsibility — **zero API changes, fully backward compatible**:
+
+```
+src/markdown/
+├── types.ts          — Public types (MarkdownTheme, Block, …)
+├── theme.ts          — Color palettes (THEMES record, private)
+├── block-parser.ts   — parseBlocks + line regexes
+├── inline-parser.ts  — parseInline + protected-code placeholders
+├── renderer.ts       — render (dispatches blocks → ansimax primitives)
+└── index.ts          — Re-exports + `markdown` namespace
+```
+
+External imports keep working unchanged:
+
+```js
+import { markdown, parseMarkdownBlocks, parseMarkdownInline, renderMarkdown }
+  from 'ansimax';
+```
+
+Submodule imports now also work (advanced use):
+
+```js
+import { parseBlocks } from 'ansimax/markdown/block-parser';   // tree-shake friendly
+```
+
+### Improved — Tests
+
+- `+18` tests for `colSpan` (defaults, clamping, wrapping, invalid input)
+- `+4` tests for `cellHeight` (pad, truncate, null, zero clamp)
+- `+5` tests for `flow` (row, column, non-multiples, fallback with colSpan)
+- `+1` integration test (colSpan + cellHeight together)
+- `+4` tests verifying submodule imports work after refactor
+
+Total: **+32 tests** in `panels.test.ts` and `markdown.test.ts`.
+
+### Notes
+
+- **Zero behavior changes** for v1.4.0 users — `panels.grid` without the
+  new options produces byte-identical output
+- **Zero breaking changes** — `markdown` API surface unchanged
+- Submodule imports enabled (`ansimax/markdown/block-parser`) for
+  tree-shaking-friendly bundling
+
+---
+
 ## [1.4.0] — Phase 4 closure: Markdown rendering
 
 **Minor release** introducing the long-planned `markdown` module — the

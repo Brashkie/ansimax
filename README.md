@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.0'));
+console.log(components.badge('VERSION', 'v1.4.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,30 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.1 — Grid v2 + markdown refactor
+
+Patch release. Zero breaking changes:
+
+- 🎯 **`panels.grid` — colSpan**: per-block column span (CSS Grid-style auto-flow)
+- 📏 **`panels.grid` — cellHeight**: uniform row heights (complements `cellWidth`)
+- 🔀 **`panels.grid` — flow**: `'row'` (default) or `'column'` auto-flow direction
+- 📁 **`markdown` refactored** from 522-line monolith → 5 focused submodules (API unchanged)
+- 🌳 Submodule imports enabled: `import { parseBlocks } from 'ansimax/markdown/block-parser'`
+- 🧪 **+32 tests**
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Header spans both columns, then sidebar + content side by side
+panels.grid([header, sidebar, content], {
+  columns: 2,
+  colSpan: [2, 1, 1],
+  cellHeight: 10,    // uniform row height
+});
+```
+
+Drop-in replacement for `1.4.0`.
 
 ### v1.4.0 — Phase 4 closure: Markdown rendering 🎉
 

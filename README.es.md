@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.0'));
+console.log(components.badge('VERSION', 'v1.4.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,30 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.1 — Grid v2 + refactor markdown
+
+Release patch. Cero breaking changes:
+
+- 🎯 **`panels.grid` — colSpan**: span de columnas por bloque (auto-flow estilo CSS Grid)
+- 📏 **`panels.grid` — cellHeight**: alturas de fila uniformes (complementa `cellWidth`)
+- 🔀 **`panels.grid` — flow**: dirección de auto-flow `'row'` (default) o `'column'`
+- 📁 **`markdown` refactorizado** de monolito de 522 líneas → 5 submódulos enfocados (API sin cambios)
+- 🌳 Imports de submódulo habilitados: `import { parseBlocks } from 'ansimax/markdown/block-parser'`
+- 🧪 **+32 tests**
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Header span ambas columnas, luego sidebar + content lado a lado
+panels.grid([header, sidebar, content], {
+  columns: 2,
+  colSpan: [2, 1, 1],
+  cellHeight: 10,    // altura de fila uniforme
+});
+```
+
+Drop-in replacement para `1.4.0`.
 
 ### v1.4.0 — Cierre de Fase 4: Renderizado Markdown 🎉
 

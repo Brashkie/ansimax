@@ -534,3 +534,210 @@ describe('panels — branch coverage (v1.3.6)', () => {
     expect(result.split('\n').length).toBe(2);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.1 — grid: colSpan, cellHeight, flow
+// ─────────────────────────────────────────────
+
+describe('grid — v1.4.1 features', () => {
+  describe('colSpan', () => {
+    it('span=1 for all blocks behaves identically to v1.3.x', () => {
+      const without = panels.grid(['A', 'B', 'C', 'D'], { columns: 2 });
+      const withSpan = panels.grid(['A', 'B', 'C', 'D'], {
+        columns: 2,
+        colSpan: [1, 1, 1, 1],
+      });
+      expect(withSpan).toBe(without);
+    });
+
+    it('a block with colSpan === columns occupies a full row', () => {
+      const result = panels.grid(['HEADER', 'A', 'B'], {
+        columns: 2,
+        colSpan: [2, 1, 1],
+      });
+      const lines = result.split('\n');
+      // First line should contain HEADER (full width)
+      expect(lines[0]).toContain('HEADER');
+      // Second line should contain A and B side by side
+      const lastLine = lines[lines.length - 1] as string;
+      expect(lastLine).toContain('A');
+      expect(lastLine).toContain('B');
+    });
+
+    it('wraps to next row when remaining capacity insufficient', () => {
+      // columns=3, blocks=[A(1), B(2), C(1)]
+      // Row 0: A (cap 2 left)
+      // B needs span 2 → fits → Row 0 done (A, B span 2)
+      // C → Row 1 alone
+      const result = panels.grid(['A', 'B', 'C'], {
+        columns: 3,
+        colSpan: [1, 2, 1],
+      });
+      const lines = result.split('\n');
+      // Row 0 contains A and B
+      expect(lines[0]).toContain('A');
+      expect(lines[0]).toContain('B');
+      // C is on a later line (not the first)
+      const lastLine = lines[lines.length - 1] as string;
+      expect(lastLine).toContain('C');
+    });
+
+    it('clamps colSpan > columns to columns', () => {
+      // span=99 but only 2 columns → clamped to 2 (full row)
+      const result = panels.grid(['BIG', 'X'], {
+        columns: 2,
+        colSpan: [99, 1],
+      });
+      const lines = result.split('\n');
+      expect(lines[0]).toContain('BIG');
+    });
+
+    it('defaults missing colSpan entries to 1', () => {
+      // Only 2 spans provided for 4 blocks
+      const result = panels.grid(['A', 'B', 'C', 'D'], {
+        columns: 2,
+        colSpan: [1, 1],
+      });
+      expect(result).toBeTruthy();
+      // No undefined / NaN leaks
+      expect(result).not.toContain('undefined');
+      expect(result).not.toContain('NaN');
+    });
+
+    it('treats invalid colSpan values as 1', () => {
+      const result = panels.grid(['A', 'B'], {
+        columns: 2,
+        colSpan: [NaN, -5],
+      });
+      const lines = result.split('\n');
+      expect(lines[0]).toContain('A');
+      expect(lines[0]).toContain('B');
+    });
+  });
+
+  describe('cellHeight', () => {
+    it('pads short blocks to target height', () => {
+      const tall  = 'L1\nL2\nL3\nL4';
+      const short = 'X';
+      const result = panels.grid([tall, short], {
+        columns: 2,
+        cellHeight: 4,
+      });
+      const lines = result.split('\n');
+      // Should have 4 lines (matching cellHeight=4)
+      expect(lines.length).toBe(4);
+    });
+
+    it('truncates tall blocks to target height', () => {
+      const tall = 'L1\nL2\nL3\nL4\nL5';
+      const result = panels.grid([tall, 'X'], {
+        columns: 2,
+        cellHeight: 2,
+      });
+      const lines = result.split('\n');
+      expect(lines.length).toBe(2);
+      // L1, L2 visible; L3-L5 truncated
+      expect(result).toContain('L1');
+      expect(result).toContain('L2');
+      expect(result).not.toContain('L3');
+    });
+
+    it('cellHeight=null behaves like no cellHeight', () => {
+      const withNull = panels.grid(['A\nB', 'C'], { columns: 2, cellHeight: null });
+      const without  = panels.grid(['A\nB', 'C'], { columns: 2 });
+      expect(withNull).toBe(without);
+    });
+
+    it('clamps cellHeight to minimum 1', () => {
+      // cellHeight=0 should clamp to 1
+      const result = panels.grid(['ABC\nDEF', 'X'], { columns: 2, cellHeight: 0 });
+      const lines = result.split('\n');
+      expect(lines.length).toBe(1);
+    });
+  });
+
+  describe('flow', () => {
+    it('flow="row" (default) fills left-to-right', () => {
+      // 4 blocks, 2 columns, row flow:
+      // Row 0: [1, 2]
+      // Row 1: [3, 4]
+      const result = panels.grid(['1', '2', '3', '4'], { columns: 2, flow: 'row' });
+      const lines = result.split('\n');
+      // Row 0: contains 1 and 2 on same line
+      expect(lines[0]).toMatch(/1.*2/);
+      // Row 1: contains 3 and 4
+      const last = lines[lines.length - 1] as string;
+      expect(last).toMatch(/3.*4/);
+    });
+
+    it('flow="column" fills top-to-bottom', () => {
+      // 4 blocks, 2 columns, column flow:
+      // Row 0: [1, 3]
+      // Row 1: [2, 4]
+      const result = panels.grid(['1', '2', '3', '4'], { columns: 2, flow: 'column' });
+      const lines = result.split('\n');
+      // Row 0: 1 and 3 side by side
+      expect(lines[0]).toMatch(/1.*3/);
+      // Row 1: 2 and 4
+      const last = lines[lines.length - 1] as string;
+      expect(last).toMatch(/2.*4/);
+    });
+
+    it('flow="column" computes correct row count for non-multiples', () => {
+      // 5 blocks, 2 columns → 3 rows
+      // Row 0: [1, 4]
+      // Row 1: [2, 5]
+      // Row 2: [3]
+      const result = panels.grid(['1', '2', '3', '4', '5'], {
+        columns: 2,
+        flow: 'column',
+      });
+      const lines = result.split('\n');
+      expect(lines.length).toBeGreaterThanOrEqual(3);
+      // First line contains 1 and 4
+      expect(lines[0]).toContain('1');
+      expect(lines[0]).toContain('4');
+    });
+
+    it('flow="column" with colSpan present falls back to row flow', () => {
+      // colSpan triggers row-only mode
+      const col = panels.grid(['A', 'B', 'C'], {
+        columns: 2,
+        flow: 'column',
+        colSpan: [2, 1, 1],
+      });
+      const row = panels.grid(['A', 'B', 'C'], {
+        columns: 2,
+        flow: 'row',
+        colSpan: [2, 1, 1],
+      });
+      expect(col).toBe(row);
+    });
+
+    it('invalid flow value defaults to "row"', () => {
+      const result = panels.grid(['A', 'B'], {
+        columns: 2,
+        // @ts-expect-error testing defensive
+        flow: 'diagonal',
+      });
+      const ref = panels.grid(['A', 'B'], { columns: 2, flow: 'row' });
+      expect(result).toBe(ref);
+    });
+  });
+
+  describe('combined: cellHeight + colSpan', () => {
+    it('applies cellHeight to spanning blocks correctly', () => {
+      const tall = 'H1\nH2\nH3';
+      const result = panels.grid([tall, 'A', 'B'], {
+        columns: 2,
+        colSpan: [2, 1, 1],
+        cellHeight: 2,   // truncate header to 2 lines
+      });
+      // Total lines: 2 (header row) + 2 (A/B row) = 4
+      expect(result.split('\n').length).toBe(4);
+      expect(result).toContain('H1');
+      expect(result).toContain('H2');
+      expect(result).not.toContain('H3');
+    });
+  });
+});
