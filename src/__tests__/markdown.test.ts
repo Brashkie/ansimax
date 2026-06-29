@@ -42,7 +42,12 @@ describe('parseBlocks (v1.4.0)', () => {
     expect(blocks[0]).toEqual({
       type: 'list',
       ordered: false,
-      items: ['item 1', 'item 2', 'item 3'],
+      // v1.4.3: items now use ListItem[] (was string[])
+      items: [
+        { text: 'item 1' },
+        { text: 'item 2' },
+        { text: 'item 3' },
+      ],
     });
   });
 
@@ -51,7 +56,12 @@ describe('parseBlocks (v1.4.0)', () => {
     expect(blocks[0]).toEqual({
       type: 'list',
       ordered: true,
-      items: ['one', 'two', 'three'],
+      // v1.4.3: items now use ListItem[] (was string[])
+      items: [
+        { text: 'one' },
+        { text: 'two' },
+        { text: 'three' },
+      ],
     });
   });
 
@@ -379,6 +389,30 @@ describe('markdown.render (v1.4.0)', () => {
     expect(stripAnsi(result)).toContain('    foo');
   });
 
+  it('renders empty code block as a single space (line 116 branch)', () => {
+    // Empty code body → ' ' placeholder so ascii.box doesn't choke
+    const result = render('```\n```');
+    // Should render a box (rounded borders) with at least 1 inner line
+    expect(stripAnsi(result)).toMatch(/[╭╮│╰╯]/);
+  });
+
+  it('renders code block without language label (line 118 branch)', () => {
+    // No lang → title is null → no labeled top border
+    const result = render('```\nplain\n```');
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('plain');
+    // Top border should not contain a language label (no leading word)
+    // since lang='' makes labeled = null
+    expect(stripped).not.toMatch(/╭\s*\w+/);
+  });
+
+  it('renders code block WITH language label (line 118 alt branch)', () => {
+    const result = render('```js\nfoo\n```');
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('js');   // language label in top border
+    expect(stripped).toContain('foo');
+  });
+
   it('renders blockquote with indent + dim', () => {
     const result = render('> wisdom');
     expect(stripAnsi(result)).toContain('wisdom');
@@ -562,5 +596,181 @@ describe('v1.4.1 — markdown refactor (file split)', () => {
     // This is a compile-time check — if types don't match, tsc fails.
     const types = await import('../markdown/types.js');
     expect(types).toBeDefined();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.3 — CommonMark escapes
+// ─────────────────────────────────────────────
+
+describe('CommonMark escapes (v1.4.3)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  const opts = { theme: 'dark' as const, inlineCodeBackground: false };
+
+  it('escapes asterisks (\\*) to prevent bold/italic', () => {
+    const result = parseInline('\\*not bold\\*', opts);
+    expect(result).toBe('*not bold*');
+  });
+
+  it('escapes underscores (\\_) to prevent italic', () => {
+    const result = parseInline('\\_not italic\\_', opts);
+    expect(result).toBe('_not italic_');
+  });
+
+  it('escapes backticks (\\`) to prevent code spans', () => {
+    const result = parseInline('\\`not code\\`', opts);
+    expect(result).toBe('`not code`');
+  });
+
+  it('escapes backslash itself (\\\\)', () => {
+    const result = parseInline('a \\\\ b', opts);
+    expect(result).toBe('a \\ b');
+  });
+
+  it('escapes tildes (\\~) to prevent strikethrough', () => {
+    const result = parseInline('\\~~not strike\\~~', opts);
+    expect(result).toBe('~~not strike~~');
+  });
+
+  it('escapes brackets (\\[, \\]) to prevent links', () => {
+    const result = parseInline('\\[not a link\\](url)', opts);
+    expect(result).toContain('[not a link](url)');
+  });
+
+  it('mixes escaped and real markup', () => {
+    // \*escaped\* with **bold** in same line
+    const result = parseInline('\\*literal\\* and **bold**', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toBe('*literal* and bold');
+    // Bold ANSI should still be present
+    expect(result).toContain('\x1b[1m');
+  });
+
+  it('passes non-escapable chars through with backslash', () => {
+    // \. is not in ESCAPABLE_CHARS → passes through as \.
+    const result = parseInline('\\.not escaped', opts);
+    expect(result).toContain('\\.');
+  });
+
+  it('escapes inside link labels work', () => {
+    // [text with \* literal](url)
+    const result = parseInline('[has \\* lit](https://x.com)', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('has * lit');
+  });
+
+  it('escapes inside code span are restored literally', () => {
+    // `text with \* literal` → code span keeps \* as-is or just *
+    const result = parseInline('`a \\* b`', opts);
+    const stripped = stripAnsi(result);
+    // Should contain the literal * (escape restored inside code)
+    expect(stripped).toContain('a * b');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.3 — Nested lists
+// ─────────────────────────────────────────────
+
+describe('Nested lists (v1.4.3)', () => {
+  it('parses 2-level nested unordered list', () => {
+    const src = '- Outer 1\n  - Nested 1.1\n  - Nested 1.2';
+    const blocks = parseBlocks(src);
+    expect(blocks.length).toBe(1);
+    const list = blocks[0];
+    expect(list?.type).toBe('list');
+    if (list?.type !== 'list') return;
+    expect(list.items.length).toBe(1);
+    expect(list.items[0]?.text).toBe('Outer 1');
+    expect(list.items[0]?.children?.items.length).toBe(2);
+    expect(list.items[0]?.children?.items[0]?.text).toBe('Nested 1.1');
+  });
+
+  it('parses 3-level deep nesting', () => {
+    const src = '- L1\n  - L2\n    - L3';
+    const blocks = parseBlocks(src);
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    const l2 = list.items[0]?.children?.items[0];
+    expect(l2?.text).toBe('L2');
+    expect(l2?.children?.items[0]?.text).toBe('L3');
+  });
+
+  it('mixes ordered and unordered at different levels', () => {
+    const src = '- Outer\n  1. Sub 1\n  2. Sub 2';
+    const blocks = parseBlocks(src);
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.ordered).toBe(false);
+    expect(list.items[0]?.children?.ordered).toBe(true);
+  });
+
+  it('multiple top-level items each with their own nesting', () => {
+    const src = '- A\n  - A.1\n- B\n  - B.1';
+    const blocks = parseBlocks(src);
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items.length).toBe(2);
+    expect(list.items[0]?.children?.items[0]?.text).toBe('A.1');
+    expect(list.items[1]?.children?.items[0]?.text).toBe('B.1');
+  });
+
+  it('handles tabs as 4-space indent (CommonMark §5.2)', () => {
+    const src = '- Outer\n\t- Tabbed nested';
+    const blocks = parseBlocks(src);
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.children?.items[0]?.text).toBe('Tabbed nested');
+  });
+
+  it('breaks at ordering mismatch within same indent (line 238)', () => {
+    // Unordered list followed by ordered item at SAME indent → second list
+    // is a separate block, not appended to the first.
+    const src = '- one\n- two\n1. numbered';
+    const blocks = parseBlocks(src);
+    // Two separate lists
+    expect(blocks.length).toBe(2);
+    const first = blocks[0];
+    const second = blocks[1];
+    if (first?.type !== 'list' || second?.type !== 'list') {
+      throw new Error('expected two lists');
+    }
+    expect(first.ordered).toBe(false);
+    expect(first.items.length).toBe(2);
+    expect(second.ordered).toBe(true);
+    expect(second.items.length).toBe(1);
+  });
+
+  it('renders nested lists with depth-aware bullets', () => {
+    const src = '- Outer\n  - Nested';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('Outer');
+    expect(stripped).toContain('Nested');
+    // Nested should be indented more than outer
+    const outerLine = stripped.split('\n').find((l) => l.includes('Outer')) as string;
+    const nestedLine = stripped.split('\n').find((l) => l.includes('Nested')) as string;
+    expect(nestedLine.indexOf('Nested')).toBeGreaterThan(outerLine.indexOf('Outer'));
+  });
+
+  it('renders ordered nested list with numbered markers', () => {
+    const src = '1. First\n2. Second\n   1. Sub';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('1. First');
+    expect(stripped).toContain('2. Second');
+    expect(stripped).toContain('1. Sub');
+  });
+
+  it('uses different bullet chars at different depths', () => {
+    // Level 0: •  Level 1: ◦  Level 2: ▪  Level 3: ▫
+    const src = '- L0\n  - L1\n    - L2\n      - L3';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    // Each level should use a different bullet
+    expect(stripped).toContain('•');   // L0
+    expect(stripped).toContain('◦');   // L1
   });
 });

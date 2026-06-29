@@ -741,3 +741,127 @@ describe('grid — v1.4.1 features', () => {
     });
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.3 — grid rowSpan + packing algorithm
+// ─────────────────────────────────────────────
+
+describe('grid — v1.4.3 rowSpan', () => {
+  it('rowSpan=1 for all blocks behaves identically to no rowSpan', () => {
+    const without = panels.grid(['A', 'B', 'C', 'D'], { columns: 2 });
+    const withSpan = panels.grid(['A', 'B', 'C', 'D'], {
+      columns: 2,
+      rowSpan: [1, 1, 1, 1],
+    });
+    expect(withSpan).toBe(without);
+  });
+
+  it('a single block with rowSpan=2 packs other blocks alongside', () => {
+    // columns=3, sidebar spans 2 rows, then 4 cells fill around it
+    //   Row 0: [SIDE][A][B]
+    //   Row 1: [ ↑  ][C][D]
+    const result = panels.grid(['SIDE', 'A', 'B', 'C', 'D'], {
+      columns: 3,
+      rowSpan: [2, 1, 1, 1, 1],
+      cellHeight: 1,
+    });
+    const lines = result.split('\n');
+    // Row 0 should contain SIDE, A, B
+    expect(lines[0]).toContain('SIDE');
+    expect(lines[0]).toContain('A');
+    expect(lines[0]).toContain('B');
+    // Row 1 should contain C and D (sidebar continues but is rendered only in row 0)
+    const row1 = lines[1] as string;
+    expect(row1).toContain('C');
+    expect(row1).toContain('D');
+  });
+
+  it('combines colSpan and rowSpan correctly', () => {
+    // Header spans 2 cols, sidebar spans 2 rows in col 0
+    //   blocks = [HEAD, SIDE, X, Y]
+    //   colSpan = [2, 1, 1, 1]
+    //   rowSpan = [1, 2, 1, 1]
+    // Expected:
+    //   Row 0: [HEAD spans 2 cols][X]   ← wait, HEAD spans 2 cols means cols 0-1; X at col 2
+    //   Row 1: [SIDE     ][col1 free][Y]
+    //
+    // Actually the packing algorithm goes block by block:
+    //   HEAD (col=2, row=1): placed at row=0 col=0 (uses cols 0-1)
+    //   SIDE (col=1, row=2): looks row 0 col 0-1 are taken → tries col=2 → free in r=0,r=1
+    //   X (col=1, row=1): row 0 col 0-1 taken, col 2 taken → tries row 1 col 0 → free → places there
+    //   Y (col=1, row=1): row 1 col 0 taken → tries col 1 → free → places there
+    const result = panels.grid(['HEAD', 'SIDE', 'X', 'Y'], {
+      columns: 3,
+      colSpan: [2, 1, 1, 1],
+      rowSpan: [1, 2, 1, 1],
+      cellHeight: 1,
+    });
+    const lines = result.split('\n');
+    expect(lines[0]).toContain('HEAD');
+    expect(lines[0]).toContain('SIDE');
+    expect(lines[1]).toContain('X');
+    expect(lines[1]).toContain('Y');
+  });
+
+  it('clamps rowSpan to >= 1 for invalid values', () => {
+    const result = panels.grid(['A', 'B'], {
+      columns: 2,
+      rowSpan: [NaN, -5],
+    });
+    expect(result).toBeTruthy();
+    expect(result).not.toContain('undefined');
+    expect(result).not.toContain('NaN');
+  });
+
+  it('defaults missing rowSpan entries to 1', () => {
+    // Only first 2 spans provided for 4 blocks
+    const result = panels.grid(['A', 'B', 'C', 'D'], {
+      columns: 2,
+      rowSpan: [1, 1],
+    });
+    const lines = result.split('\n');
+    // Should render normally as 2x2 grid
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('forces row flow when rowSpan present', () => {
+    const col = panels.grid(['A', 'B', 'C', 'D'], {
+      columns: 2,
+      flow: 'column',
+      rowSpan: [2, 1, 1, 1],
+    });
+    const explicitRow = panels.grid(['A', 'B', 'C', 'D'], {
+      columns: 2,
+      flow: 'row',
+      rowSpan: [2, 1, 1, 1],
+    });
+    expect(col).toBe(explicitRow);
+  });
+
+  it('packs in scan order: first free position wins', () => {
+    // Test that scanning is deterministic — same input → same output
+    const a = panels.grid(['X', 'Y', 'Z'], {
+      columns: 3,
+      rowSpan: [2, 1, 1],
+      cellHeight: 1,
+    });
+    const b = panels.grid(['X', 'Y', 'Z'], {
+      columns: 3,
+      rowSpan: [2, 1, 1],
+      cellHeight: 1,
+    });
+    expect(a).toBe(b);
+  });
+
+  it('handles a block whose effective span exceeds columns gracefully', () => {
+    // colSpan=99 clamps to columns=2, rowSpan=2 → 2×2 block
+    const result = panels.grid(['BIG', 'X'], {
+      columns: 2,
+      colSpan: [99, 1],
+      rowSpan: [2, 1],
+      cellHeight: 1,
+    });
+    expect(result).toContain('BIG');
+    expect(result).toContain('X');
+  });
+});

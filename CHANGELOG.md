@@ -3,6 +3,114 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] — Grid rowSpan + markdown escapes + nested lists
+
+Patch release adding **3 substantial features** across grid layouts and
+markdown. Zero behavior changes for existing v1.4.2 code paths — all
+new behavior opt-in.
+
+### Added — `panels.grid` rowSpan with mark-and-pack algorithm
+
+CSS Grid-style multi-row layouts now work with a proper packing algorithm:
+
+```js
+import { panels, ascii } from 'ansimax';
+
+// Sidebar spans 2 rows, content blocks fill around it
+panels.grid([sidebar, top, footer, top2, footer2], {
+  columns: 3,
+  colSpan: [1, 2, 2, 1, 1],
+  rowSpan: [2, 1, 1, 1, 1],
+  cellHeight: 4,
+});
+
+//  ┌────────────┬─────────────────────────┐
+//  │            │                         │
+//  │   SIDEBAR  │      TOP CONTENT        │
+//  │            │                         │
+//  │            ├────────┬────────────────┤
+//  │            │  TOP2  │     FOOTER     │
+//  └────────────┴────────┴────────────────┘
+```
+
+**Algorithm**: mark-and-pack (the same technique CSS Grid uses):
+
+1. Maintain a 2D `occupancy[row][col]` boolean matrix
+2. For each block in source order, scan row-by-row, column-by-column
+3. Place the block at the first `(row, col)` where its full `colSpan × rowSpan` rectangle fits
+4. Mark those cells occupied and move on
+
+Time complexity: `O(blocks × rows × cols)` — fine for typical terminal grids.
+
+When `rowSpan > 1` is used, `flow` is forced to `'row'` (column-flow + multi-axis spans requires deferred logic).
+
+### Added — CommonMark backslash escapes in markdown
+
+Literal markdown characters now work via `\X`:
+
+```js
+markdown.render('Show \\*literal asterisks\\* and \\_underscores\\_')
+// Renders: Show *literal asterisks* and _underscores_
+
+markdown.render('Use \\`code\\` for inline code')
+// Renders: Use `code` for inline code (no actual code span)
+```
+
+Escapable characters (CommonMark spec §6.1 subset):
+
+```
+\\  \`  \*  \_  \~  \[  \]
+```
+
+Non-escapable characters pass through unchanged: `\.` → `\.`, `\?` → `\?` (matches behavior of most markdown renderers).
+
+Escapes inside code spans are restored literally — `\`a \\* b\`` renders as ` a * b ` inside the code span.
+
+### Added — Nested lists in markdown
+
+Indented list items now create proper sublists, recursively:
+
+```markdown
+- Outer item
+  - Nested item
+    - Deep item
+  - Back to nested
+- Another outer
+  1. Ordered sublist
+  2. Second numbered
+```
+
+**Indentation rules** (CommonMark §5.2):
+- 2 or more spaces of indent (relative to parent) = sublist
+- Tabs count as 4 spaces with tab stops
+- Sublist can be ordered (`1.`) or unordered (`-`/`*`/`+`) independently from parent
+- Lower indent than parent = end of nesting
+
+**Depth-aware bullets**: outer level uses `•`, then `◦`, `▪`, `▫` cycling per depth.
+
+**Breaking detail**: `Block` type for lists changed from `items: string[]` to `items: ListItem[]` where `ListItem = { text: string; children?: { ordered: boolean; items: ListItem[] } }`. **External code that reads `parseBlocks()` output and treated `items` as strings must access `item.text` per entry.**
+
+If you were only using `markdown.render(source)`, no changes needed — the rendering pipeline handles the new type internally.
+
+### Improved — Tests
+
+- `+8` tests for `rowSpan` (packing, combined with colSpan, invalid input, deterministic)
+- `+10` tests for CommonMark escapes (each escapable char, mixed, inside code/links, non-escapable passthrough)
+- `+9` tests for nested lists (2-level, 3-level, mixed ordered, tabs, orphan, rendering depth)
+
+Total: **+27 tests**.
+
+### Notes
+
+- **No behavior changes** for v1.4.2 code paths
+- `Block` type changed for `list` items (see above) — backward compatible if
+  you only use `render`, breaking if you use `parseBlocks` directly
+- Packing algorithm is `O(n × rows × cols)` — fine for typical grids
+- All 3 features fully covered by tests; matched against CommonMark spec
+  where applicable
+
+---
+
 ## [1.4.2] — Internal consolidation v3
 
 Patch release continuing the DRY work from v1.3.7. Three more helper

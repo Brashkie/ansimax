@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.2'));
+console.log(components.badge('VERSION', 'v1.4.3'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,40 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.3 — Grid rowSpan + markdown escapes + nested lists
+
+Patch release with 3 substantial new features:
+
+- 🎯 **`panels.grid` rowSpan** — CSS Grid-style multi-row layouts using mark-and-pack algorithm
+- ⛓️ **CommonMark escapes** in markdown: `\*`, `\_`, `\`, `\\`, `\[`, `\]`, `\~`
+- 🌳 **Nested lists** in markdown — recursive indentation-based sublists with depth-aware bullets
+- 🧪 **+27 tests** for all new features
+
+```js
+import { panels, markdown } from 'ansimax';
+
+// CSS Grid-style layout
+panels.grid([sidebar, top, bottom, side2], {
+  columns: 3,
+  colSpan: [1, 2, 2, 1],
+  rowSpan: [2, 1, 1, 1],
+  cellHeight: 4,
+});
+
+// Escape literal markdown characters
+markdown.render('Show \\*literal asterisks\\*');
+
+// Nested lists
+markdown.render(`
+- Outer
+  - Nested
+    - Deep
+`);
+```
+
+**Note**: `Block.type === 'list'` items are now `ListItem[]` (was `string[]`).
+Only affects external code using `parseBlocks` directly; `markdown.render` users are unaffected.
 
 ### v1.4.2 — Internal consolidation v3
 

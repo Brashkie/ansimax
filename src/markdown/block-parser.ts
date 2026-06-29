@@ -12,7 +12,7 @@
 //   - Empty / non-string input returns []
 // ─────────────────────────────────────────────
 
-import type { Block } from './types.js';
+import type { Block, ListItem } from './types.js';
 
 // ─────────────────────────────────────────────
 //  Regex patterns
@@ -135,27 +135,20 @@ export const parseBlocks = (source: string): Block[] => {
       continue;
     }
 
-    // ── List (ordered or unordered, consecutive items merge) ──
+    // ── List (ordered or unordered, with nesting via indentation) ──
+    // v1.4.3: indented list items become sublists. Indentation is measured
+    // in leading spaces (tab → 4 spaces). Items at depth 0 are the outer
+    // list; depth >= 2 spaces start a sublist.
     const ulMatch = UNORDERED_LIST_RE.exec(line);
     const olMatch = ORDERED_LIST_RE.exec(line);
     if (ulMatch || olMatch) {
+      // Compute base indent of the FIRST item — everything indented more
+      // than that becomes a child sublist.
+      const baseIndent = _indentWidth(ulMatch?.[1] ?? olMatch?.[1] ?? '');
       const ordered = olMatch != null;
-      const items: string[] = [];
-      while (i < lines.length) {
-        const ln = lines[i] as string;
-        const u = UNORDERED_LIST_RE.exec(ln);
-        const o = ORDERED_LIST_RE.exec(ln);
-        if (ordered && o) {
-          items.push((o[3] as string).trim());
-          i++;
-        } else if (!ordered && u) {
-          items.push((u[2] as string).trim());
-          i++;
-        } else {
-          break;
-        }
-      }
-      out.push({ type: 'list', ordered, items });
+      const parsed = _parseListAt(lines, i, baseIndent, ordered);
+      out.push({ type: 'list', ordered, items: parsed.items });
+      i = parsed.nextIndex;
       continue;
     }
 
@@ -182,4 +175,95 @@ export const parseBlocks = (source: string): Block[] => {
   }
 
   return out;
+};
+
+// ─────────────────────────────────────────────
+//  v1.4.3 — Nested list helpers
+// ─────────────────────────────────────────────
+
+/**
+ * Measure visual indentation width of a leading-whitespace string. Tabs
+ * count as 4 spaces (CommonMark §5.2: tabs are treated as if they were
+ * expanded with a tab stop of 4).
+ *
+ * Assumes `ws` is a leading-whitespace capture from `/^(\s*)/` — all
+ * characters are tabs or spaces (no need for an `else break` branch).
+ */
+const _indentWidth = (ws: string): number => {
+  let w = 0;
+  for (const ch of ws) {
+    if (ch === '\t') w += 4 - (w % 4);
+    else w += 1;   // any other whitespace char (space) → 1
+  }
+  return w;
+};
+
+/**
+ * Recursive list parser. Consumes consecutive list items at `baseIndent`
+ * and treats anything indented further as a child sublist (recursive).
+ *
+ * Stops when:
+ *   - End of input
+ *   - Non-list line at the current depth
+ *   - Item at LOWER indentation (belongs to outer list)
+ *
+ * @param lines       Full document lines
+ * @param start       Index of the first item line
+ * @param baseIndent  Indent width of items at this nesting level
+ * @param ordered     Whether outer list is ordered (sublists detected by marker)
+ *
+ * @since 1.4.3
+ */
+const _parseListAt = (
+  lines: string[],
+  start: number,
+  baseIndent: number,
+  ordered: boolean,
+): { items: ListItem[]; nextIndex: number } => {
+  const items: ListItem[] = [];
+  let i = start;
+
+  while (i < lines.length) {
+    const ln = lines[i] as string;
+    const u = UNORDERED_LIST_RE.exec(ln);
+    const o = ORDERED_LIST_RE.exec(ln);
+    if (!u && !o) break;
+
+    const indent = _indentWidth((u?.[1] ?? o?.[1] ?? '') as string);
+    const isOrderedHere = o != null;
+
+    // Lower indent → belongs to an outer list
+    if (indent < baseIndent) break;
+
+    // Same indent: must match the outer list's ordering
+    if (indent === baseIndent) {
+      if (ordered !== isOrderedHere) break;
+      const text = ((o?.[3] ?? u?.[2]) as string).trim();
+      items.push({ text });
+      i++;
+      continue;
+    }
+
+    // Higher indent → child sublist of the LAST item
+    // (CommonMark: a bullet indented more than its parent's content marker
+    // is a child of the previous item).
+    /* istanbul ignore if — unreachable from parseBlocks: the main loop
+       always invokes _parseListAt with baseIndent = first item's indent,
+       so the first item always matches `indent === baseIndent`. Kept as
+       defensive code for direct callers that may seed mid-list. */
+    if (items.length === 0) {
+      // Defensive: orphan indented item with no parent — treat as same-level
+      const text = ((o?.[3] ?? u?.[2]) as string).trim();
+      items.push({ text });
+      i++;
+      continue;
+    }
+
+    const sub = _parseListAt(lines, i, indent, isOrderedHere);
+    const parent = items[items.length - 1] as ListItem;
+    parent.children = { ordered: isOrderedHere, items: sub.items };
+    i = sub.nextIndex;
+  }
+
+  return { items, nextIndex: i };
 };

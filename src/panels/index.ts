@@ -557,11 +557,38 @@ export interface GridOptions {
    */
   colSpan?: number[];
   /**
+   * **v1.4.3+** Per-block row span. `rowSpan[i]` is the number of rows
+   * block `i` occupies. Combined with `colSpan`, this enables full CSS
+   * Grid-style layouts using the mark-and-pack algorithm:
+   *
+   *   1. A 2D occupancy matrix tracks claimed cells
+   *   2. For each block, find the first free `(row, col)` where its
+   *      `colSpan × rowSpan` rectangle fits
+   *   3. Mark those cells occupied
+   *   4. After all blocks are placed, emit rows top-to-bottom
+   *
+   * Forces `flow: 'row'` (column flow + rowSpan needs deferred logic).
+   * Spans that don't fit anywhere are placed in their own row.
+   *
+   * @example
+   * ```js
+   * // Sidebar spans 2 rows, content area is 2×2
+   * panels.grid([sidebar, top, footer, top2, footer2], {
+   *   columns: 3,
+   *   colSpan: [1, 2, 2, 1, 1],
+   *   rowSpan: [2, 1, 1, 1, 1],
+   * });
+   * ```
+   *
+   * @since 1.4.3
+   */
+  rowSpan?: number[];
+  /**
    * **v1.4.1+** Auto-flow direction. `'row'` (default) fills cells
    * left-to-right then wraps to the next row — matches CSS Grid's
    * `grid-auto-flow: row`. `'column'` fills top-to-bottom then wraps to
-   * the next column. Not applicable when `colSpan` is set with any
-   * span > 1 (forces 'row' mode).
+   * the next column. Not applicable when `colSpan` or `rowSpan` contain
+   * values > 1 (forces 'row' mode).
    *
    * @since 1.4.1
    */
@@ -629,30 +656,127 @@ export const grid = (blocks: string[], opts: GridOptions): string => {
     return Math.min(columns, Math.floor(raw));
   });
 
-  // Detect if any span > 1 — forces 'row' flow since column flow + spans
-  // requires CSS Grid's full packing algorithm (deferred to v1.4.2+).
-  const hasSpans = spans.some((s) => s > 1);
+  // ── v1.4.3: Resolve rowSpan per block (defaults to 1) ──
+  const rowSpans: number[] = blocks.map((_, i) => {
+    const raw = opts.rowSpan?.[i];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 1) return 1;
+    return Math.floor(raw);
+  });
+
+  // Detect spans > 1 — forces 'row' flow because column flow + spans
+  // requires multi-axis packing (deferred to a later release).
+  const hasColSpans = spans.some((s) => s > 1);
+  const hasRowSpans = rowSpans.some((s) => s > 1);
+  const hasSpans = hasColSpans || hasRowSpans;
 
   // ── Chunk blocks into rows ──
-  type Cell = { block: string; span: number; col: number };
+  type Cell = { block: string; span: number; rowSpan: number; col: number; row: number };
   const cellRows: Cell[][] = [];
 
-  if (flow === 'column' && !hasSpans) {
+  if (hasRowSpans) {
+    // ── v1.4.3: Mark-and-pack algorithm for rowSpan + colSpan ──
+    //
+    // We maintain a 2D occupancy matrix `grid[row][col] = boolean`. For each
+    // block in order, we scan row-by-row, column-by-column, and place the
+    // block at the first cell where its `colSpan × rowSpan` rectangle fits
+    // (i.e., all cells inside the rectangle are still free).
+    //
+    // This matches CSS Grid's `grid-auto-flow: row` (no dense packing).
+    // Blocks that don't fit at all in the current row are pushed to a new
+    // row at the bottom of the grid.
+    const occupancy: boolean[][] = [];
+    const placedCells: Cell[] = [];
+
+    const isFree = (r: number, c: number, cSpan: number, rSpan: number): boolean => {
+      // Ensure grid is tall enough; if rows don't exist yet, they're free
+      for (let dr = 0; dr < rSpan; dr++) {
+        const rowOcc = occupancy[r + dr];
+        if (!rowOcc) continue;   // row not allocated yet → free
+        for (let dc = 0; dc < cSpan; dc++) {
+          if (rowOcc[c + dc] === true) return false;
+        }
+      }
+      return true;
+    };
+
+    const markOccupied = (r: number, c: number, cSpan: number, rSpan: number): void => {
+      for (let dr = 0; dr < rSpan; dr++) {
+        const targetRow = r + dr;
+        while (occupancy.length <= targetRow) {
+          occupancy.push(Array(columns).fill(false) as boolean[]);
+        }
+        const rowOcc = occupancy[targetRow] as boolean[];
+        for (let dc = 0; dc < cSpan; dc++) {
+          rowOcc[c + dc] = true;
+        }
+      }
+    };
+
+    for (let i = 0; i < blocks.length; i++) {
+      const cSpan = spans[i] as number;
+      const rSpan = rowSpans[i] as number;
+      // Effective col span clamped to grid width
+      const effCSpan = Math.min(columns, cSpan);
+
+      // Scan for first free position
+      let placed = false;
+      // Allow scanning a few extra rows beyond current to find space
+      const maxScanRow = occupancy.length + rSpan;
+      outer:
+      for (let r = 0; r <= maxScanRow; r++) {
+        for (let c = 0; c <= columns - effCSpan; c++) {
+          if (isFree(r, c, effCSpan, rSpan)) {
+            markOccupied(r, c, effCSpan, rSpan);
+            placedCells.push({
+              block: blocks[i] as string,
+              span: effCSpan,
+              rowSpan: rSpan,
+              col: c,
+              row: r,
+            });
+            placed = true;
+            break outer;
+          }
+        }
+      }
+      /* istanbul ignore next — pathological case: only possible if rSpan/cSpan exceeds bounds */
+      if (!placed) {
+        // Fallback: append to a brand new row (shouldn't happen given the scan)
+        const newRow = occupancy.length;
+        markOccupied(newRow, 0, effCSpan, rSpan);
+        placedCells.push({
+          block: blocks[i] as string,
+          span: effCSpan,
+          rowSpan: rSpan,
+          col: 0,
+          row: newRow,
+        });
+      }
+    }
+
+    // Now group placedCells by row. A cell with rowSpan > 1 belongs to its
+    // starting row only — we'll handle multi-row blocks during rendering.
+    const maxRow = occupancy.length;
+    for (let r = 0; r < maxRow; r++) cellRows.push([]);
+    for (const cell of placedCells) {
+      (cellRows[cell.row] as Cell[]).push(cell);
+    }
+  } else if (flow === 'column' && !hasSpans) {
     // Column-major: distribute blocks down the columns.
-    // First compute how many rows we need.
     const rowCount = Math.ceil(blocks.length / columns);
-    // Initialize empty rows
     for (let r = 0; r < rowCount; r++) cellRows.push([]);
-    // Fill column-by-column
     for (let i = 0; i < blocks.length; i++) {
       const c = Math.floor(i / rowCount);
       const r = i % rowCount;
-      (cellRows[r] as Cell[]).push({ block: blocks[i] as string, span: 1, col: c });
+      (cellRows[r] as Cell[]).push({
+        block: blocks[i] as string, span: 1, rowSpan: 1, col: c, row: r,
+      });
     }
   } else {
-    // Row-major (default + forced when colSpan present)
+    // Row-major (default + forced when colSpan present without rowSpan)
     let row: Cell[] = [];
     let colInRow = 0;
+    let rowIdx = 0;
     for (let i = 0; i < blocks.length; i++) {
       const span = spans[i] as number;
       // Wrap if this block won't fit in the remaining row capacity
@@ -660,8 +784,11 @@ export const grid = (blocks: string[], opts: GridOptions): string => {
         cellRows.push(row);
         row = [];
         colInRow = 0;
+        rowIdx++;
       }
-      row.push({ block: blocks[i] as string, span, col: colInRow });
+      row.push({
+        block: blocks[i] as string, span, rowSpan: 1, col: colInRow, row: rowIdx,
+      });
       colInRow += span;
     }
     if (row.length > 0) cellRows.push(row);

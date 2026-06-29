@@ -52,14 +52,29 @@ export interface InlineOptions {
  * Block-level token after parsing the markdown into structural pieces.
  * Tokens contain raw inline text — inline parsing happens at render time.
  *
+ * **v1.4.3**: `list.items` is now `ListItem[]` (recursive). Each item
+ * carries its own text plus an optional `children` sublist. Older code
+ * that treated `items` as `string[]` should access `item.text` per entry.
+ *
  * @since 1.4.0
  */
 export type Block =
   | { type: 'heading'; level: number; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'codeblock'; lang: string; code: string }
-  | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'blockquote'; text: string }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'hr' }
   | { type: 'blank' };
+
+/**
+ * A single list entry. May contain a nested sublist via `children` (a
+ * full `list` Block). Nesting depth is bounded only by indentation.
+ *
+ * @since 1.4.3
+ */
+export interface ListItem {
+  text: string;
+  children?: { ordered: boolean; items: ListItem[] };
+}

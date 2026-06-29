@@ -20,14 +20,15 @@ import { color, gradient } from '../colors/index.js';
 import { ascii } from '../ascii/index.js';
 import { components } from '../components/index.js';
 import { isFiniteNumber } from '../utils/helpers.js';
-import type { MarkdownOptions, InlineOptions } from './types.js';
-import { THEMES } from './theme.js';
+import type { MarkdownOptions, InlineOptions, ListItem } from './types.js';
+import { THEMES, type ThemePalette } from './theme.js';
 import { parseBlocks } from './block-parser.js';
 import { parseInline } from './inline-parser.js';
 
 /** Try to get terminal width; fall back to 80. */
+/* istanbul ignore next — process.stdout.columns is environment-dependent
+   and never deterministic in test runners */
 const _detectWidth = (): number => {
-  /* istanbul ignore next — process.stdout.columns is environment-dependent */
   const w = process.stdout?.columns;
   return isFiniteNumber(w) && w > 10 ? w : 80;
 };
@@ -131,13 +132,8 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
       }
 
       case 'list': {
-        const lines: string[] = [];
-        for (let idx = 0; idx < block.items.length; idx++) {
-          const marker = block.ordered ? `${idx + 1}.` : '•';
-          const rendered = parseInline(block.items[idx] as string, inlineOpts);
-          lines.push(`  ${color.hex(t.h3)(marker)} ${rendered}`);
-        }
-        out.push(lines.join('\n'));
+        // v1.4.3: recursive renderer with depth-based indentation.
+        out.push(_renderList(block, inlineOpts, t, 0));
         break;
       }
 
@@ -172,4 +168,46 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
   while (out.length > 0 && out[out.length - 1] === '') out.pop();
 
   return out.join('\n');
+};
+
+// ─────────────────────────────────────────────
+//  v1.4.3 — Recursive nested list renderer
+// ─────────────────────────────────────────────
+
+/** Indent unit per nesting depth (2 spaces). */
+const _LIST_INDENT = '  ';
+
+/** Bullet rotation per depth: cycles through 4 distinct shapes. */
+const BULLETS: readonly [string, string, string, string] = ['•', '◦', '▪', '▫'];
+
+/**
+ * Recursively render a list and its sublists with depth-aware indentation
+ * and marker rotation. Outer level uses solid markers; deeper levels
+ * cycle through alternating characters so visual grouping is clear.
+ *
+ * @since 1.4.3
+ */
+const _renderList = (
+  block: { ordered: boolean; items: ListItem[] },
+  inlineOpts: InlineOptions,
+  t: ThemePalette,
+  depth: number,
+): string => {
+  const indent = _LIST_INDENT.repeat(depth + 1);
+
+  const lines: string[] = [];
+  for (let idx = 0; idx < block.items.length; idx++) {
+    const item = block.items[idx] as ListItem;
+    // BULLETS has length 4 → `depth % 4` ∈ [0,3] → tuple index always valid.
+    const bulletIdx = (depth % 4) as 0 | 1 | 2 | 3;
+    const marker = block.ordered ? `${idx + 1}.` : BULLETS[bulletIdx];
+    const rendered = parseInline(item.text, inlineOpts);
+    lines.push(`${indent}${color.hex(t.h3)(marker)} ${rendered}`);
+
+    // Recurse into children if present
+    if (item.children && item.children.items.length > 0) {
+      lines.push(_renderList(item.children, inlineOpts, t, depth + 1));
+    }
+  }
+  return lines.join('\n');
 };

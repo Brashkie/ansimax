@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.2'));
+console.log(components.badge('VERSION', 'v1.4.3'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,40 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.3 — Grid rowSpan + escapes markdown + listas anidadas
+
+Release patch con 3 features nuevas significativas:
+
+- 🎯 **`panels.grid` rowSpan** — layouts multi-fila estilo CSS Grid usando algoritmo mark-and-pack
+- ⛓️ **Escapes CommonMark** en markdown: `\*`, `\_`, `\``, `\\`, `\[`, `\]`, `\~`
+- 🌳 **Listas anidadas** en markdown — sublistas recursivas por indentación con bullets por profundidad
+- 🧪 **+27 tests** para todas las features nuevas
+
+```js
+import { panels, markdown } from 'ansimax';
+
+// Layout estilo CSS Grid
+panels.grid([sidebar, top, bottom, side2], {
+  columns: 3,
+  colSpan: [1, 2, 2, 1],
+  rowSpan: [2, 1, 1, 1],
+  cellHeight: 4,
+});
+
+// Escapar caracteres literales de markdown
+markdown.render('Mostrar \\*asteriscos literales\\*');
+
+// Listas anidadas
+markdown.render(`
+- Exterior
+  - Anidado
+    - Profundo
+`);
+```
+
+**Nota**: items de `Block.type === 'list'` ahora son `ListItem[]` (antes `string[]`).
+Solo afecta código externo que use `parseBlocks` directamente; usuarios de `markdown.render` no requieren cambios.
 
 ### v1.4.2 — Consolidación interna v3
 
