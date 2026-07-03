@@ -774,3 +774,149 @@ describe('Nested lists (v1.4.3)', () => {
     expect(stripped).toContain('◦');   // L1
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.4 — Task lists (GFM)
+// ─────────────────────────────────────────────
+
+describe('Task lists (v1.4.4)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('parses unchecked task item ([ ])', () => {
+    const blocks = parseBlocks('- [ ] buy milk');
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.text).toBe('buy milk');
+    expect(list.items[0]?.checked).toBe(false);
+  });
+
+  it('parses checked task item ([x])', () => {
+    const blocks = parseBlocks('- [x] shipped');
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.checked).toBe(true);
+    expect(list.items[0]?.text).toBe('shipped');
+  });
+
+  it('accepts uppercase [X] for checked', () => {
+    const blocks = parseBlocks('- [X] done');
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.checked).toBe(true);
+  });
+
+  it('regular item has checked=undefined', () => {
+    const blocks = parseBlocks('- plain item');
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.checked).toBeUndefined();
+  });
+
+  it('mixed regular and task items in same list', () => {
+    const blocks = parseBlocks('- regular\n- [ ] todo\n- [x] done\n- another regular');
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items.length).toBe(4);
+    expect(list.items[0]?.checked).toBeUndefined();
+    expect(list.items[1]?.checked).toBe(false);
+    expect(list.items[2]?.checked).toBe(true);
+    expect(list.items[3]?.checked).toBeUndefined();
+  });
+
+  it('nested task lists work', () => {
+    const src = '- [ ] outer todo\n  - [x] nested done';
+    const blocks = parseBlocks(src);
+    const list = blocks[0];
+    if (list?.type !== 'list') throw new Error('expected list');
+    expect(list.items[0]?.checked).toBe(false);
+    expect(list.items[0]?.children?.items[0]?.checked).toBe(true);
+  });
+
+  it('renders checkbox for task items', () => {
+    const result = render('- [ ] pending\n- [x] done');
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('[ ]');
+    expect(stripped).toContain('[✓]');
+    expect(stripped).toContain('pending');
+    expect(stripped).toContain('done');
+  });
+
+  it('renders regular bullets when checked is undefined', () => {
+    const result = render('- regular item');
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('•');
+    expect(stripped).toContain('regular item');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.4 — Setext headings
+// ─────────────────────────────────────────────
+
+describe('Setext headings (v1.4.4)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('parses h1 with === underline', () => {
+    const blocks = parseBlocks('Title\n===');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]).toEqual({ type: 'heading', level: 1, text: 'Title' });
+  });
+
+  it('parses h2 with --- underline', () => {
+    const blocks = parseBlocks('Subtitle\n---');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]).toEqual({ type: 'heading', level: 2, text: 'Subtitle' });
+  });
+
+  it('accepts extended underlines (=========, ---------)', () => {
+    const h1 = parseBlocks('X\n=====');
+    const h2 = parseBlocks('X\n-----');
+    expect(h1[0]).toMatchObject({ type: 'heading', level: 1 });
+    expect(h2[0]).toMatchObject({ type: 'heading', level: 2 });
+  });
+
+  it('accepts leading whitespace on underline', () => {
+    const blocks = parseBlocks('Title\n  ===  ');
+    expect(blocks[0]).toMatchObject({ type: 'heading', level: 1 });
+  });
+
+  it('treats standalone --- as HR (not setext)', () => {
+    const blocks = parseBlocks('---');
+    expect(blocks[0]).toEqual({ type: 'hr' });
+  });
+
+  it('treats blank line + --- as blank + HR', () => {
+    const blocks = parseBlocks('\n---');
+    expect(blocks[0]).toEqual({ type: 'blank' });
+    expect(blocks[1]).toEqual({ type: 'hr' });
+  });
+
+  it('treats paragraph + blank + --- as separate (not setext)', () => {
+    // Blank line between → not a setext heading
+    const blocks = parseBlocks('foo\n\n---');
+    expect(blocks.some((b) => b.type === 'paragraph')).toBe(true);
+    expect(blocks.some((b) => b.type === 'hr')).toBe(true);
+  });
+
+  it('does not confuse setext with list markers', () => {
+    // `- item\n---` should be list + hr, not h2 titled '- item'
+    const blocks = parseBlocks('- item\n---');
+    // First is a list
+    expect(blocks[0]?.type).toBe('list');
+  });
+
+  it('renders setext h1 with same visual as ATX h1', () => {
+    const setext = render('Title\n===');
+    const atx = render('# Title');
+    // Same stripped content (text-only comparison)
+    expect(stripAnsi(setext)).toBe(stripAnsi(atx));
+  });
+
+  it('renders setext h2 with same visual as ATX h2', () => {
+    const setext = render('Sub\n---');
+    const atx = render('## Sub');
+    expect(stripAnsi(setext)).toBe(stripAnsi(atx));
+  });
+});

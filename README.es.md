@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.3'));
+console.log(components.badge('VERSION', 'v1.4.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,55 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.4 — Grid areas + task lists + setext headings
+
+Release patch finalizando el roadmap de Fase 4:
+
+- 🎨 **`panels.gridAreas`** — template areas estilo CSS Grid con validación matemática de rectángulos
+- ✅ **Task lists** en markdown: `- [ ]` y `- [x]` (sintaxis GFM)
+- 📄 **Setext headings** en markdown: `text\n===` (h1) y `text\n---` (h2)
+- 🧪 **+27 tests** para todas las features nuevas
+
+```js
+import { panels, markdown, ascii } from 'ansimax';
+
+// CSS Grid template areas
+panels.gridAreas(
+  { header: 'HEAD', sidebar: 'SIDE', main: 'MAIN', footer: 'FOOT' },
+  {
+    areas: [
+      ['header',  'header', 'header'],
+      ['sidebar', 'main',   'main'  ],
+      ['footer',  'footer', 'footer'],
+    ],
+  }
+);
+
+// Task lists renderizan como [ ] / [✓]
+markdown.render(`
+- [ ] pendiente
+- [x] hecho
+- item regular
+`);
+
+// Setext headings funcionan igual que # H1 / ## H2
+markdown.render(`
+Título
+======
+
+Subtítulo
+---------
+`);
+```
+
+Validación de rectángulos detecta áreas no-contiguas al compilar:
+```
+Error: areas: "foo" is not a rectangle — cells at [0,0]..[1,1]
+       have 3 occurrences, expected 4
+```
+
+Drop-in replacement para `1.4.3`.
 
 ### v1.4.3 — Grid rowSpan + escapes markdown + listas anidadas
 

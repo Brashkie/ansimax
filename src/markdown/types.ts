@@ -72,9 +72,15 @@ export type Block =
  * A single list entry. May contain a nested sublist via `children` (a
  * full `list` Block). Nesting depth is bounded only by indentation.
  *
+ * **v1.4.4**: adds optional `checked` for GFM-style task list items.
+ * When set, the item was written as `- [ ]` (false) or `- [x]` (true).
+ * Regular list items leave it `undefined`.
+ *
  * @since 1.4.3
  */
 export interface ListItem {
   text: string;
   children?: { ordered: boolean; items: ListItem[] };
+  /** @since 1.4.4 — GFM task list state; `undefined` for non-task items. */
+  checked?: boolean;
 }

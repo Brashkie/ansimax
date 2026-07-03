@@ -200,9 +200,27 @@ const _renderList = (
     const item = block.items[idx] as ListItem;
     // BULLETS has length 4 → `depth % 4` ∈ [0,3] → tuple index always valid.
     const bulletIdx = (depth % 4) as 0 | 1 | 2 | 3;
-    const marker = block.ordered ? `${idx + 1}.` : BULLETS[bulletIdx];
+
+    // v1.4.4: Task-list items get a checkbox instead of a bullet.
+    // Rendered with a bright color for [x] to signal completion.
+    let marker: string;
+    if (item.checked === true) {
+      marker = color.hex(t.h4)('[✓]');   // green-ish "done"
+    } else if (item.checked === false) {
+      marker = color.hex(t.blockquote)('[ ]');   // dim "pending"
+    } else if (block.ordered) {
+      marker = `${idx + 1}.`;
+    } else {
+      marker = BULLETS[bulletIdx];
+    }
+
     const rendered = parseInline(item.text, inlineOpts);
-    lines.push(`${indent}${color.hex(t.h3)(marker)} ${rendered}`);
+    // Non-task items get the theme color on the marker; task items
+    // already have their color baked in from above.
+    const styledMarker = item.checked === undefined
+      ? color.hex(t.h3)(marker)
+      : marker;
+    lines.push(`${indent}${styledMarker} ${rendered}`);
 
     // Recurse into children if present
     if (item.children && item.children.items.length > 0) {

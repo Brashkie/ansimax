@@ -99,8 +99,9 @@ export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, R
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
 // v1.3.1 — panels.center + panels.frame, json sortKeys + inline arrays
 // v1.3.3 — panels.grid + ascii.box title/titleAlign + ascii.divider align
-export { panels, vsplit, hsplit, center as centerBlock, frame, grid } from './panels/index.js';
-export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions } from './panels/index.js';
+// v1.4.4 — panels.gridAreas + AreaRect
+export { panels, vsplit, hsplit, center as centerBlock, frame, grid, gridAreas } from './panels/index.js';
+export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions, GridAreasOptions, AreaRect } from './panels/index.js';
 
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';

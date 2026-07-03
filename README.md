@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -478,7 +478,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.3'));
+console.log(components.badge('VERSION', 'v1.4.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1064,6 +1064,55 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.4 — Grid areas + task lists + setext headings
+
+Patch release finishing the Phase 4 roadmap:
+
+- 🎨 **`panels.gridAreas`** — CSS Grid-style template areas with rectangle validation
+- ✅ **Task lists** in markdown: `- [ ]` and `- [x]` (GFM syntax)
+- 📄 **Setext headings** in markdown: `text\n===` (h1) and `text\n---` (h2)
+- 🧪 **+27 tests** for all new features
+
+```js
+import { panels, markdown, ascii } from 'ansimax';
+
+// CSS Grid template areas
+panels.gridAreas(
+  { header: 'HEAD', sidebar: 'SIDE', main: 'MAIN', footer: 'FOOT' },
+  {
+    areas: [
+      ['header',  'header', 'header'],
+      ['sidebar', 'main',   'main'  ],
+      ['footer',  'footer', 'footer'],
+    ],
+  }
+);
+
+// Task lists render as [ ] / [✓]
+markdown.render(`
+- [ ] pending
+- [x] done
+- regular item
+`);
+
+// Setext headings work identically to # H1 / ## H2
+markdown.render(`
+Title
+=====
+
+Subtitle
+--------
+`);
+```
+
+Rectangle validation catches non-contiguous areas at compile time:
+```
+Error: areas: "foo" is not a rectangle — cells at [0,0]..[1,1]
+       have 3 occurrences, expected 4
+```
+
+Drop-in replacement for `1.4.3`.
 
 ### v1.4.3 — Grid rowSpan + markdown escapes + nested lists
 

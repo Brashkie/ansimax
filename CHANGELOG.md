@@ -3,6 +3,158 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.4] — Grid areas + task lists + setext headings
+
+Patch release finishing the roadmap planned in v1.4.3. Four features
+that build on top of the v1.4.3 foundation:
+
+### Added — `panels.gridAreas` (CSS Grid template areas)
+
+Symbolic layouts using a matrix of names — the same mental model as
+CSS `grid-template-areas`:
+
+```js
+import { panels, ascii } from 'ansimax';
+
+console.log(panels.gridAreas(
+  {
+    header:  ascii.box('HEADER'),
+    sidebar: ascii.box('SIDE'),
+    main:    ascii.box('MAIN CONTENT'),
+    footer:  ascii.box('FOOTER'),
+  },
+  {
+    areas: [
+      ['header',  'header', 'header'],
+      ['sidebar', 'main',   'main'  ],
+      ['footer',  'footer', 'footer'],
+    ],
+    cellHeight: 3,
+  },
+));
+```
+
+Use `'.'` for gap cells:
+
+```js
+areas: [
+  ['a', '.', 'b'],
+  ['a', '.', 'b'],
+]
+```
+
+**Rectangle validation** — every name must form a contiguous rectangle.
+Non-rectangular layouts throw with a helpful message:
+
+```
+Error: areas: "foo" is not a rectangle — cells at [0,0]..[1,1]
+       have 3 occurrences, expected 4
+```
+
+**Overlap detection** — same-name cells inside a bounding box are
+verified; other names inside violate the constraint:
+
+```
+Error: areas: "a" overlaps or is interrupted by "b" at [1,1]
+```
+
+**Algorithm**: For each unique name, compute the bounding box
+`[minR,minC]..[maxR,maxC]`. Then verify:
+1. Occurrence count equals `rowSpan × colSpan` (rectangle-fill check)
+2. Every cell in the bounding box holds the same name (overlap check)
+
+Complexity: `O(rows × cols × names)`.
+
+Internally, `gridAreas` derives `colSpan`/`rowSpan` per rect and delegates
+to `panels.grid` with the mark-and-pack algorithm from v1.4.3.
+
+### Added — Task lists (GFM syntax)
+
+GitHub-flavored `- [ ]` and `- [x]` task items are now recognized:
+
+```js
+markdown.render(`
+- [ ] pending task
+- [x] completed task
+- [X] uppercase X also works
+- regular non-task item
+`);
+```
+
+Rendered output uses `[ ]` for pending (dim) and `[✓]` for done (green).
+
+The `Block.type === 'list'` items now carry an optional `checked?: boolean`:
+- `undefined` — regular item (no task syntax)
+- `false` — pending (`[ ]`)
+- `true` — done (`[x]` or `[X]`)
+
+Works with nesting from v1.4.3:
+
+```markdown
+- [ ] Outer task
+  - [x] Nested subtask
+  - [ ] Another subtask
+```
+
+### Added — Setext headings
+
+Alternative CommonMark heading syntax with underlines:
+
+```markdown
+Title
+=====
+
+Subtitle
+--------
+```
+
+- `===` (2+ chars) → `h1`
+- `---` (2+ chars) → `h2`
+
+Priority is handled correctly:
+- `Title\n===` → h1 heading
+- `---` alone → HR (unchanged)
+- `\n---` → blank + HR (unchanged)
+- `foo\n\n---` → paragraph + HR (blank line breaks the pair)
+- `- item\n---` → list + HR (list takes priority over paragraph)
+
+Renders identically to the equivalent ATX syntax (`# Title` / `## Sub`).
+
+### Improved — Tests
+
+- `+7` tests for `_validateAreas` rectangle detection (valid, gaps, L-shape rejection, interrupted, empty, uneven rows, zero-width)
+- `+4` tests for `gridAreas` rendering (simple layout, missing name defensive, invalid throws)
+- `+8` tests for task lists (pending, done, uppercase, mixed, nested, rendering)
+- `+8` tests for setext headings (h1, h2, extended underlines, whitespace, HR-standalone, blank+HR, blank-between, list priority, render match)
+
+Total: **+27 tests**.
+
+### Notes
+
+- **No breaking changes** — new exports (`gridAreas`, `GridAreasOptions`,
+  `AreaRect`), new optional `checked?` on `ListItem`
+- `panels.gridAreas` internally delegates to `panels.grid` → same
+  packing behavior as v1.4.3
+- Task list rendering respects theme colors
+- Setext heading detection has correct CommonMark priority vs HR
+
+### Roadmap
+
+Phase 4 features from the original v1.4.0 roadmap are now complete:
+
+- ✅ v1.4.0 — Markdown module (Phase 4 closure)
+- ✅ v1.4.1 — Grid v2 (colSpan, cellHeight, flow) + markdown refactor
+- ✅ v1.4.2 — Internal consolidation v3
+- ✅ v1.4.3 — Grid rowSpan (mark-and-pack) + CommonMark escapes + nested lists
+- ✅ v1.4.4 — Grid areas + task lists + setext headings
+
+Next up (v1.4.5+):
+- Syntax highlighting for code blocks (basic JS/TS/JSON/Bash)
+- CommonMark strict mode (reference links, autolinks, footnotes)
+- Custom markdown theme registry
+
+---
+
 ## [1.4.3] — Grid rowSpan + markdown escapes + nested lists
 
 Patch release adding **3 substantial features** across grid layouts and

@@ -841,3 +841,26 @@ describe('barrel coverage — v1.3.5 re-exports', () => {
     expect(main.resolveEasingByName('linear')).toBe(main.easings.linear);
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel re-exports for v1.4.4
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — v1.4.4 re-exports', () => {
+  it('gridAreas is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.gridAreas).toBe('function');
+    // Smoke: minimal valid input
+    const result = main.gridAreas(
+      { a: 'A' },
+      { areas: [['a']] },
+    );
+    expect(result).toContain('A');
+  });
+
+  it('gridAreas is also accessible on the panels namespace', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.panels.gridAreas).toBe('function');
+    expect(main.panels.gridAreas).toBe(main.gridAreas);
+  });
+});

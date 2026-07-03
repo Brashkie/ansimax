@@ -865,3 +865,130 @@ describe('grid — v1.4.3 rowSpan', () => {
     expect(result).toContain('X');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.4 — gridAreas (CSS grid-template-areas)
+// ─────────────────────────────────────────────
+
+import { gridAreas, _validateAreas } from '../panels/index.js';
+
+describe('_validateAreas — rectangle detection (v1.4.4)', () => {
+  it('detects a simple valid layout', () => {
+    const rects = _validateAreas([
+      ['h', 'h', 'h'],
+      ['s', 'm', 'm'],
+      ['f', 'f', 'f'],
+    ]);
+    expect(rects.length).toBe(4);
+    const h = rects.find((r) => r.name === 'h');
+    expect(h).toMatchObject({ row: 0, col: 0, colSpan: 3, rowSpan: 1 });
+    const m = rects.find((r) => r.name === 'm');
+    expect(m).toMatchObject({ row: 1, col: 1, colSpan: 2, rowSpan: 1 });
+  });
+
+  it('detects gaps (.) and ignores them', () => {
+    const rects = _validateAreas([
+      ['a', '.', 'b'],
+      ['a', '.', 'b'],
+    ]);
+    expect(rects.length).toBe(2);
+    const a = rects.find((r) => r.name === 'a');
+    expect(a).toMatchObject({ rowSpan: 2, colSpan: 1 });
+  });
+
+  it('rejects non-rectangular (L-shape) areas', () => {
+    expect(() => _validateAreas([
+      ['x', 'x', '.'],
+      ['x', '.', '.'],
+    ])).toThrow(/not a rectangle/);
+  });
+
+  it('rejects interrupted rectangles', () => {
+    expect(() => _validateAreas([
+      ['a', 'a', 'a'],
+      ['a', 'b', 'a'],   // 'a' bounding box includes cell [1,1]='b'
+      ['a', 'a', 'a'],
+    ])).toThrow(/overlaps|not a rectangle/);
+  });
+
+  it('rejects empty input', () => {
+    expect(() => _validateAreas([])).toThrow(/non-empty/);
+    // @ts-expect-error testing defensive input
+    expect(() => _validateAreas(null)).toThrow(/non-empty/);
+  });
+
+  it('rejects rows of unequal width', () => {
+    expect(() => _validateAreas([
+      ['a', 'a'],
+      ['b'],
+    ])).toThrow(/expected 2/);
+  });
+
+  it('rejects zero-width rows', () => {
+    expect(() => _validateAreas([[]])).toThrow(/at least one column/);
+  });
+});
+
+describe('gridAreas (v1.4.4)', () => {
+  it('renders a simple 3-row layout', () => {
+    const result = gridAreas(
+      {
+        header: 'HEADER',
+        sidebar: 'SIDE',
+        main: 'MAIN',
+        footer: 'FOOTER',
+      },
+      {
+        areas: [
+          ['header', 'header', 'header'],
+          ['sidebar', 'main', 'main'],
+          ['footer', 'footer', 'footer'],
+        ],
+        cellHeight: 1,
+      },
+    );
+    const lines = result.split('\n');
+    expect(lines[0]).toContain('HEADER');
+    // Row 1 has sidebar and main
+    expect(lines[1]).toContain('SIDE');
+    expect(lines[1]).toContain('MAIN');
+    // Row 2 has footer
+    expect(lines[2]).toContain('FOOTER');
+  });
+
+  it('replaces missing area name with empty block', () => {
+    // 'sidebar' not provided → renders as ''
+    const result = gridAreas(
+      { header: 'HEAD', main: 'MAIN' },
+      {
+        areas: [
+          ['header', 'header'],
+          ['sidebar', 'main'],
+        ],
+        cellHeight: 1,
+      },
+    );
+    expect(result).toContain('HEAD');
+    expect(result).toContain('MAIN');
+    expect(result).not.toContain('undefined');
+  });
+
+  it('returns empty for missing areas option', () => {
+    // @ts-expect-error testing defensive
+    expect(gridAreas({}, {})).toBe('');
+    // @ts-expect-error testing defensive
+    expect(gridAreas({}, undefined)).toBe('');
+  });
+
+  it('throws with a helpful message on invalid layout', () => {
+    expect(() => gridAreas(
+      { x: 'X' },
+      {
+        areas: [
+          ['x', 'x', '.'],
+          ['x', '.', '.'],
+        ],
+      },
+    )).toThrow(/not a rectangle/);
+  });
+});

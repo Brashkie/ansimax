@@ -19,6 +19,9 @@ import type { Block, ListItem } from './types.js';
 // ─────────────────────────────────────────────
 
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+// v1.4.4 — Setext heading underlines
+const SETEXT_H1_RE = /^[ \t]*={2,}[ \t]*$/;
+const SETEXT_H2_RE = /^[ \t]*-{2,}[ \t]*$/;
 const ORDERED_LIST_RE = /^(\s*)(\d+)[.)]\s+(.+)$/;
 const UNORDERED_LIST_RE = /^(\s*)[-*+]\s+(.+)$/;
 const HR_RE = /^[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$/;
@@ -75,6 +78,32 @@ export const parseBlocks = (source: string): Block[] => {
       continue;
     }
 
+    // ── v1.4.4: Setext headings (text underlined by === or ---) ──
+    // A setext heading requires:
+    //   1. Current line has text content
+    //   2. Next line is only `===` (h1) or `---` (h2)
+    //   3. Current line is not another block type (heading, list, code, etc.)
+    // Note: `---` may look like an HR; we check setext FIRST because the
+    // heading interpretation is more specific.
+    if (i + 1 < lines.length && !HEADING_RE.test(line)
+        && !UNORDERED_LIST_RE.test(line)
+        && !ORDERED_LIST_RE.test(line)
+        && !CODEBLOCK_OPEN_RE.test(line)
+        && !BLOCKQUOTE_RE.test(line)
+        && !TABLE_ROW_RE.test(line)) {
+      const nextLine = lines[i + 1] as string;
+      if (SETEXT_H1_RE.test(nextLine)) {
+        out.push({ type: 'heading', level: 1, text: line.trim() });
+        i += 2;
+        continue;
+      }
+      if (SETEXT_H2_RE.test(nextLine)) {
+        out.push({ type: 'heading', level: 2, text: line.trim() });
+        i += 2;
+        continue;
+      }
+    }
+
     // ── Horizontal rule ──
     if (HR_RE.test(line)) {
       out.push({ type: 'hr' });
@@ -82,7 +111,7 @@ export const parseBlocks = (source: string): Block[] => {
       continue;
     }
 
-    // ── Heading ──
+    // ── Heading (ATX: `#` prefix) ──
     const headingMatch = HEADING_RE.exec(line);
     if (headingMatch) {
       const level = (headingMatch[1] as string).length;
@@ -238,8 +267,8 @@ const _parseListAt = (
     // Same indent: must match the outer list's ordering
     if (indent === baseIndent) {
       if (ordered !== isOrderedHere) break;
-      const text = ((o?.[3] ?? u?.[2]) as string).trim();
-      items.push({ text });
+      const rawText = ((o?.[3] ?? u?.[2]) as string).trim();
+      items.push(_makeItem(rawText));
       i++;
       continue;
     }
@@ -253,8 +282,8 @@ const _parseListAt = (
        defensive code for direct callers that may seed mid-list. */
     if (items.length === 0) {
       // Defensive: orphan indented item with no parent — treat as same-level
-      const text = ((o?.[3] ?? u?.[2]) as string).trim();
-      items.push({ text });
+      const rawText = ((o?.[3] ?? u?.[2]) as string).trim();
+      items.push(_makeItem(rawText));
       i++;
       continue;
     }
@@ -266,4 +295,37 @@ const _parseListAt = (
   }
 
   return { items, nextIndex: i };
+};
+
+// ─────────────────────────────────────────────
+//  v1.4.4 — Task list detection (GFM)
+// ─────────────────────────────────────────────
+
+/** Matches a task list prefix: `[ ]`, `[x]`, or `[X]` followed by space. */
+const TASK_RE = /^\[([ xX])\]\s+(.*)$/;
+
+/**
+ * Convert raw list item text into a `ListItem`. Detects GFM task-list
+ * prefix (`[ ]` or `[x]`) and strips it from the visible text, setting
+ * `checked` accordingly.
+ *
+ * @example
+ * ```ts
+ * _makeItem('[ ] buy milk')      // → { text: 'buy milk', checked: false }
+ * _makeItem('[x] shipped')       // → { text: 'shipped', checked: true }
+ * _makeItem('regular item')      // → { text: 'regular item' }
+ * ```
+ *
+ * @since 1.4.4
+ */
+const _makeItem = (rawText: string): ListItem => {
+  const m = TASK_RE.exec(rawText);
+  if (m) {
+    const state = m[1] as string;
+    return {
+      text: (m[2] as string).trim(),
+      checked: state === 'x' || state === 'X',
+    };
+  }
+  return { text: rawText };
 };
