@@ -992,3 +992,60 @@ describe('gridAreas (v1.4.4)', () => {
     )).toThrow(/not a rectangle/);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.5 — Panels refactor verification
+// ─────────────────────────────────────────────
+
+describe('v1.4.5 — panels refactor (file split)', () => {
+  it('can import vsplit from split submodule directly', async () => {
+    const mod = await import('../panels/split.js');
+    expect(typeof mod.vsplit).toBe('function');
+    expect(typeof mod.hsplit).toBe('function');
+  });
+
+  it('can import center + frame from layout submodule directly', async () => {
+    const mod = await import('../panels/layout.js');
+    expect(typeof mod.center).toBe('function');
+    expect(typeof mod.frame).toBe('function');
+  });
+
+  it('can import grid from grid submodule directly', async () => {
+    const mod = await import('../panels/grid.js');
+    expect(typeof mod.grid).toBe('function');
+  });
+
+  it('can import gridAreas + _validateAreas from grid-areas submodule directly', async () => {
+    const mod = await import('../panels/grid-areas.js');
+    expect(typeof mod.gridAreas).toBe('function');
+    expect(typeof mod._validateAreas).toBe('function');
+  });
+
+  it('helpers submodule exposes internal utilities', async () => {
+    const mod = await import('../panels/helpers.js');
+    expect(typeof mod._splitBlock).toBe('function');
+    expect(typeof mod._fitHeight).toBe('function');
+    expect(typeof mod._padLinesAligned).toBe('function');
+    expect(typeof mod._alignVertical).toBe('function');
+  });
+
+  it('types submodule exports GridCell (internal)', async () => {
+    const mod = await import('../panels/types.js');
+    expect(mod).toBeDefined();
+  });
+
+  it('all functions from submodules match barrel exports', async () => {
+    const barrel = await import('../panels/index.js');
+    const split = await import('../panels/split.js');
+    const layout = await import('../panels/layout.js');
+    const gridMod = await import('../panels/grid.js');
+    const areasMod = await import('../panels/grid-areas.js');
+
+    expect(barrel.vsplit).toBe(split.vsplit);
+    expect(barrel.hsplit).toBe(split.hsplit);
+    expect(barrel.center).toBe(layout.center);
+    expect(barrel.frame).toBe(layout.frame);
+    expect(barrel.grid).toBe(gridMod.grid);
+    expect(barrel.gridAreas).toBe(areasMod.gridAreas);
+  });
+});

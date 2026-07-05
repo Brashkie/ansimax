@@ -9,12 +9,16 @@
 //    - inline-parser.ts  ← parseInline
 //    - renderer.ts       ← render
 //
+//  v1.4.5 — Added syntax highlighting module:
+//    - syntax.ts         ← highlight, tokenize, isHighlightSupported
+//
 //  This file re-exports everything that was public before, so external
-//  imports are 100% backward-compatible with v1.4.0.
+//  imports are 100% backward-compatible with v1.4.4.
 // ─────────────────────────────────────────────
 
 // Public types
-export type { MarkdownTheme, MarkdownOptions, InlineOptions, Block } from './types.js';
+export type { MarkdownTheme, MarkdownOptions, InlineOptions, Block, ListItem } from './types.js';
+export type { TokenKind, Token } from './syntax.js';
 
 // Parsing
 export { parseBlocks } from './block-parser.js';
@@ -23,6 +27,9 @@ export { parseInline } from './inline-parser.js';
 // Rendering
 export { render } from './renderer.js';
 
+// v1.4.5 — Syntax highlighting
+export { highlight, tokenize, isHighlightSupported } from './syntax.js';
+
 // ─────────────────────────────────────────────
 //  Namespace (used by the main ansimax barrel + default export)
 // ─────────────────────────────────────────────
@@ -30,6 +37,7 @@ export { render } from './renderer.js';
 import { parseBlocks as _parseBlocks } from './block-parser.js';
 import { parseInline as _parseInline } from './inline-parser.js';
 import { render as _render } from './renderer.js';
+import { highlight as _highlight, tokenize as _tokenize, isHighlightSupported as _isSup } from './syntax.js';
 
 /**
  * Markdown → terminal renderer. Use `markdown.render(source, opts?)` to
@@ -39,12 +47,19 @@ import { render as _render } from './renderer.js';
  * Lower-level helpers `parseBlocks` and `parseInline` are also exposed
  * for advanced use cases (custom block handlers, partial rendering).
  *
+ * v1.4.5 — Adds syntax highlighting for code blocks via `highlight`,
+ * `tokenize`, and `isHighlightSupported`.
+ *
  * @since 1.4.0
  */
 export const markdown = {
   render: _render,
   parseBlocks: _parseBlocks,
   parseInline: _parseInline,
+  // v1.4.5
+  highlight: _highlight,
+  tokenize: _tokenize,
+  isHighlightSupported: _isSup,
 };
 
 export default markdown;

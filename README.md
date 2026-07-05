@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -103,6 +103,9 @@ Ansimax replaces a stack of popular Node.js libraries with **one coherent, typed
 | **Trees with cycle detection** | — | — | — | — | — | — | — | — | ✅ |
 | **Split layouts (vsplit/hsplit)** | — | — | — | — | — | — | — | — | ✅ (v1.3.0) |
 | **JSON colored pretty-printer** | — | — | — | — | — | — | — | — | ✅ (v1.3.0) |
+| **CSS Grid (colSpan/rowSpan/areas)** | — | — | — | — | — | — | — | — | ✅ (v1.4.1–v1.4.4) |
+| **Markdown → terminal renderer** | — | — | — | — | — | — | — | — | ✅ (v1.4.0–v1.4.4) |
+| **Syntax highlighting (js/ts/json/bash)** | — | — | — | — | — | — | — | — | ✅ (v1.4.5) |
 | **Pixel art + canvas + sprites** | — | — | — | — | — | — | — | — | ✅ |
 | **Theme system + per-instance isolation** | — | — | — | — | — | — | — | — | ✅ |
 | `AbortSignal` everywhere | — | — | partial | — | — | — | partial | — | ✅ |
@@ -478,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.4'));
+console.log(components.badge('VERSION', 'v1.4.5'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -895,10 +898,10 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Trees (collapsible, max-depth, cycle-safe)
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
 - [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
-- [ ] **Layouts** (flexbox-style positioning)
-- [ ] **Grid system** (CSS Grid-inspired column/row spans)
-- [ ] **Markdown rendering** (headings, lists, code blocks, tables)
-- [ ] **Syntax highlighting** (built-in language grammars)
+- [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
+- [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes (v1.4.0–v1.4.4)
+- [x] **Syntax highlighting** — built-in grammars for JS/TS/JSON/Bash with aliases (v1.4.5)
+- [ ] **Layouts** (flexbox-style positioning — `grid`/`gridAreas` cover the CSS-Grid side; flexbox-style flow still pending)
 - [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
 
 ### ✅ Phase 5 — Cursor & screen control
@@ -1065,6 +1068,41 @@ ansimax/
 
 ## 📝 Changelog
 
+### v1.4.5 — Panels refactor + syntax highlighting
+
+Two big improvements, zero breaking changes:
+
+- 🎨 **Syntax highlighting** for code blocks (js/ts/json/bash with aliases)
+- 📁 **Panels module refactored** from 1116-line monolith → 7 focused submodules
+- 🧩 **`grid` decomposed** into 3 pure phases (resolve → pack → render)
+- ➕ **3 new exports**: `highlightCode`, `tokenizeCode`, `isHighlightSupported`
+- 🧪 **+50 tests**
+
+```js
+import { markdown } from 'ansimax';
+
+console.log(markdown.render(`
+\`\`\`js
+const greet = (name) => \`Hello, \${name}!\`;
+\`\`\`
+`));
+// Renders with keyword highlighting (const), string coloring, etc.
+```
+
+Supported languages: **js/javascript/jsx**, **ts/typescript/tsx**, **json**, **bash/sh/shell/zsh**.
+
+Direct API:
+
+```js
+import { highlightCode, tokenizeCode, isHighlightSupported } from 'ansimax';
+
+highlightCode('const x = 42;', 'js');    // ANSI-colored string
+tokenizeCode('const x = 42;', 'js');     // [{ kind, text }, ...]
+isHighlightSupported('rust');            // false
+```
+
+Drop-in replacement for `1.4.4`.
+
 ### v1.4.4 — Grid areas + task lists + setext headings
 
 Patch release finishing the Phase 4 roadmap:
@@ -1223,7 +1261,7 @@ const x = 42;
 `));
 ```
 
-Phase 4 is now complete. v1.4.x will refine markdown (CommonMark strict, syntax highlighting, nested lists).
+Phase 4 is now complete. Later v1.4.x refinements: nested lists + task lists (v1.4.3–v1.4.4) ✅, syntax highlighting (v1.4.5) ✅. Still pending: CommonMark strict (autolinks, reference links, footnotes).
 
 ### v1.3.7 — Internal consolidation + clamp helpers
 

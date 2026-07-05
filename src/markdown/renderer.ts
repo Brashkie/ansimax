@@ -24,6 +24,7 @@ import type { MarkdownOptions, InlineOptions, ListItem } from './types.js';
 import { THEMES, type ThemePalette } from './theme.js';
 import { parseBlocks } from './block-parser.js';
 import { parseInline } from './inline-parser.js';
+import { highlight, isHighlightSupported } from './syntax.js';
 
 /** Try to get terminal width; fall back to 80. */
 /* istanbul ignore next — process.stdout.columns is environment-dependent
@@ -113,8 +114,14 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
       }
 
       case 'codeblock': {
-        // We deliberately do NOT process inline markup inside code blocks.
-        const codeText = block.code.length > 0 ? block.code : ' ';
+        // v1.4.5: apply syntax highlighting if language is supported.
+        // Highlighting happens BEFORE ascii.box wraps it, so ANSI escapes
+        // for tokens live inside the box border.
+        const rawCode = block.code.length > 0 ? block.code : ' ';
+        const codeText = block.lang && isHighlightSupported(block.lang)
+          ? highlight(rawCode, block.lang, theme)
+          : rawCode;
+
         if (boxCodeBlocks) {
           const labeled = block.lang ? ` ${block.lang} ` : null;
           const box = ascii.box(codeText, {
@@ -124,9 +131,12 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
           });
           out.push(color.hex(t.codeBlockBorder)(box));
         } else {
-          // Indented dim variant
+          // Indented variant — no border tinting, but keep highlight colors
           const indented = codeText.split('\n').map((l) => '    ' + l).join('\n');
-          out.push(color.dim(indented));
+          // Only dim when NOT highlighted (dim would wash out our token colors)
+          out.push(block.lang && isHighlightSupported(block.lang)
+            ? indented
+            : color.dim(indented));
         }
         break;
       }

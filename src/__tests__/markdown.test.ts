@@ -920,3 +920,69 @@ describe('Setext headings (v1.4.4)', () => {
     expect(stripAnsi(setext)).toBe(stripAnsi(atx));
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.5 — Syntax highlighting in code blocks
+// ─────────────────────────────────────────────
+
+describe('markdown.render with syntax highlighting (v1.4.5)', () => {
+  beforeEach(() => {
+    setNoColor(false);
+    process.env.FORCE_COLOR = '3';
+    resetColorSupportCache();
+    clearColorCache();
+  });
+  afterEach(() => {
+    resetNoColor();
+    delete process.env.FORCE_COLOR;
+    resetColorSupportCache();
+    clearColorCache();
+  });
+
+  it('highlights js code block content', () => {
+    const src = '```js\nconst x = 42;\n```';
+    const result = render(src);
+    // Stripped should preserve the code
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('const x = 42;');
+    // Should contain bold ANSI for the 'const' keyword
+    expect(result).toContain('\x1b[1m');
+  });
+
+  it('does not highlight when language is unsupported', () => {
+    const src = '```rust\nfn main() { }\n```';
+    const result = render(src);
+    // Should contain the raw code
+    expect(stripAnsi(result)).toContain('fn main() { }');
+  });
+
+  it('does not highlight when language is missing', () => {
+    const src = '```\nplain text\n```';
+    const result = render(src);
+    expect(stripAnsi(result)).toContain('plain text');
+  });
+
+  it('highlights json code block', () => {
+    const src = '```json\n{"name": "x"}\n```';
+    const result = render(src);
+    expect(stripAnsi(result)).toContain('{"name": "x"}');
+    // JSON has strings colored
+    expect(result).toMatch(/\x1b\[/);
+  });
+
+  it('highlights bash code block', () => {
+    const src = '```bash\n# comment\necho hi\n```';
+    const result = render(src);
+    expect(stripAnsi(result)).toContain('# comment');
+    expect(stripAnsi(result)).toContain('echo hi');
+  });
+
+  it('works with boxCodeBlocks=false (indented mode)', () => {
+    const src = '```js\nconst x = 1;\n```';
+    const result = render(src, { boxCodeBlocks: false });
+    // Indented mode: 4 spaces prefix
+    expect(stripAnsi(result)).toContain('    const x = 1;');
+    // Highlighting still applied (bold for const)
+    expect(result).toContain('\x1b[1m');
+  });
+});

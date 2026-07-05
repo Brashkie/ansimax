@@ -3,6 +3,157 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.5] — Panels refactor + syntax highlighting
+
+Two substantial improvements. Both **fully backward-compatible**:
+
+### Improved — `panels` module refactored (1116 → 993 lines, 7 files)
+
+Following the same pattern as v1.4.1 for markdown, the monolithic
+`src/panels/index.ts` splits into 7 focused files:
+
+```
+src/panels/
+├── types.ts        (127 lines)  ← public types (Alignment, Options, GridCell)
+├── helpers.ts      (101 lines)  ← internal string manipulation
+├── split.ts        (110 lines)  ← vsplit + hsplit
+├── layout.ts       (128 lines)  ← center + frame
+├── grid.ts         (322 lines)  ← grid (3-phase algorithm)
+├── grid-areas.ts   (145 lines)  ← gridAreas + _validateAreas
+└── index.ts        (60 lines)   ← barrel + panels namespace
+```
+
+**The 250-line `grid` monolith is decomposed into 3 pure phases**:
+
+```typescript
+export const grid = (blocks, opts) => {
+  // Phase 1: resolve + validate options
+  const resolved = _resolveOptions(blocks, opts);
+
+  // Phase 2: pack blocks into rows (mark-and-pack, column, or row flow)
+  const cellRows = _packCells(blocks, resolved);
+
+  // Phase 3: compute widths + render
+  const widths = _computeWidths(cellRows, resolved);
+  const renderedRows = cellRows.map(row => _renderRow(row, widths, resolved));
+
+  return hsplit(renderedRows, { gap: resolved.gapY, align: resolved.alignX });
+};
+```
+
+Each phase is a pure function testable in isolation:
+- `_resolveOptions`: normalizes options + pre-computes `hasSpans` flags
+- `_packCells`: dispatches to `_packMarkAndFill`, `_packColumnFlow`, or `_packRowFlow`
+- `_computeWidths` + `_renderRow`: independent width calculation and row rendering
+
+**Zero API changes** — the barrel re-exports everything that was public before.
+
+### Added — Syntax highlighting for code blocks
+
+Basic tokenizer + colorizer for 4 languages:
+
+```js
+import { markdown } from 'ansimax';
+
+console.log(markdown.render(`
+\`\`\`js
+const greet = (name) => {
+  // wave to the world
+  return \`Hello, \${name}!\`;
+};
+\`\`\`
+
+\`\`\`json
+{
+  "name": "ansimax",
+  "version": "1.4.5"
+}
+\`\`\`
+
+\`\`\`bash
+# deploy the app
+export NODE_ENV=production
+echo "Deploying \${NODE_ENV}"
+\`\`\`
+`));
+```
+
+**Supported languages** (with aliases):
+- **JavaScript** — `js`, `javascript`, `jsx`
+- **TypeScript** — `ts`, `typescript`, `tsx`
+- **JSON** — `json`
+- **Bash** — `bash`, `sh`, `shell`, `zsh`
+
+Unknown languages fall back to the plain (uncolored) code block — no
+errors, just no highlighting.
+
+**Token classes**: `keyword`, `string`, `number`, `comment`, `operator`,
+`punctuation`, `boolean`, `null`, `property`, `plain`.
+
+**Public API** (3 new functions + 2 types):
+
+```js
+import { highlightCode, tokenizeCode, isHighlightSupported } from 'ansimax';
+
+// Direct highlighting
+highlightCode('const x = 42;', 'js', 'dark');
+//   → 'const x = 42;' with ANSI escapes for each token
+
+// Access individual tokens (for custom rendering)
+tokenizeCode('const x = 42;', 'js');
+//   → [{ kind: 'keyword', text: 'const' }, ...]
+
+// Check support before highlighting
+isHighlightSupported('rust');   // false
+isHighlightSupported('js');     // true
+```
+
+Also accessible on the `markdown` namespace as
+`markdown.highlight()`, `markdown.tokenize()`, `markdown.isHighlightSupported()`.
+
+**Design constraints** (intentionally simple):
+- Zero external dependencies
+- Regex-based tokenizer (no full parser)
+- Preserve original text length + newlines exactly (round-trippable)
+- ANSI codes wrap each individual token
+
+For advanced highlighting needs (nested syntax, dozens of languages,
+TextMate grammars), stick with `shiki` or similar. This module targets
+CLI tools that want reasonable highlighting for the most common
+languages without pulling in megabytes of dependencies.
+
+### Improved — Tests
+
+- `+7` panels refactor tests (submodule direct imports, barrel identity)
+- `+35` syntax tokenizer tests across all 4 languages + fallbacks
+- `+6` markdown integration tests (highlighting inside code blocks)
+- `+2` barrel re-export tests
+
+Total: **+50 tests**.
+
+### Notes
+
+- **Zero API changes** — all existing v1.4.4 code paths work unchanged
+- **Zero dependencies added**
+- Round-trip guarantee: `tokenize(x, lang).map(t => t.text).join('') === x`
+- Highlighting is applied only when the code fence includes a supported language tag
+- The tokenizer's grammar rules use sticky regex (`y` flag) for O(n) tokenization
+
+### Roadmap
+
+Progress on the post-Phase-4 items listed in v1.4.4:
+
+- ✅ v1.4.5 — Syntax highlighting for code blocks (JS/TS/JSON/Bash) — **done**
+- ⏳ CommonMark strict mode (reference links, autolinks, footnotes) — pending
+- ⏳ Custom markdown theme registry — pending
+
+Possible directions for v1.4.6+:
+- Autolinks (`<https://…>` and bare URLs) — smaller, self-contained
+- More highlighter languages (python, yaml, css) — additive to `_grammars`
+- Reference-style links (`[label][ref]` + `[ref]: url`)
+
+---
+
 ## [1.4.4] — Grid areas + task lists + setext headings
 
 Patch release finishing the roadmap planned in v1.4.3. Four features
