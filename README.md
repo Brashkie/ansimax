@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.5'));
+console.log(components.badge('VERSION', 'v1.4.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -899,7 +899,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
 - [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
 - [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
-- [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes (v1.4.0–v1.4.4)
+- [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks (v1.4.0–v1.4.6)
 - [x] **Syntax highlighting** — built-in grammars for JS/TS/JSON/Bash with aliases (v1.4.5)
 - [ ] **Layouts** (flexbox-style positioning — `grid`/`gridAreas` cover the CSS-Grid side; flexbox-style flow still pending)
 - [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
@@ -1067,6 +1067,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.6 — Consolidation v4 + math toolkit + autolinks
+
+Maintenance + feature release. Zero breaking changes:
+
+- 🧹 **`HEX_RE` consolidated** — 5 duplicate copies → 1 (`isHexColor`)
+- 🔢 **New `utils/math` toolkit** — `lerp`, `smoothstep`, `mod`, `gcd`, `distribute`, and more (15 pure functions)
+- 🔗 **Markdown autolinks** — `<https://…>` and bare URLs render as terminal hyperlinks
+- 🧪 **+44 tests**
+
+```js
+import { smoothstep, distribute, mod } from 'ansimax';
+
+smoothstep(0, 1, 0.25);      // → 0.15625 (Hermite easing)
+distribute(10, 3);           // → [4, 3, 3] (sums exactly to 10)
+mod(-1, 4);                  // → 3 (true modulo)
+
+import { markdown } from 'ansimax';
+markdown.render('Docs at https://example.com');  // clickable link
+```
+
+Drop-in replacement for `1.4.5`.
 
 ### v1.4.5 — Panels refactor + syntax highlighting
 
@@ -1261,7 +1283,7 @@ const x = 42;
 `));
 ```
 
-Phase 4 is now complete. Later v1.4.x refinements: nested lists + task lists (v1.4.3–v1.4.4) ✅, syntax highlighting (v1.4.5) ✅. Still pending: CommonMark strict (autolinks, reference links, footnotes).
+Phase 4 is now complete. Later v1.4.x refinements: nested lists + task lists (v1.4.3–v1.4.4) ✅, syntax highlighting (v1.4.5) ✅, autolinks (v1.4.6) ✅. Still pending: CommonMark strict (reference links, footnotes).
 
 ### v1.3.7 — Internal consolidation + clamp helpers
 

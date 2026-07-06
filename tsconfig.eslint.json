@@ -1,0 +1,13 @@
+{
+  // ── Lint-only TSConfig ──────────────────────────────
+  // Extends the build config but WIDENS `include` to cover test files.
+  //
+  // Rationale: the main tsconfig.json intentionally excludes src/__tests__
+  // from the build output (tests are never shipped). But typescript-eslint's
+  // type-aware rules require every linted file to belong to a project. This
+  // config gives the tests a home for linting purposes only — it is never
+  // used by tsup or tsc --build.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist", "examples"]
+}

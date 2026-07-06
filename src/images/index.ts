@@ -23,6 +23,8 @@ import {
   hexToRgb, clamp, lerpColor, RGB,
   // v1.3.7 — consolidated helpers (formerly inlined here)
   isFiniteNumber, clampInt,
+  // v1.4.6 — consolidated hex validation
+  isHexColor,
 } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
@@ -56,10 +58,9 @@ const MAX_DIMENSION = 10000;
 // ─────────────────────────────────────────────
 //  Hex / RGB utilities — exposed via images.colors
 // ─────────────────────────────────────────────
-const HEX_RE = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
 const safeHex = (h: unknown): RGB | null => {
-  if (typeof h !== 'string' || !HEX_RE.test(h.trim())) return null;
+  // v1.4.6 — use consolidated isHexColor (was a local HEX_RE copy)
+  if (typeof h !== 'string' || !isHexColor(h.trim())) return null;
   /* istanbul ignore next */
   try { return hexToRgb(h); }
   catch { return null; }

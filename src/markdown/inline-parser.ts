@@ -79,10 +79,30 @@ export const parseInline = (
     return `\x00CODE${codeSlots.length - 1}\x00`;
   });
 
-  // ── Step 2: Links [label](url) ──
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) => {
-    return hyperlink(url, color.hex(t.link)(color.underline(label)));
-  });
+  // ── Step 2: Links + autolinks (v1.4.6) ──
+  // All link forms are stashed into linkSlots as placeholders BEFORE the
+  // emphasis passes, so their URLs (which may contain _, *, etc.) are never
+  // mangled — and so bare-URL detection never re-scans an already-emitted
+  // OSC-8 escape.
+  const linkSlots: string[] = [];
+  const stashLink = (url: string, display?: string): string => {
+    const rendered = hyperlink(url, color.hex(t.link)(color.underline(display ?? url)));
+    linkSlots.push(rendered);
+    return `\x00LINK${linkSlots.length - 1}\x00`;
+  };
+
+  // 2a. Explicit links [label](url) — highest priority
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) =>
+    stashLink(url, label));
+
+  // 2b. Angle-bracket autolinks <https://…> / <http://…> / <ftp://…>
+  s = s.replace(/<((?:https?|ftp):\/\/[^>\s]+)>/g, (_m, url: string) => stashLink(url));
+
+  // 2c. Bare URLs in running text. Trailing sentence punctuation
+  // (.,;:!?) is excluded from the link. Placeholders already occupy the
+  // positions of 2a/2b links, so no double-processing is possible.
+  s = s.replace(/\b(https?:\/\/[^\s<>()\x00]+[^\s<>()\x00.,;:!?])/g, (_m, url: string) =>
+    stashLink(url));
 
   // ── Step 3: Strikethrough ~~text~~ ──
   s = s.replace(/~~([^~\n]+)~~/g, (_m, inner: string) => color.strikethrough(inner));
@@ -94,6 +114,10 @@ export const parseInline = (
   // ── Step 5: Italic *text* or _text_ ──
   s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, (_m, pre: string, inner: string) => pre + color.italic(inner));
   s = s.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, (_m, pre: string, inner: string) => pre + color.italic(inner));
+
+  // ── Step 5.5: Restore autolink placeholders (v1.4.6) ──
+  /* istanbul ignore next — placeholder slot is always valid by construction */
+  s = s.replace(/\x00LINK(\d+)\x00/g, (_m, idx: string) => linkSlots[Number(idx)] ?? '');
 
   // ── Step 6: Restore code placeholders ──
   /* istanbul ignore next — placeholder slot is always valid by construction */

@@ -986,3 +986,62 @@ describe('markdown.render with syntax highlighting (v1.4.5)', () => {
     expect(result).toContain('\x1b[1m');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.6 — Autolinks
+// ─────────────────────────────────────────────
+
+describe('Autolinks (v1.4.6)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  const opts = { theme: 'dark' as const, inlineCodeBackground: false };
+
+  it('renders angle-bracket autolink <https://…>', () => {
+    const result = parseInline('<https://example.com>', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('https://example.com');
+    // Should contain hyperlink OSC 8 escape or underline
+    expect(result).toMatch(/\x1b\[/);
+  });
+
+  it('renders bare URL', () => {
+    const result = parseInline('visit https://example.com today', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('https://example.com');
+    expect(stripped).toContain('visit');
+    expect(stripped).toContain('today');
+  });
+
+  it('excludes trailing sentence punctuation from bare URL', () => {
+    const result = parseInline('see https://example.com.', opts);
+    const stripped = stripAnsi(result);
+    // The period should be outside the link
+    expect(stripped).toContain('https://example.com');
+    expect(stripped.endsWith('.')).toBe(true);
+  });
+
+  it('does not double-process [label](url) as autolink', () => {
+    const result = parseInline('[click](https://example.com)', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('click');
+    // URL should not appear as visible text (it's the href)
+    expect(stripped).not.toContain('https://example.com');
+  });
+
+  it('preserves underscores in URL path (no italic mangling)', () => {
+    const result = parseInline('https://example.com/foo_bar_baz', opts);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('foo_bar_baz');
+  });
+
+  it('handles http as well as https', () => {
+    const result = parseInline('<http://example.com>', opts);
+    expect(stripAnsi(result)).toContain('http://example.com');
+  });
+
+  it('leaves non-URL text unchanged', () => {
+    const result = parseInline('just plain text', opts);
+    expect(stripAnsi(result)).toBe('just plain text');
+  });
+});

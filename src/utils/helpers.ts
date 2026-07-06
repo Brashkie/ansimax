@@ -616,8 +616,21 @@ const WIDE_RE = /^[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u
 // Emoji presentation — most emoji including extended ones
 const EMOJI_RE = /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{1F300}-\u{1F9FF}]/u;
 
-// Combining marks (zero width)
-const COMBINING_RE = /^[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u05BF\u05C1-\u05C2\u05C4-\u05C5\u05C7\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06E8\u06EA-\u06ED\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFE00-\uFE0F\uFEFF]/;
+// Combining marks + zero-width format characters (all render at width 0).
+//
+// eslint no-misleading-character-class is a FALSE POSITIVE here: the rule
+// warns when a character class contains combining marks that could merge
+// with a base character. But matching combining marks is precisely the
+// INTENT — we detect them to assign width 0 in visibleLen(). The ranges
+// are deliberate and exhaustively tested against Unicode data.
+//
+// We keep explicit ranges (not \p{Mn}\p{Cf}) because the property escapes
+// exclude a handful of unassigned code points inside \u2060-\u206F that the
+// original ranges include; preserving byte-exact behavior matters more than
+// satisfying the linter's heuristic.
+//
+// eslint-disable-next-line no-misleading-character-class
+const COMBINING_RE = /^[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u05BF\u05C1-\u05C2\u05C4-\u05C5\u05C7\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06E8\u06EA-\u06ED\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFE00-\uFE0F\uFEFF]/u;
 
 // Variation selectors and zero-width joiner
 const ZWJ = '\u200D';
@@ -1218,7 +1231,7 @@ export const once = <T extends (...args: never[]) => unknown>(
  */
 export const escapeRegex = (str: string): string => {
   if (typeof str !== 'string') return '';
-  return str.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 };
 
 /**

@@ -3,6 +3,108 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.6] — Consolidation v4 + math toolkit + autolinks
+
+Maintenance + feature release. Continues the DRY work of v1.3.7/v1.4.2,
+adds a reusable math module, and closes another markdown roadmap item.
+
+### Improved — Internal consolidation (`HEX_RE`)
+
+The hex-color validation regex `HEX_RE` was duplicated **5 times**
+(colors, images, loaders, themes, helpers). All 4 non-canonical copies
+now delegate to the existing `isHexColor()` helper — single source of
+truth:
+
+| Module | Before | After |
+|---|---|---|
+| colors | local `HEX_RE` | `isHexColor()` |
+| images | local `HEX_RE` | `isHexColor()` |
+| loaders | local `HEX_RE` | `isHexColor()` |
+| themes | local `HEX_RE` (×3 uses) | `isHexColor()` |
+| helpers | canonical | unchanged |
+
+`isHexColor()` is a strict superset of the inline checks — it includes
+the `typeof` guard and `.trim()`, so behavior is byte-identical.
+
+### Added — `utils/math` pure numeric toolkit
+
+A small, dependency-free math module for the rendering engine and
+downstream consumers:
+
+```js
+import {
+  lerp, inverseLerp, remap, clampRange, clamp01,
+  smoothstep, smootherstep, roundTo, mod, wrapRange,
+  gcd, lcm, sum, mean, distribute,
+} from 'ansimax';
+```
+
+Highlights:
+
+- **`lerp` / `inverseLerp` / `remap`** — the interpolation trio.
+  `remap(5, 0, 10, 0, 100) → 50`.
+- **`smoothstep` / `smootherstep`** — Hermite (3t²−2t³) and Perlin's
+  improved (6t⁵−15t⁴+10t³) easing curves, clamped to the edges.
+- **`mod` / `wrapRange`** — true modulo (sign of divisor) and range
+  wrapping. `mod(-1, 4) → 3`, `wrapRange(370, 0, 360) → 10`.
+- **`gcd` / `lcm`** — Euclid's algorithm, sign-agnostic.
+- **`distribute(total, parts)`** — split an integer across N buckets with
+  the remainder to the front. **Guarantees the result sums exactly to
+  `total`** — no rounding drift. `distribute(10, 3) → [4, 3, 3]`.
+
+Exported under range-suffixed aliases (`clampRange`, `wrapRange`) to
+avoid collision with existing string-`center`/`clamp` helpers. `lerp`
+was already exported since v1.3.x — `math.ts` re-uses it rather than
+redefining, keeping one source of truth.
+
+Every function is pure, total, and deterministic. The `distribute` sum
+invariant is property-tested across hundreds of input combinations.
+
+### Added — Markdown autolinks
+
+Bare URLs and angle-bracket autolinks now render as clickable terminal
+hyperlinks (OSC 8):
+
+```js
+markdown.render('Visit https://example.com for docs');
+markdown.render('Or <https://example.com/path>');
+```
+
+Details:
+- **Angle-bracket form** `<https://…>` — explicit autolink
+- **Bare URL form** `https://…` — detected in running text
+- **Trailing punctuation** (`.,;:!?`) is excluded from the link so
+  `see https://example.com.` keeps the period outside the URL
+- **URL-safe** — underscores in the path (`/foo_bar_baz`) are not mangled
+  by the emphasis passes (URLs are stashed before emphasis processing)
+- `[label](url)` links still take priority — bare-URL detection runs
+  after and won't double-process them
+
+### Improved — Tests
+
+- `+37` math toolkit tests (interpolation, easing, mod/wrap, gcd/lcm,
+  distribute sum-invariant property test, barrel re-exports)
+- `+7` autolink tests (angle-bracket, bare, punctuation, URL-safety,
+  http/https, no double-processing)
+
+Total: **+44 tests**.
+
+### Notes
+
+- **Zero behavior changes** — HEX_RE consolidation is byte-identical
+- **Zero dependencies added**
+- **Zero breaking changes** — only additions (15 math exports + autolinks)
+- `distribute` is designed for future flexbox-style layout distribution
+
+### Roadmap
+
+- ✅ v1.4.6 — Autolinks (`<url>` + bare URLs) — **done**
+- ⏳ CommonMark strict mode (reference links, footnotes) — pending
+- ⏳ Custom markdown theme registry — pending
+- ⏳ Flexbox-style layout (the `distribute` helper lays groundwork) — pending
+
+---
+
 ## [1.4.5] — Panels refactor + syntax highlighting
 
 Two substantial improvements. Both **fully backward-compatible**:

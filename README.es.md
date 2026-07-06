@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.5'));
+console.log(components.badge('VERSION', 'v1.4.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -899,7 +899,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` con alineación + anidamiento (v1.3.0)
 - [x] **Pretty-printing JSON/YAML** — coloreado, depth-limit, cycle-safe (v1.3.0)
 - [x] **Sistema de grid** — inspirado en CSS Grid: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, y template areas con `gridAreas` (v1.4.1–v1.4.4)
-- [x] **Renderizado de Markdown** — headings (ATX + setext), listas (anidadas + task lists), code blocks, tablas, blockquotes, estilos inline, escapes CommonMark (v1.4.0–v1.4.4)
+- [x] **Renderizado de Markdown** — headings (ATX + setext), listas (anidadas + task lists), code blocks, tablas, blockquotes, estilos inline, escapes CommonMark, autolinks (v1.4.0–v1.4.6)
 - [x] **Syntax highlighting** — gramáticas integradas para JS/TS/JSON/Bash con aliases (v1.4.5)
 - [ ] **Layouts** (posicionamiento estilo flexbox — `grid`/`gridAreas` cubren el lado CSS-Grid; el flow estilo flexbox sigue pendiente)
 - [ ] **Integración de logging** (drop-in para `console`/`pino`/`winston`)
@@ -1067,6 +1067,30 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+## 📝 Changelog
+
+### v1.4.6 — Consolidación v4 + toolkit matemático + autolinks
+
+Release de mantenimiento + feature. Cero breaking changes:
+
+- 🧹 **`HEX_RE` consolidado** — 5 copias duplicadas → 1 (`isHexColor`)
+- 🔢 **Nuevo toolkit `utils/math`** — `lerp`, `smoothstep`, `mod`, `gcd`, `distribute`, y más (15 funciones puras)
+- 🔗 **Autolinks en markdown** — `<https://…>` y URLs bare renderizan como hyperlinks de terminal
+- 🧪 **+44 tests**
+
+```js
+import { smoothstep, distribute, mod } from 'ansimax';
+
+smoothstep(0, 1, 0.25);      // → 0.15625 (easing Hermite)
+distribute(10, 3);           // → [4, 3, 3] (suma exactamente 10)
+mod(-1, 4);                  // → 3 (módulo verdadero)
+
+import { markdown } from 'ansimax';
+markdown.render('Docs en https://example.com');  // link clickeable
+```
+
+Drop-in replacement para `1.4.5`.
 
 ### v1.4.5 — Refactor panels + resaltado de sintaxis
 
@@ -1261,7 +1285,7 @@ const x = 42;
 `));
 ```
 
-La Fase 4 está completa. Refinamientos posteriores en v1.4.x: listas anidadas + task lists (v1.4.3–v1.4.4) ✅, syntax highlighting (v1.4.5) ✅. Pendiente: CommonMark estricto (autolinks, reference links, footnotes).
+La Fase 4 está completa. Refinamientos posteriores en v1.4.x: listas anidadas + task lists (v1.4.3–v1.4.4) ✅, syntax highlighting (v1.4.5) ✅, autolinks (v1.4.6) ✅. Pendiente: CommonMark estricto (reference links, footnotes).
 
 ### v1.3.7 — Consolidación interna + helpers clamp
 

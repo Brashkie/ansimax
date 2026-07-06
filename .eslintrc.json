@@ -4,7 +4,7 @@
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module",
-    "project": "./tsconfig.json"
+    "project": "./tsconfig.eslint.json"
   },
   "plugins": ["@typescript-eslint", "prettier"],
   "extends": [
@@ -55,7 +55,9 @@
       "files": ["src/__tests__/**/*.ts"],
       "rules": {
         "@typescript-eslint/no-unused-vars": "off",
-        "@typescript-eslint/no-explicit-any": "off"
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "no-regex-spaces": "off"
       }
     }
   ],

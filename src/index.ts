@@ -178,6 +178,12 @@ export {
   // v1.4.2 — further consolidation
   ensureString, clampNonNeg, clampPositiveInt,
 } from './utils/helpers.js';
+// v1.4.6 — pure math toolkit (lerp already exported above from helpers)
+export {
+  inverseLerp, remap, clamp as clampRange, clamp01,
+  smoothstep, smootherstep, roundTo, mod, wrap as wrapRange,
+  gcd, lcm, sum, mean, distribute,
+} from './utils/math.js';
 export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,
   LineDiff, DiffType, DebounceOptions, MemoizeOptions,

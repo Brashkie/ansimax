@@ -19,6 +19,8 @@
 
 import { color, gradient, type ColorFn } from '../colors/index.js';
 import { ascii } from '../ascii/index.js';
+// v1.4.6 — consolidated hex validation
+import { isHexColor } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Theme contract
@@ -41,8 +43,7 @@ export interface Theme {
   gradient:   string[];
 }
 
-// Hex validation matches colors module — # optional
-const HEX_RE = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+// Hex validation delegated to isHexColor from utils/helpers (v1.4.6)
 
 const REQUIRED_COLOR_KEYS: ReadonlyArray<keyof Theme> = [
   'primary', 'secondary', 'accent', 'warning', 'error',
@@ -91,7 +92,7 @@ const validateTheme = (t: unknown): void => {
 
   for (const key of REQUIRED_COLOR_KEYS) {
     const value = obj[key];
-    if (typeof value !== 'string' || !HEX_RE.test(value)) {
+    if (typeof value !== 'string' || !isHexColor(value)) {
       throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → ${key}: ${JSON.stringify(value)}. ` +
         `Expected #RGB or #RRGGBB.`,
@@ -104,7 +105,7 @@ const validateTheme = (t: unknown): void => {
     const value = obj[key];
     if (value === undefined) continue;
     /* istanbul ignore next — defensive: built-in themes always have valid hex */
-    if (typeof value !== 'string' || !HEX_RE.test(value)) {
+    if (typeof value !== 'string' || !isHexColor(value)) {
       throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → ${key}: ${JSON.stringify(value)}.`,
       );
@@ -118,7 +119,7 @@ const validateTheme = (t: unknown): void => {
   }
   for (let i = 0; i < obj.gradient.length; i++) {
     const stop = obj.gradient[i];
-    if (typeof stop !== 'string' || !HEX_RE.test(stop)) {
+    if (typeof stop !== 'string' || !isHexColor(stop)) {
       throw new TypeError(
         `Invalid hex in theme "${obj.name as string}" → gradient[${i}]: ${JSON.stringify(stop)}.`,
       );

@@ -16,7 +16,7 @@
 
 import {
   cursor, screen,
-  write, writeAsync, writeln,
+  write, writeln,
   sleep, FRAME_MS,
   hideCursor, showCursor,
   reset, sgr, FG,
@@ -31,6 +31,8 @@ import {
   isFiniteNumber, clampPercent,
   // v1.4.2 — further consolidation
   ensureString, clampPositiveInt,
+  // v1.4.6 — consolidated hex validation
+  isHexColor,
 } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
@@ -160,10 +162,9 @@ const padToTerminalWidth = (str: string): string => {
 // ─────────────────────────────────────────────
 //  Hex parsing — fail-soft
 // ─────────────────────────────────────────────
-const HEX_RE = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
 const safeColor = (hex?: string | null): { r: number; g: number; b: number } | null => {
-  if (!hex || !HEX_RE.test(hex.trim())) return null;
+  // v1.4.6 — use consolidated isHexColor (was a local HEX_RE copy)
+  if (!hex || !isHexColor(hex.trim())) return null;
   return hexToRgb(hex);
 };
 

@@ -19,7 +19,7 @@ import {
   stripAnsi as stripAnsiFromUtils,
   type ColorLevel,
 } from '../utils/ansi.js';
-import { hexToRgb, lerpColor, RGB } from '../utils/helpers.js';
+import { hexToRgb, lerpColor, RGB, isHexColor } from '../utils/helpers.js';
 
 export type ColorFn = (text: string) => string;
 export type { ColorLevel };
@@ -73,12 +73,11 @@ const clamp256 = (n: number): number => {
 //  Accepts: '#abc', '#aabbcc', 'abc', 'aabbcc' (with/without #)
 //  Returns null for: non-string, malformed, empty
 // ─────────────────────────────────────────────
-const HEX_RE = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
 const safeHex = (h: unknown): RGB | null => {
   if (typeof h !== 'string') return null;
   const normalized = h.trim();
-  if (!HEX_RE.test(normalized)) return null;
+  // v1.4.6 — use consolidated isHexColor (was a local HEX_RE copy)
+  if (!isHexColor(normalized)) return null;
   return hexToRgb(normalized);
 };
 
