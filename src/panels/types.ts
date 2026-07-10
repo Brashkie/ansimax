@@ -108,6 +108,51 @@ export interface GridAreasOptions {
   alignY?: Alignment;
 }
 
+/**
+ * Justify strategy for `panels.flex` — how free horizontal space is
+ * distributed among/around the blocks (mirrors CSS `justify-content`).
+ *
+ * @since 1.4.7
+ */
+export type FlexJustify =
+  | 'start'
+  | 'end'
+  | 'center'
+  | 'between'   // equal gaps between items, none at the edges
+  | 'around'    // half-size gaps at the edges, full between
+  | 'evenly';   // equal gaps everywhere including edges
+
+export interface FlexOptions {
+  /**
+   * Total target width in columns. Blocks are laid out within this width;
+   * free space is distributed per `justify`. Required.
+   */
+  width: number;
+  /**
+   * How to distribute free horizontal space. Default `'start'`.
+   * @since 1.4.7
+   */
+  justify?: FlexJustify;
+  /**
+   * Vertical alignment of shorter blocks within the tallest block's height.
+   * Default `'start'`.
+   */
+  align?: Alignment;
+  /**
+   * Minimum gap between blocks (added on top of any justify spacing).
+   * Default `0`.
+   */
+  gap?: number;
+  /**
+   * Per-block grow weights (CSS `flex-grow`). When present and the blocks
+   * don't fill `width`, leftover space is distributed to blocks in
+   * proportion to their weight, padding them wider. Length should match
+   * the block count; missing entries default to 0 (no grow).
+   * @since 1.4.7
+   */
+  grow?: number[];
+}
+
 // ─────────────────────────────────────────────
 //  Internal shared types
 // ─────────────────────────────────────────────

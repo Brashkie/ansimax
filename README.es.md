@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.6'));
+console.log(components.badge('VERSION', 'v1.4.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -901,7 +901,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Sistema de grid** — inspirado en CSS Grid: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, y template areas con `gridAreas` (v1.4.1–v1.4.4)
 - [x] **Renderizado de Markdown** — headings (ATX + setext), listas (anidadas + task lists), code blocks, tablas, blockquotes, estilos inline, escapes CommonMark, autolinks (v1.4.0–v1.4.6)
 - [x] **Syntax highlighting** — gramáticas integradas para JS/TS/JSON/Bash con aliases (v1.4.5)
-- [ ] **Layouts** (posicionamiento estilo flexbox — `grid`/`gridAreas` cubren el lado CSS-Grid; el flow estilo flexbox sigue pendiente)
+- [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flow estilo flexbox (`flex` con justify + grow, v1.4.7)
 - [ ] **Integración de logging** (drop-in para `console`/`pino`/`winston`)
 
 ### ✅ Fase 5 — Control de cursor y pantalla
@@ -1069,6 +1069,34 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.7 — Reference links + layout flexbox
+
+Dos items del roadmap, cero breaking changes:
+
+- 🔗 **Reference links en markdown** — `[text][ref]`, `[text][]`, `[shortcut]` + definiciones `[ref]: url "title"`
+- 📐 **`panels.flex`** — layout estilo flexbox con `justify` (start/end/center/between/around/evenly) + pesos `grow`
+- 🧪 **+30 tests**
+
+```js
+import { panels, markdown } from 'ansimax';
+
+// Layout flexbox
+panels.flex([boxA, boxB, boxC], { width: 60, justify: 'between' });
+panels.flex([boxA, boxB], { width: 40, grow: [3, 1] });  // A crece 3× más
+
+// Reference links
+markdown.render(`
+Ver [la docs][docs] y [shortcut].
+
+[docs]: https://docs.example.com "Documentación"
+[shortcut]: https://example.com
+`);
+```
+
+Ambos construyen sobre las bases de v1.4.6 (placeholders de links + `distribute`). Cada estrategia justify de `flex` conserva el ancho total exactamente.
+
+Drop-in replacement para `1.4.6`.
 
 ### v1.4.6 — Consolidación v4 + toolkit matemático + autolinks
 

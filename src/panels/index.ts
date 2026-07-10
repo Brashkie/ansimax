@@ -24,6 +24,8 @@ export type {
   GridOptions,
   GridAreasOptions,
   AreaRect,
+  FlexOptions,
+  FlexJustify,
 } from './types.js';
 
 // Split
@@ -31,6 +33,9 @@ export { vsplit, hsplit } from './split.js';
 
 // Layout
 export { center, frame } from './layout.js';
+
+// Flex (v1.4.7)
+export { flex } from './flex.js';
 
 // Grid + areas
 export { grid } from './grid.js';
@@ -42,6 +47,7 @@ export { gridAreas, _validateAreas } from './grid-areas.js';
 
 import { vsplit as _vsplit, hsplit as _hsplit } from './split.js';
 import { center as _center, frame as _frame } from './layout.js';
+import { flex as _flex } from './flex.js';
 import { grid as _grid } from './grid.js';
 import { gridAreas as _gridAreas } from './grid-areas.js';
 
@@ -55,6 +61,8 @@ export const panels = {
   grid: _grid,
   // v1.4.4
   gridAreas: _gridAreas,
+  // v1.4.7
+  flex: _flex,
 };
 
 export default panels;

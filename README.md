@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.6'));
+console.log(components.badge('VERSION', 'v1.4.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -901,7 +901,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
 - [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks (v1.4.0–v1.4.6)
 - [x] **Syntax highlighting** — built-in grammars for JS/TS/JSON/Bash with aliases (v1.4.5)
-- [ ] **Layouts** (flexbox-style positioning — `grid`/`gridAreas` cover the CSS-Grid side; flexbox-style flow still pending)
+- [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flexbox-style flow (`flex` with justify + grow, v1.4.7)
 - [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
 
 ### ✅ Phase 5 — Cursor & screen control
@@ -1067,6 +1067,34 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.7 — Reference links + flexbox layout
+
+Two roadmap items, zero breaking changes:
+
+- 🔗 **Markdown reference links** — `[text][ref]`, `[text][]`, `[shortcut]` + `[ref]: url "title"` definitions
+- 📐 **`panels.flex`** — flexbox-style layout with `justify` (start/end/center/between/around/evenly) + `grow` weights
+- 🧪 **+30 tests**
+
+```js
+import { panels, markdown } from 'ansimax';
+
+// Flexbox layout
+panels.flex([boxA, boxB, boxC], { width: 60, justify: 'between' });
+panels.flex([boxA, boxB], { width: 40, grow: [3, 1] });  // A grows 3× as much
+
+// Reference links
+markdown.render(`
+See [the docs][docs] and [shortcut].
+
+[docs]: https://docs.example.com "Documentation"
+[shortcut]: https://example.com
+`);
+```
+
+Both build on v1.4.6 foundations (link placeholders + `distribute`). Every `flex` justify strategy conserves total width exactly.
+
+Drop-in replacement for `1.4.6`.
 
 ### v1.4.6 — Consolidation v4 + math toolkit + autolinks
 

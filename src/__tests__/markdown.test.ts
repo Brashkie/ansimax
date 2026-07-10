@@ -1045,3 +1045,106 @@ describe('Autolinks (v1.4.6)', () => {
     expect(stripAnsi(result)).toBe('just plain text');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.7 — Reference-style links
+// ─────────────────────────────────────────────
+
+import { collectLinkRefs, normalizeRefLabel } from '../markdown/block-parser.js';
+
+describe('collectLinkRefs (v1.4.7)', () => {
+  it('collects a simple definition', () => {
+    const { refs } = collectLinkRefs('[ref]: https://example.com');
+    expect(refs.get('ref')?.url).toBe('https://example.com');
+  });
+
+  it('collects definition with title', () => {
+    const { refs } = collectLinkRefs('[ref]: https://example.com "My Title"');
+    expect(refs.get('ref')?.url).toBe('https://example.com');
+    expect(refs.get('ref')?.title).toBe('My Title');
+  });
+
+  it('removes definition lines from cleaned source', () => {
+    const { cleaned } = collectLinkRefs('text\n[ref]: https://example.com\nmore');
+    expect(cleaned).not.toContain('[ref]:');
+    expect(cleaned).toContain('text');
+    expect(cleaned).toContain('more');
+  });
+
+  it('normalizes labels (case-insensitive, whitespace-collapse)', () => {
+    const { refs } = collectLinkRefs('[My  Ref]: https://example.com');
+    expect(refs.get('my ref')?.url).toBe('https://example.com');
+  });
+
+  it('first definition wins on duplicates', () => {
+    const { refs } = collectLinkRefs('[r]: https://first.com\n[r]: https://second.com');
+    expect(refs.get('r')?.url).toBe('https://first.com');
+  });
+
+  it('handles empty input', () => {
+    const { refs, cleaned } = collectLinkRefs('');
+    expect(refs.size).toBe(0);
+    expect(cleaned).toBe('');
+  });
+});
+
+describe('normalizeRefLabel (v1.4.7)', () => {
+  it('lowercases and trims', () => {
+    expect(normalizeRefLabel('  Foo Bar  ')).toBe('foo bar');
+  });
+  it('collapses internal whitespace', () => {
+    expect(normalizeRefLabel('a   b\tc')).toBe('a b c');
+  });
+});
+
+describe('reference links rendering (v1.4.7)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('resolves full reference form [text][ref]', () => {
+    const src = 'See [the docs][ref].\n\n[ref]: https://example.com';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('the docs');
+    // Definition line should not render
+    expect(stripped).not.toContain('[ref]:');
+  });
+
+  it('resolves shortcut form [ref]', () => {
+    const src = 'Visit [example].\n\n[example]: https://example.com';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('example');
+    expect(stripped).not.toContain('https://example.com');
+  });
+
+  it('resolves collapsed form [text][]', () => {
+    const src = 'See [example][].\n\n[example]: https://example.com';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('example');
+  });
+
+  it('leaves unresolved references as literal text', () => {
+    const src = 'See [missing][nope].';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    // No matching definition → literal brackets preserved
+    expect(stripped).toContain('[missing][nope]');
+  });
+
+  it('is case-insensitive for reference matching', () => {
+    const src = 'See [Docs][REF].\n\n[ref]: https://example.com';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('Docs');
+    expect(stripped).not.toContain('[Docs]');
+  });
+
+  it('inline [](url) links still take priority', () => {
+    const src = 'A [direct](https://direct.com) link.\n\n[direct]: https://ref.com';
+    const result = render(src);
+    const stripped = stripAnsi(result);
+    expect(stripped).toContain('direct');
+  });
+});

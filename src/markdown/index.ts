@@ -17,11 +17,11 @@
 // ─────────────────────────────────────────────
 
 // Public types
-export type { MarkdownTheme, MarkdownOptions, InlineOptions, Block, ListItem } from './types.js';
+export type { MarkdownTheme, MarkdownOptions, InlineOptions, Block, ListItem, LinkRef } from './types.js';
 export type { TokenKind, Token } from './syntax.js';
 
 // Parsing
-export { parseBlocks } from './block-parser.js';
+export { parseBlocks, collectLinkRefs, normalizeRefLabel } from './block-parser.js';
 export { parseInline } from './inline-parser.js';
 
 // Rendering

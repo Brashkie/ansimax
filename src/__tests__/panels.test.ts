@@ -1049,3 +1049,161 @@ describe('v1.4.5 — panels refactor (file split)', () => {
     expect(barrel.gridAreas).toBe(areasMod.gridAreas);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.7 — flex (flexbox-style layout)
+// ─────────────────────────────────────────────
+
+import { flex } from '../panels/index.js';
+
+describe('flex (v1.4.7)', () => {
+  it('returns empty for empty blocks', () => {
+    expect(flex([], { width: 40 })).toBe('');
+  });
+
+  it('returns empty for missing opts', () => {
+    // @ts-expect-error testing defensive
+    expect(flex(['a'], undefined)).toBe('');
+  });
+
+  it('start justify keeps blocks left, free space trails right', () => {
+    const result = flex(['A', 'B'], { width: 20, justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    // A and B are adjacent at the left
+    expect(line.indexOf('A')).toBe(0);
+    expect(line.indexOf('B')).toBe(1);
+    // Total width is 20
+    expect(line.length).toBe(20);
+  });
+
+  it('end justify pushes blocks to the right', () => {
+    const result = flex(['A', 'B'], { width: 20, justify: 'end' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(20);
+    // B is the last char
+    expect(line.endsWith('B')).toBe(true);
+  });
+
+  it('center justify balances leading and trailing space', () => {
+    const result = flex(['AB'], { width: 10, justify: 'center' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(10);
+    // 'AB' is 2 wide, 8 free → 4 left, 4 right
+    expect(line).toBe('    AB    ');
+  });
+
+  it('between justify puts gaps between items only', () => {
+    const result = flex(['A', 'B', 'C'], { width: 9, justify: 'between' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(9);
+    // A at 0, C at end
+    expect(line.startsWith('A')).toBe(true);
+    expect(line.endsWith('C')).toBe(true);
+  });
+
+  it('evenly justify distributes gaps including edges', () => {
+    const result = flex(['A', 'B'], { width: 8, justify: 'evenly' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(8);
+    // 2 blocks (2 wide total), 6 free, 3 slots → 2,2,2
+    expect(line).toBe('  A  B  ');
+  });
+
+  it('respects base gap between blocks', () => {
+    const result = flex(['A', 'B'], { width: 20, gap: 3, justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    // A, then 3 spaces, then B
+    expect(line.slice(0, 5)).toBe('A   B');
+  });
+
+  it('aligns multi-line blocks vertically', () => {
+    const tall = 'X\nY\nZ';
+    const short = 'Q';
+    const result = flex([tall, short], { width: 20, align: 'start' });
+    const lines = result.split('\n');
+    expect(lines.length).toBe(3);
+    // Q is on the first line (start align), blank below
+    expect(lines[0]).toContain('Q');
+  });
+
+  it('every justify strategy conserves total width', () => {
+    const justifies = ['start', 'end', 'center', 'between', 'around', 'evenly'] as const;
+    for (const j of justifies) {
+      const result = flex(['AA', 'BB', 'CC'], { width: 30, justify: j });
+      for (const line of result.split('\n')) {
+        expect(line.length).toBe(30);
+      }
+    }
+  });
+
+  it('flex-grow expands blocks to fill leftover space', () => {
+    // Two blocks, grow [1, 1] → each gets half the leftover
+    const result = flex(['A', 'B'], { width: 20, grow: [1, 1], justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(20);
+    // With grow, blocks expand — no big trailing gap
+    // A grows to ~10, B grows to ~10
+    expect(line.trimEnd().length).toBeGreaterThan(2);
+  });
+
+  it('flex-grow respects weight proportions', () => {
+    // grow [3, 1] → block A gets 3x the leftover of block B
+    const result = flex(['A', 'B'], { width: 22, grow: [3, 1], justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(22);
+  });
+
+  it('handles single block', () => {
+    const result = flex(['SOLO'], { width: 20, justify: 'center' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(20);
+    expect(line).toContain('SOLO');
+  });
+
+  it('between justify with a single block trails all free space', () => {
+    // count === 1 branch: no gaps between, everything trails right
+    const result = flex(['X'], { width: 10, justify: 'between' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(10);
+    expect(line.startsWith('X')).toBe(true);
+    // Rest is trailing space
+    expect(line).toBe('X' + ' '.repeat(9));
+  });
+
+  it('flex-grow with all-zero weights leaves widths unchanged', () => {
+    // totalGrow <= 0 branch: grow has no positive weights → no expansion
+    const result = flex(['A', 'B'], { width: 20, grow: [0, 0], justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(20);
+    // Blocks stay at natural width (1 each), free space trails
+    expect(line.slice(0, 2)).toBe('AB');
+  });
+
+  it('flex-grow with no leftover space leaves widths unchanged', () => {
+    // leftover <= 0 branch: blocks already fill width
+    const wide = 'X'.repeat(20);
+    const result = flex([wide], { width: 20, grow: [1] });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(20);
+    expect(line).toBe(wide);
+  });
+
+  it('flex-grow distributes fractional remainder (largest-remainder)', () => {
+    // grow [1,1,1] with leftover not divisible by 3 → remainder loop runs.
+    // Blocks are 1 wide each (3 total), width 13 → leftover 10.
+    // 10/3 = 3.33 each → floors [3,3,3]=9, remainder 1 goes to first.
+    const result = flex(['A', 'B', 'C'], { width: 13, grow: [1, 1, 1], justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(13);
+    // All 13 columns used by grown blocks (no trailing gap with start+grow filling)
+    expect(line.trimEnd().length).toBeGreaterThan(3);
+  });
+
+  it('flex-grow with uneven weights and remainder', () => {
+    // grow [2,1] leftover 10 → entitlements [6.67, 3.33] → floors [6,3]=9,
+    // remainder 1 to the block with highest fractional part (block 0: .67).
+    const result = flex(['A', 'B'], { width: 12, grow: [2, 1], justify: 'start' });
+    const line = result.split('\n')[0] as string;
+    expect(line.length).toBe(12);
+  });
+});

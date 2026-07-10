@@ -40,6 +40,16 @@ const ESCAPABLE_CHARS = new Set(['\\', '`', '*', '_', '~', '[', ']']);
 const ESCAPE_RE = /\\([\s\S])/g;
 
 /**
+ * Normalize a reference label for lookup (must match the normalization
+ * used when collecting definitions in block-parser). Lowercase + trim +
+ * collapse internal whitespace.
+ *
+ * @since 1.4.7
+ */
+const _normalizeRef = (label: string): string =>
+  label.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
  * Apply inline markdown markup (bold/italic/code/links/etc.) to a string.
  *
  * @since 1.4.0
@@ -94,6 +104,23 @@ export const parseInline = (
   // 2a. Explicit links [label](url) — highest priority
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) =>
     stashLink(url, label));
+
+  // 2a-ref. Reference links (v1.4.7). Resolved against opts.linkRefs.
+  const refs = opts.linkRefs;
+  if (refs && refs.size > 0) {
+    // Full form: [text][ref]
+    s = s.replace(/\[([^\]]+)\]\[([^\]]*)\]/g, (full, text: string, ref: string) => {
+      // Empty ref → collapsed form [text][] uses text as the label
+      const key = _normalizeRef(ref.length > 0 ? ref : text);
+      const def = refs.get(key);
+      return def ? stashLink(def.url, text) : full;
+    });
+    // Shortcut form: [ref] (no following bracket or paren)
+    s = s.replace(/\[([^\]]+)\](?!\s*[[(])/g, (full, ref: string) => {
+      const def = refs.get(_normalizeRef(ref));
+      return def ? stashLink(def.url, ref) : full;
+    });
+  }
 
   // 2b. Angle-bracket autolinks <https://…> / <http://…> / <ftp://…>
   s = s.replace(/<((?:https?|ftp):\/\/[^>\s]+)>/g, (_m, url: string) => stashLink(url));

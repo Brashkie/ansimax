@@ -22,7 +22,7 @@ import { components } from '../components/index.js';
 import { isFiniteNumber } from '../utils/helpers.js';
 import type { MarkdownOptions, InlineOptions, ListItem } from './types.js';
 import { THEMES, type ThemePalette } from './theme.js';
-import { parseBlocks } from './block-parser.js';
+import { parseBlocks, collectLinkRefs } from './block-parser.js';
 import { parseInline } from './inline-parser.js';
 import { highlight, isHighlightSupported } from './syntax.js';
 
@@ -76,8 +76,12 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
   const t = THEMES[theme] ?? THEMES.dark;
   const h1Colors = headingGradient && headingGradient.length >= 2 ? headingGradient : t.h1;
 
-  const blocks = parseBlocks(source);
-  const inlineOpts: InlineOptions = { theme, inlineCodeBackground };
+  // v1.4.7 — collect reference-link definitions and strip them from the
+  // source before block parsing, so `[ref]: url` lines don't render.
+  const { refs, cleaned } = collectLinkRefs(source);
+
+  const blocks = parseBlocks(cleaned);
+  const inlineOpts: InlineOptions = { theme, inlineCodeBackground, linkRefs: refs };
 
   const out: string[] = [];
 

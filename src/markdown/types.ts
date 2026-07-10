@@ -46,6 +46,25 @@ export interface MarkdownOptions {
 export interface InlineOptions {
   theme: MarkdownTheme;
   inlineCodeBackground: boolean;
+  /**
+   * **v1.4.7** — Reference-link definitions collected at block level.
+   * Maps a normalized (lowercased, trimmed) reference label to its URL
+   * (and optional title). Used to resolve `[text][ref]` and `[ref]`
+   * shortcut links. When omitted, reference links render as literal text.
+   *
+   * @since 1.4.7
+   */
+  linkRefs?: Map<string, LinkRef>;
+}
+
+/**
+ * A resolved reference-link definition (`[ref]: url "title"`).
+ *
+ * @since 1.4.7
+ */
+export interface LinkRef {
+  url: string;
+  title?: string;
 }
 
 /**

@@ -100,8 +100,8 @@ export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, R
 // v1.3.1 — panels.center + panels.frame, json sortKeys + inline arrays
 // v1.3.3 — panels.grid + ascii.box title/titleAlign + ascii.divider align
 // v1.4.4 — panels.gridAreas + AreaRect
-export { panels, vsplit, hsplit, center as centerBlock, frame, grid, gridAreas } from './panels/index.js';
-export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions, GridAreasOptions, AreaRect } from './panels/index.js';
+export { panels, vsplit, hsplit, center as centerBlock, frame, grid, gridAreas, flex } from './panels/index.js';
+export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions, GridAreasOptions, AreaRect, FlexOptions, FlexJustify } from './panels/index.js';
 
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';

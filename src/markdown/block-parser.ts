@@ -12,7 +12,7 @@
 //   - Empty / non-string input returns []
 // ─────────────────────────────────────────────
 
-import type { Block, ListItem } from './types.js';
+import type { Block, ListItem, LinkRef } from './types.js';
 
 // ─────────────────────────────────────────────
 //  Regex patterns
@@ -30,6 +30,8 @@ const CODEBLOCK_CLOSE_RE = /^```\s*$/;
 const BLOCKQUOTE_RE = /^>\s?(.*)$/;
 const TABLE_SEPARATOR_RE = /^\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)+\|?[ \t]*$/;
 const TABLE_ROW_RE = /^\|.*\|[ \t]*$/;
+// v1.4.7 — Reference-link definition: [label]: url "optional title"
+const LINK_REF_DEF_RE = /^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(\S+)(?:[ \t]+["'(]([^"')]*)["')])?[ \t]*$/;
 
 // ─────────────────────────────────────────────
 //  Helpers
@@ -328,4 +330,59 @@ const _makeItem = (rawText: string): ListItem => {
     };
   }
   return { text: rawText };
+};
+
+// ─────────────────────────────────────────────
+//  v1.4.7 — Reference-link definitions
+// ─────────────────────────────────────────────
+
+/**
+ * Normalize a reference label for case-insensitive matching (CommonMark
+ * §4.7: labels are compared after Unicode case-fold + whitespace collapse).
+ * We use a lighter version: lowercase + trim + collapse internal runs.
+ *
+ * @since 1.4.7
+ */
+export const normalizeRefLabel = (label: string): string =>
+  label.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Scan markdown source for reference-link definitions (`[label]: url
+ * "title"`) and return a lookup map plus the source with those definition
+ * lines removed (so they don't render as text).
+ *
+ * Definitions can appear anywhere in the document — CommonMark allows a
+ * link to reference a definition that appears later. We therefore collect
+ * them in a single pre-pass before block parsing.
+ *
+ * @since 1.4.7
+ */
+export const collectLinkRefs = (
+  source: string,
+): { refs: Map<string, LinkRef>; cleaned: string } => {
+  const refs = new Map<string, LinkRef>();
+  if (typeof source !== 'string' || source.length === 0) {
+    return { refs, cleaned: '' };
+  }
+
+  const lines = _normalize(source).split('\n');
+  const kept: string[] = [];
+
+  for (const line of lines) {
+    const m = LINK_REF_DEF_RE.exec(line);
+    if (m) {
+      const label = normalizeRefLabel(m[1] as string);
+      const url = m[2] as string;
+      const title = m[3];
+      // First definition wins (CommonMark §4.7). Don't overwrite.
+      if (!refs.has(label)) {
+        refs.set(label, title ? { url, title } : { url });
+      }
+      // Definition line is consumed — not kept for rendering.
+      continue;
+    }
+    kept.push(line);
+  }
+
+  return { refs, cleaned: kept.join('\n') };
 };

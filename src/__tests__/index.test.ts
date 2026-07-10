@@ -864,3 +864,29 @@ describe('barrel coverage — v1.4.4 re-exports', () => {
     expect(main.panels.gridAreas).toBe(main.gridAreas);
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel re-exports for v1.4.7
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — v1.4.7 re-exports', () => {
+  it('flex is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.flex).toBe('function');
+    const result = main.flex(['A', 'B'], { width: 20, justify: 'between' });
+    expect(result).toContain('A');
+    expect(result).toContain('B');
+  });
+
+  it('flex is on the panels namespace', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.panels.flex).toBe('function');
+    expect(main.panels.flex).toBe(main.flex);
+  });
+
+  it('collectLinkRefs + normalizeRefLabel exported from markdown', async () => {
+    const md = await import('../markdown/index.js');
+    expect(typeof md.collectLinkRefs).toBe('function');
+    expect(typeof md.normalizeRefLabel).toBe('function');
+  });
+});

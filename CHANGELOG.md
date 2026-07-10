@@ -3,6 +3,113 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.7] — Reference links + flexbox layout
+
+Two roadmap items land together, both building on v1.4.6 foundations
+(link placeholders + the `distribute` helper). Zero breaking changes.
+
+### Added — Markdown reference-style links
+
+Full CommonMark reference-link support:
+
+```js
+import { markdown } from 'ansimax';
+
+markdown.render(`
+See [the docs][docs] and [Google][].
+
+You can also use a [shortcut].
+
+[docs]: https://docs.example.com "Documentation"
+[Google]: https://google.com
+[shortcut]: https://example.com
+`);
+```
+
+Three reference forms are supported:
+- **Full** — `[text][ref]`
+- **Collapsed** — `[text][]` (uses `text` as the label)
+- **Shortcut** — `[ref]` (label doubles as the display text)
+
+Details:
+- **Definitions** (`[label]: url "title"`) are collected in a pre-pass and
+  stripped from the output — they never render as text
+- **Case-insensitive** — labels are normalized (lowercase + whitespace
+  collapse) per CommonMark §4.7, so `[Docs][REF]` matches `[ref]:`
+- **First definition wins** on duplicate labels
+- **Forward references** work — a link may reference a definition that
+  appears later in the document
+- **Inline links take priority** — `[text](url)` is resolved before
+  reference forms, and unresolved references stay as literal text
+
+New exports: `collectLinkRefs`, `normalizeRefLabel`, and the `LinkRef` type.
+
+### Added — `panels.flex` (flexbox-style layout)
+
+Horizontal layout with CSS `justify-content` semantics, powered by the
+`distribute()` helper from v1.4.6 (integer gap distribution with no
+rounding drift):
+
+```js
+import { panels, ascii } from 'ansimax';
+
+const a = ascii.box('A');
+const b = ascii.box('B');
+const c = ascii.box('C');
+
+// Spread three boxes across 60 columns
+console.log(panels.flex([a, b, c], { width: 60, justify: 'between' }));
+```
+
+**Justify strategies** (`justify`):
+- `start` (default) — blocks left, free space trails right
+- `end` — blocks pushed right
+- `center` — balanced leading/trailing space
+- `between` — equal gaps between items, none at the edges
+- `around` — half-size gaps at the edges, full gaps between
+- `evenly` — equal gaps everywhere including the edges
+
+**Flex-grow** (`grow: number[]`) — distribute leftover width to blocks in
+proportion to their weights (largest-remainder method for exact integer
+allocation):
+
+```js
+// Block A grows 3× as much as B to fill the row
+panels.flex([a, b], { width: 40, grow: [3, 1] });
+```
+
+Also supports `gap` (minimum inter-block spacing) and `align` (vertical
+alignment of shorter blocks). **Every justify strategy is space-conserving**
+— the output width always equals `width` exactly (property-tested across
+900 input combinations).
+
+### Improved — Tests
+
+- `+6` `collectLinkRefs` tests (definitions, titles, cleaning, normalization, first-wins, empty)
+- `+2` `normalizeRefLabel` tests
+- `+6` reference-link rendering tests (full, shortcut, collapsed, unresolved, case-insensitive, inline-priority)
+- `+13` `flex` tests (all justify strategies, grow, gap, vertical align, width-conservation, single block)
+- `+3` barrel re-export tests
+
+Total: **+30 tests**.
+
+### Notes
+
+- **Zero breaking changes** — new exports only (`flex`, `collectLinkRefs`,
+  `normalizeRefLabel`, `FlexOptions`, `FlexJustify`, `LinkRef`)
+- Both features reuse v1.4.6 infrastructure: reference links use the link
+  placeholder system; `flex` uses `distribute()` for gap allocation
+- `flex` width-conservation and `distribute` sum-invariant are both
+  property-tested
+
+### Roadmap
+
+- ✅ v1.4.7 — Reference links + flexbox layout — **done**
+- ⏳ CommonMark strict mode (footnotes, HTML blocks) — pending
+- ⏳ Custom markdown theme registry — pending
+
+---
+
 ## [1.4.6] — Consolidation v4 + math toolkit + autolinks
 
 Maintenance + feature release. Continues the DRY work of v1.3.7/v1.4.2,
