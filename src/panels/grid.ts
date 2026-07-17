@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────
 
 import type { GridOptions, GridCell, Alignment } from './types.js';
-import { _splitBlock, _fitHeight } from './helpers.js';
+import { _splitBlock, _fitHeight, _padLinesAligned } from './helpers.js';
 import { vsplit, hsplit } from './split.js';
 
 // ─────────────────────────────────────────────
@@ -36,6 +36,7 @@ interface ResolvedOptions {
   hasColSpans: boolean;
   hasRowSpans: boolean;
   hasSpans: boolean;
+  cellAlign: Alignment[];
 }
 
 /**
@@ -72,9 +73,12 @@ const _resolveOptions = (blocks: string[], opts: GridOptions): ResolvedOptions =
   const hasRowSpans = rowSpans.some((s) => s > 1);
   const hasSpans = hasColSpans || hasRowSpans;
 
+  // v1.4.8 — per-block horizontal alignment (falls back to alignX per entry)
+  const cellAlign: Alignment[] = Array.isArray(opts.cellAlign) ? opts.cellAlign : [];
+
   return {
     columns, gapX, gapY, alignX, alignY, cellW, cellH, flow,
-    spans, rowSpans, hasColSpans, hasRowSpans, hasSpans,
+    spans, rowSpans, hasColSpans, hasRowSpans, hasSpans, cellAlign,
   };
 };
 
@@ -132,7 +136,7 @@ const _packMarkAndFill = (blocks: string[], r: ResolvedOptions): GridCell[][] =>
       for (let col = 0; col <= r.columns - effCSpan; col++) {
         if (isFree(row, col, effCSpan, rSpan)) {
           markOccupied(row, col, effCSpan, rSpan);
-          placed.push({ block: blocks[i] as string, span: effCSpan, rowSpan: rSpan, col, row });
+          placed.push({ block: blocks[i] as string, span: effCSpan, rowSpan: rSpan, col, row, index: i });
           placedOk = true;
           break outer;
         }
@@ -142,7 +146,7 @@ const _packMarkAndFill = (blocks: string[], r: ResolvedOptions): GridCell[][] =>
     if (!placedOk) {
       const newRow = occupancy.length;
       markOccupied(newRow, 0, effCSpan, rSpan);
-      placed.push({ block: blocks[i] as string, span: effCSpan, rowSpan: rSpan, col: 0, row: newRow });
+      placed.push({ block: blocks[i] as string, span: effCSpan, rowSpan: rSpan, col: 0, row: newRow, index: i });
     }
   }
 
@@ -168,7 +172,7 @@ const _packColumnFlow = (blocks: string[], r: ResolvedOptions): GridCell[][] => 
     const col = Math.floor(i / rowCount);
     const row = i % rowCount;
     (rows[row] as GridCell[]).push({
-      block: blocks[i] as string, span: 1, rowSpan: 1, col, row,
+      block: blocks[i] as string, span: 1, rowSpan: 1, col, row, index: i,
     });
   }
   return rows;
@@ -191,7 +195,7 @@ const _packRowFlow = (blocks: string[], r: ResolvedOptions): GridCell[][] => {
       colInRow = 0;
       rowIdx++;
     }
-    row.push({ block: blocks[i] as string, span, rowSpan: 1, col: colInRow, row: rowIdx });
+    row.push({ block: blocks[i] as string, span, rowSpan: 1, col: colInRow, row: rowIdx, index: i });
     colInRow += span;
   }
   if (row.length > 0) rows.push(row);
@@ -276,6 +280,15 @@ const _renderRow = (row: GridCell[], widths: number[], r: ResolvedOptions): stri
     let blockToRender = cell.block;
     if (r.cellH != null) {
       blockToRender = _fitHeight(cell.block, r.cellH);
+    }
+
+    // v1.4.8 — per-cell horizontal alignment. When cellAlign[index] is set,
+    // pre-pad the block's lines to the cell width using that alignment so
+    // vsplit (which only does vertical align + right-pad) preserves it.
+    const perCellAlign = r.cellAlign[cell.index];
+    if (perCellAlign && perCellAlign !== 'start') {
+      const { lines } = _splitBlock(blockToRender);
+      blockToRender = _padLinesAligned(lines, w, perCellAlign).join('\n');
     }
 
     mergedBlocks.push(blockToRender);

@@ -27,6 +27,7 @@ export type {
   FlexOptions,
   FlexJustify,
 } from './types.js';
+export type { WrapOptions } from './wrap.js';
 
 // Split
 export { vsplit, hsplit } from './split.js';
@@ -36,6 +37,9 @@ export { center, frame } from './layout.js';
 
 // Flex (v1.4.7)
 export { flex } from './flex.js';
+
+// Wrap (v1.4.8)
+export { wrap } from './wrap.js';
 
 // Grid + areas
 export { grid } from './grid.js';
@@ -48,6 +52,7 @@ export { gridAreas, _validateAreas } from './grid-areas.js';
 import { vsplit as _vsplit, hsplit as _hsplit } from './split.js';
 import { center as _center, frame as _frame } from './layout.js';
 import { flex as _flex } from './flex.js';
+import { wrap as _wrap } from './wrap.js';
 import { grid as _grid } from './grid.js';
 import { gridAreas as _gridAreas } from './grid-areas.js';
 
@@ -63,6 +68,8 @@ export const panels = {
   gridAreas: _gridAreas,
   // v1.4.7
   flex: _flex,
+  // v1.4.8
+  wrap: _wrap,
 };
 
 export default panels;

@@ -1622,3 +1622,53 @@ describe('clearLine (v1.3.4)', () => {
     expect(clearLine()).toBe(screen.clearLine() + '\r');
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.8 — cursor.scrollRegion + cursor.batch
+// ─────────────────────────────────────────────
+
+describe('cursor.scrollRegion (v1.4.8)', () => {
+  it('sets a scroll region with top/bottom', () => {
+    expect(cursor.scrollRegion(2, 23)).toBe('\x1b[2;23r');
+  });
+
+  it('resets the region when called with no args', () => {
+    expect(cursor.scrollRegion()).toBe('\x1b[r');
+  });
+
+  it('resets when only one arg is given', () => {
+    expect(cursor.scrollRegion(5)).toBe('\x1b[r');
+  });
+
+  it('swaps inverted top/bottom for a valid sequence', () => {
+    // top > bottom → swapped to 3;10
+    expect(cursor.scrollRegion(10, 3)).toBe('\x1b[3;10r');
+  });
+
+  it('clamps non-positive values', () => {
+    const result = cursor.scrollRegion(0, 20);
+    // 0 clamps to 1
+    expect(result).toBe('\x1b[1;20r');
+  });
+});
+
+describe('cursor.batch (v1.4.8)', () => {
+  it('concatenates multiple sequences', () => {
+    const result = cursor.batch(cursor.to(1, 1), cursor.hide());
+    expect(result).toBe(cursor.to(1, 1) + cursor.hide());
+  });
+
+  it('returns empty string for no args', () => {
+    expect(cursor.batch()).toBe('');
+  });
+
+  it('handles a single part', () => {
+    expect(cursor.batch('abc')).toBe('abc');
+  });
+
+  it('joins plain strings and escapes together', () => {
+    const result = cursor.batch(cursor.up(2), 'text', cursor.down(1));
+    expect(result).toContain('text');
+    expect(result.startsWith('\x1b[2A')).toBe(true);
+  });
+});

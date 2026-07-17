@@ -81,6 +81,22 @@ export interface GridOptions {
   rowSpan?: number[];
   /** Auto-flow direction. Since v1.4.1. */
   flow?: 'row' | 'column';
+  /**
+   * **v1.4.8** — Per-block horizontal alignment inside its cell. Overrides
+   * the grid-wide `alignX` for individual blocks. `cellAlign[i]` applies to
+   * block `i`; missing entries fall back to `alignX`.
+   *
+   * ```js
+   * // Left-align first cell, center second, right-align third
+   * panels.grid([a, b, c], {
+   *   columns: 3,
+   *   cellAlign: ['start', 'center', 'end'],
+   * });
+   * ```
+   *
+   * @since 1.4.8
+   */
+  cellAlign?: Alignment[];
 }
 
 /**
@@ -169,4 +185,6 @@ export interface GridCell {
   rowSpan: number;
   col: number;
   row: number;
+  /** Original block index in the input array. @since 1.4.8 */
+  index: number;
 }

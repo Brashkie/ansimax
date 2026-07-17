@@ -890,3 +890,30 @@ describe('barrel coverage — v1.4.7 re-exports', () => {
     expect(typeof md.normalizeRefLabel).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────
+//  Coverage: barrel re-exports for v1.4.8
+// ─────────────────────────────────────────────
+
+describe('barrel coverage — v1.4.8 re-exports', () => {
+  it('wrap is exported from main barrel + panels namespace', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.wrap).toBe('function');
+    expect(typeof main.panels.wrap).toBe('function');
+    expect(main.panels.wrap).toBe(main.wrap);
+  });
+
+  it('asciiTable is exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.asciiTable).toBe('function');
+    // Also on the ascii namespace as `table`
+    expect(typeof main.ascii.table).toBe('function');
+    expect(main.ascii.table).toBe(main.asciiTable);
+  });
+
+  it('cursor.scrollRegion + batch on ansi namespace', async () => {
+    const { cursor } = await import('../utils/ansi.js');
+    expect(typeof cursor.scrollRegion).toBe('function');
+    expect(typeof cursor.batch).toBe('function');
+  });
+});

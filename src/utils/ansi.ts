@@ -99,6 +99,47 @@ export const cursor = {
   nextLine: (n = 1): string => `${CSI}${clampPositive(n)}E`,
   /** Move cursor to previous line. */
   prevLine: (n = 1): string => `${CSI}${clampPositive(n)}F`,
+  /**
+   * **v1.4.8** — Set the vertical scroll region (DECSTBM). Rows outside
+   * `[top, bottom]` (1-based, inclusive) stay fixed while text inside the
+   * region scrolls. Pass no args to reset the region to the full screen.
+   *
+   * Useful for a fixed header/footer with a scrolling body — e.g. a live
+   * log tail that keeps a status bar pinned.
+   *
+   * ```js
+   * process.stdout.write(cursor.scrollRegion(2, 23)); // rows 2..23 scroll
+   * // ... write log lines that scroll within the region ...
+   * process.stdout.write(cursor.scrollRegion());      // reset to full screen
+   * ```
+   *
+   * @since 1.4.8
+   */
+  scrollRegion: (top?: number, bottom?: number): string => {
+    if (top == null || bottom == null) return `${CSI}r`; // reset
+    const t = clampPositive(top);
+    const b = clampPositive(bottom);
+    // Guard against inverted region — swap so the sequence is always valid.
+    const lo = Math.min(t, b);
+    const hi = Math.max(t, b);
+    return `${CSI}${lo};${hi}r`;
+  },
+  /**
+   * **v1.4.8** — Concatenate several cursor/screen sequences into one
+   * string for a single atomic `write`. Reduces flicker vs. multiple
+   * writes and keeps call sites readable.
+   *
+   * ```js
+   * process.stdout.write(cursor.batch(
+   *   cursor.to(1, 1),
+   *   screen.clearDown(),
+   *   'Header',
+   * ));
+   * ```
+   *
+   * @since 1.4.8
+   */
+  batch: (...parts: string[]): string => parts.join(''),
 } as const;
 
 // ─────────────────────────────────────────────

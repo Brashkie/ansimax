@@ -3,6 +3,137 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.8] — Grids, tables, wrapping + scroll regions
+
+Four additive features spanning layouts, ascii, and Phase 5 (cursor &
+screen control). Zero breaking changes.
+
+### Added — `cursor.scrollRegion` + `cursor.batch` (Phase 5)
+
+Two additions to the cursor toolkit:
+
+**`cursor.scrollRegion(top?, bottom?)`** — set the vertical scroll region
+(DECSTBM). Rows outside `[top, bottom]` stay fixed while text inside
+scrolls — perfect for a pinned header/footer with a scrolling body:
+
+```js
+import { cursor, screen } from 'ansimax';
+
+process.stdout.write(cursor.scrollRegion(2, 23)); // rows 2..23 scroll
+// ... write log lines that scroll within the region ...
+process.stdout.write(cursor.scrollRegion());      // reset to full screen
+```
+
+Inverted regions are swapped automatically so the emitted sequence is
+always valid; values are clamped to positive.
+
+**`cursor.batch(...parts)`** — concatenate several sequences into one
+string for a single atomic `write`, reducing flicker:
+
+```js
+process.stdout.write(cursor.batch(
+  cursor.to(1, 1),
+  screen.clearDown(),
+  'Header',
+));
+```
+
+### Added — `grid` per-cell alignment (`cellAlign`)
+
+Grid blocks can now be aligned individually, overriding the grid-wide
+`alignX`:
+
+```js
+panels.grid([a, b, c], {
+  columns: 3,
+  cellWidth: 12,
+  cellAlign: ['start', 'center', 'end'], // left, center, right
+});
+```
+
+`cellAlign[i]` applies to block `i`; missing entries fall back to `alignX`.
+Implemented by pre-padding each block's lines to its cell width before the
+`vsplit` merge, so it composes cleanly with vertical alignment and spans.
+
+### Added — `ascii.table` (auto-layout tables)
+
+Render 2D data as a box-drawing table with automatic column sizing:
+
+```js
+import { ascii } from 'ansimax';
+
+console.log(ascii.table([
+  ['Name', 'Role', 'Commits'],
+  ['Ada', 'Author', '1200'],
+  ['Linus', 'Maintainer', '45000'],
+], { align: ['left', 'left', 'right'] }));
+```
+
+Features:
+- **6 border styles** — `single`, `double`, `rounded`, `heavy`, `ascii`,
+  `none` (space-separated) — with proper T-junctions and crosses
+- **Automatic column sizing** — each column is sized to its widest cell
+- **Header separator** — the first row is treated as a header by default
+- **Per-column alignment** — `align: ['left', 'right', 'center']`
+- **ANSI-aware** — colored cells are measured by visible width so
+  alignment stays correct
+- **Width budget** (`maxWidth`) — when the natural table overflows, columns
+  are shrunk **widest-first** (water-filling) and text truncated with `…`
+
+The water-filling shrink is the algorithmic heart: instead of scaling all
+columns proportionally (which over-shrinks narrow columns like ids/flags),
+it repeatedly trims the single widest column by one until the table fits.
+Short columns stay readable; only genuinely wide columns absorb the loss.
+
+Exposed as `ascii.table` and as the top-level `asciiTable` export. Types:
+`TableOptions`, `TableAlign`, `TableBorderStyle` (aliased to
+`AsciiTableOptions` etc. at the top level to avoid clashing with the
+existing `components.table`).
+
+### Added — `panels.wrap` (wrapping block flow)
+
+Flow blocks left-to-right, wrapping to a new row when they'd overflow —
+like `flex-wrap: wrap`:
+
+```js
+const cards = items.map((it) => ascii.box(it, { borderStyle: 'rounded' }));
+
+console.log(panels.wrap(cards, { maxWidth: 60, gapX: 2, gapY: 1 }));
+```
+
+Uses greedy first-fit bin-packing (O(n)): each block joins the current row
+if it fits (accounting for the gap), else starts a new row. A block wider
+than `maxWidth` gets its own row (it can't be split). Rows are merged with
+`vsplit` and stacked with `hsplit`, inheriting their alignment + ANSI
+handling. The internal `_packRows` is exported for testing.
+
+### Improved — Tests
+
+- `+9` cursor tests (scrollRegion top/bottom/reset/swap/clamp, batch)
+- `+4` grid cellAlign tests (per-cell, fallback, defensive, center)
+- `+8` wrap tests (fit, overflow, gapY, `_packRows` first-fit + oversized)
+- `+12` ascii.table tests (borders, header, styles, none, align, ragged,
+  coercion, maxWidth truncation, ANSI width, padding)
+- `+3` barrel re-export tests
+
+Total: **+36 tests**.
+
+### Notes
+
+- **Zero breaking changes** — all new exports
+- `wrap` reuses `vsplit`/`hsplit`; `grid cellAlign` reuses `_padLinesAligned`
+- Both the table water-filling and wrap bin-packing are validated against
+  their invariants (short-column preservation; per-row width ≤ maxWidth)
+- New modules: `src/ascii/table.ts` (221 lines), `src/panels/wrap.ts` (108 lines)
+
+### Roadmap
+
+- ✅ v1.4.8 — Grid per-cell align, ascii tables, wrapping layout, scroll regions — **done**
+- ⏳ CommonMark strict mode (footnotes, HTML blocks) — pending
+- ⏳ Custom markdown theme registry — pending
+
+---
+
 ## [1.4.7] — Reference links + flexbox layout
 
 Two roadmap items land together, both building on v1.4.6 foundations

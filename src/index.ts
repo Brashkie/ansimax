@@ -47,12 +47,18 @@ export {
   ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize,
   // v1.2.5 — Phase 3 closure
   fromImage, figletText, parseFiglet, ASCII_RAMPS,
+  // v1.4.8 — auto-layout tables
+  table as asciiTable,
 } from './ascii/index.js';
 export type {
   BoxStyle, BoxOptions, BannerOptions, DividerOptions, LogoOptions,
   Glyph, FontMap, FontName, RegisterFontOptions, StreamOptions, Dimensions,
   // v1.2.5 — Phase 3 closure
   AsciiRamp, FromImageOptions, FigletFont, FigletOptions,
+  // v1.4.8 — auto-layout tables (aliased to avoid clash with components.table)
+  TableOptions as AsciiTableOptions,
+  TableAlign as AsciiTableAlign,
+  TableBorderStyle as AsciiTableBorderStyle,
 } from './ascii/index.js';
 
 export { loader, resetLoaderCursorCount } from './loaders/index.js';
@@ -100,8 +106,8 @@ export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, R
 // v1.3.1 — panels.center + panels.frame, json sortKeys + inline arrays
 // v1.3.3 — panels.grid + ascii.box title/titleAlign + ascii.divider align
 // v1.4.4 — panels.gridAreas + AreaRect
-export { panels, vsplit, hsplit, center as centerBlock, frame, grid, gridAreas, flex } from './panels/index.js';
-export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions, GridAreasOptions, AreaRect, FlexOptions, FlexJustify } from './panels/index.js';
+export { panels, vsplit, hsplit, center as centerBlock, frame, grid, gridAreas, flex, wrap } from './panels/index.js';
+export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptions, GridOptions, GridAreasOptions, AreaRect, FlexOptions, FlexJustify, WrapOptions } from './panels/index.js';
 
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';

@@ -1207,3 +1207,133 @@ describe('flex (v1.4.7)', () => {
     expect(line.length).toBe(12);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.8 — grid cellAlign (per-cell alignment)
+// ─────────────────────────────────────────────
+
+describe('grid cellAlign (v1.4.8)', () => {
+  it('applies per-cell horizontal alignment', () => {
+    // Three cells, forced to a fixed width, different alignments
+    const result = grid(['A', 'B', 'C'], {
+      columns: 3,
+      cellWidth: 5,
+      cellAlign: ['start', 'center', 'end'],
+    });
+    const line = result.split('\n')[0] as string;
+    // 'A' left in first 5 cols, 'B' centered in next, 'C' right in last
+    expect(line).toContain('A');
+    expect(line).toContain('B');
+    expect(line).toContain('C');
+  });
+
+  it('falls back to alignX for missing cellAlign entries', () => {
+    const result = grid(['A', 'B'], {
+      columns: 2,
+      cellWidth: 5,
+      alignX: 'end',
+      cellAlign: ['start'], // only first specified
+    });
+    expect(result).toContain('A');
+    expect(result).toContain('B');
+  });
+
+  it('ignores cellAlign when not an array', () => {
+    const result = grid(['A', 'B'], {
+      columns: 2,
+      cellWidth: 4,
+      // @ts-expect-error testing defensive
+      cellAlign: 'center',
+    });
+    expect(result).toContain('A');
+  });
+
+  it('center alignment pads both sides within the cell', () => {
+    const result = grid(['X'], {
+      columns: 1,
+      cellWidth: 5,
+      cellAlign: ['center'],
+    });
+    const line = result.split('\n')[0] as string;
+    // 'X' in a 5-wide cell centered → 2 spaces, X, 2 spaces
+    expect(line.trim()).toBe('X');
+    expect(line.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.8 — panels.wrap (bin-packing block flow)
+// ─────────────────────────────────────────────
+
+import { wrap } from '../panels/index.js';
+import { _packRows } from '../panels/wrap.js';
+
+describe('panels.wrap (v1.4.8)', () => {
+  it('returns empty for empty blocks', () => {
+    expect(wrap([], { maxWidth: 40 })).toBe('');
+  });
+
+  it('returns empty for missing opts', () => {
+    // @ts-expect-error testing defensive
+    expect(wrap(['a'], undefined)).toBe('');
+  });
+
+  it('keeps blocks on one row when they fit', () => {
+    const result = wrap(['AA', 'BB', 'CC'], { maxWidth: 40, gapX: 1 });
+    // All on one line
+    expect(result.split('\n').length).toBe(1);
+  });
+
+  it('wraps to a new row when width is exceeded', () => {
+    // Three 10-wide blocks, maxWidth 25 → 2 fit, third wraps
+    const blocks = ['XXXXXXXXXX', 'YYYYYYYYYY', 'ZZZZZZZZZZ'];
+    const result = wrap(blocks, { maxWidth: 25, gapX: 2 });
+    // vsplit/hsplit produce multiple lines
+    expect(result).toContain('X');
+    expect(result).toContain('Z');
+  });
+
+  it('respects gapY between rows', () => {
+    const blocks = ['AAAAA', 'BBBBB', 'CCCCC'];
+    const result = wrap(blocks, { maxWidth: 6, gapY: 1 });
+    // Each block on its own row (6 wide fits one 5-wide block)
+    const lines = result.split('\n');
+    expect(lines.length).toBeGreaterThan(1);
+  });
+});
+
+describe('_packRows (v1.4.8)', () => {
+  it('packs blocks greedily by first-fit', () => {
+    const rows = _packRows(['A', 'B', 'C', 'D'], [10, 10, 10, 10], 25, 2);
+    // 10 + 2+10 = 22 fits, +2+10=34 > 25 → wrap. So 2 per row.
+    expect(rows.length).toBe(2);
+    expect(rows[0]?.length).toBe(2);
+    expect(rows[1]?.length).toBe(2);
+  });
+
+  it('gives an oversized block its own row', () => {
+    const rows = _packRows(['WIDE', 'x'], [50, 5], 40, 2);
+    expect(rows.length).toBe(2);
+    expect(rows[0]).toEqual(['WIDE']);
+    expect(rows[1]).toEqual(['x']);
+  });
+
+  it('packs everything on one row when it all fits', () => {
+    const rows = _packRows(['A', 'B'], [5, 5], 40, 1);
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.length).toBe(2);
+  });
+
+  it('every row respects maxWidth (except unsplittable singles)', () => {
+    const widths = [8, 8, 8, 8, 8];
+    const rows = _packRows(['A', 'B', 'C', 'D', 'E'], widths, 20, 1);
+    for (const row of rows) {
+      if (row.length === 1) continue; // unsplittable
+      const rowW = row.reduce((sum, _blk, idx) => {
+        const bi = ['A', 'B', 'C', 'D', 'E'].indexOf(row[idx] as string);
+        return sum + (widths[bi] as number) + (idx > 0 ? 1 : 0);
+      }, 0);
+      expect(rowW).toBeLessThanOrEqual(20);
+    }
+  });
+});

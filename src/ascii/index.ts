@@ -13,6 +13,10 @@
 // ─────────────────────────────────────────────
 
 import { termSize, center, visibleLen, truncateAnsi, padEnd } from '../utils/helpers.js';
+// v1.4.8 — auto-layout tables
+import { table } from './table.js';
+export { table };
+export type { TableOptions, TableAlign, TableBorderStyle } from './table.js';
 import { ColorFn, isNoColor } from '../colors/index.js';
 import { fgRgb, bgRgb, reset } from '../utils/ansi.js';
 import type { Pixel, PixelGrid } from '../images/index.js';
@@ -1561,6 +1565,8 @@ export const ascii = {
   // Cache control
   clearRenderCache,
   getRenderCacheSize,
+  // v1.4.8 — auto-layout tables
+  table,
   boxStyles: Object.keys(BOX_STYLES) as Array<keyof typeof BOX_STYLES>,
 };
 

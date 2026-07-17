@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.7'));
+console.log(components.badge('VERSION', 'v1.4.8'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1069,6 +1069,34 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.8 — Grids, tablas, wrapping + scroll regions
+
+Cuatro features aditivas, cero breaking changes:
+
+- 📊 **`ascii.table`** — tablas auto-layout con 6 estilos de borde + column sizing water-filling
+- 🔲 **`panels.wrap`** — flujo de blocks estilo flex-wrap (bin-packing greedy)
+- 📐 **`grid` align per-cell** — `cellAlign: ['start', 'center', 'end']`
+- 🖥️ **`cursor.scrollRegion` + `cursor.batch`** — scroll regions DECSTBM + writes atómicos (Fase 5)
+- 🧪 **+36 tests**
+
+```js
+import { ascii, panels, cursor } from 'ansimax';
+
+// Tabla auto-dimensionada (la columna más ancha se encoge primero al exceder el budget)
+ascii.table([
+  ['Nombre', 'Rol', 'Commits'],
+  ['Ada', 'Autora', '1200'],
+], { align: ['left', 'left', 'right'], maxWidth: 40 });
+
+// Wrap de cards para caber en el ancho del terminal
+panels.wrap(cards, { maxWidth: 60, gapX: 2, gapY: 1 });
+
+// Header/footer fijo con body scrolleable
+process.stdout.write(cursor.scrollRegion(2, 23));
+```
+
+Drop-in replacement para `1.4.7`.
 
 ### v1.4.7 — Reference links + layout flexbox
 

@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.7'));
+console.log(components.badge('VERSION', 'v1.4.8'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1067,6 +1067,34 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.8 — Grids, tables, wrapping + scroll regions
+
+Four additive features, zero breaking changes:
+
+- 📊 **`ascii.table`** — auto-layout tables with 6 border styles + water-filling column sizing
+- 🔲 **`panels.wrap`** — flex-wrap-style block flow (greedy bin-packing)
+- 📐 **`grid` per-cell align** — `cellAlign: ['start', 'center', 'end']`
+- 🖥️ **`cursor.scrollRegion` + `cursor.batch`** — DECSTBM scroll regions + atomic writes (Phase 5)
+- 🧪 **+36 tests**
+
+```js
+import { ascii, panels, cursor } from 'ansimax';
+
+// Auto-sized table (widest column shrinks first when over budget)
+ascii.table([
+  ['Name', 'Role', 'Commits'],
+  ['Ada', 'Author', '1200'],
+], { align: ['left', 'left', 'right'], maxWidth: 40 });
+
+// Wrap cards to fit the terminal width
+panels.wrap(cards, { maxWidth: 60, gapX: 2, gapY: 1 });
+
+// Pinned header/footer with a scrolling body
+process.stdout.write(cursor.scrollRegion(2, 23));
+```
+
+Drop-in replacement for `1.4.7`.
 
 ### v1.4.7 — Reference links + flexbox layout
 
