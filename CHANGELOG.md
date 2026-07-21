@@ -3,6 +3,75 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.9] — Table cell wrapping + coverage hardening
+
+A focused release: extends `ascii.table` with multi-line cell wrapping and
+closes the remaining coverage gaps from v1.4.8. Zero breaking changes.
+
+### Added — `ascii.table` cell wrapping (`wrap: true`)
+
+Long cells can now word-wrap to multiple lines instead of being truncated
+with an ellipsis:
+
+```js
+import { ascii } from 'ansimax';
+
+console.log(ascii.table([
+  ['id', 'description'],
+  ['1', 'a fairly long description that wraps neatly across several lines'],
+], { maxWidth: 40, wrap: true }));
+```
+
+Behavior:
+- **Column sizing runs first** (the v1.4.8 water-filling algorithm), then
+  overflowing cells wrap *within* the resulting column widths
+- **Rows grow taller** to fit their tallest wrapped cell; shorter cells in
+  the same row are padded with blank lines and stay aligned
+- **Long unbreakable words** (longer than the column) are chunked so every
+  visual line still fits the column width — via the ANSI-aware `wrapAnsi`
+- **ANSI-safe** — color codes are preserved across wrap boundaries
+- `wrap: false` (the default) keeps the v1.4.8 ellipsis-truncation behavior
+
+Implemented by making `renderRow` return a multi-line block: each cell is
+wrapped to its column width, the row height becomes the max cell height,
+and lines are assembled top-to-bottom with per-column alignment applied to
+each visual line.
+
+### Improved — Coverage hardening
+
+Closed the remaining branch-coverage gaps flagged after v1.4.8, applying
+the project's standard discipline (test the reachable, `istanbul ignore`
+the provably-unreachable):
+
+**New tests** (reachable branches):
+- `table` center alignment, non-array rows, null/undefined cells, empty
+  data (`cols === 0`)
+- `box` padding fallback for non-numeric input
+- `fromImage` default width (80) and `invert` ramp mapping
+- `figletText` all-blank trim fallback + characters absent from the font
+
+**`istanbul ignore` with documented invariants** (unreachable branches):
+- `table` water-fill break — `contentBudget >= cols` by construction, so
+  the loop always exits before the "can't shrink below 1" guard fires
+- `_sobelEdges` empty-grid width — callers always pass a resized non-empty grid
+- `figletText` `codePointAt(0) ?? 32` — `for…of` always yields valid chars
+- `figletText` glyph-row `?? ''` — well-formed glyphs always have `font.height` rows
+
+### Notes
+
+- **Zero breaking changes** — `wrap` is opt-in; default table behavior is
+  identical to v1.4.8
+- Cell wrapping reuses the existing `wrapAnsi` helper (no new wrapping logic)
+- Every unreachable branch is documented with the invariant that makes it so
+
+### Roadmap
+
+- ✅ v1.4.9 — Table cell wrapping + coverage hardening — **done**
+- ⏳ CommonMark strict mode (footnotes, HTML blocks) — pending
+- ⏳ Custom markdown theme registry — pending
+
+---
+
 ## [1.4.8] — Grids, tables, wrapping + scroll regions
 
 Four additive features spanning layouts, ascii, and Phase 5 (cursor &

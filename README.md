@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.8-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.9-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.8'));
+console.log(components.badge('VERSION', 'v1.4.9'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1067,6 +1067,24 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.9 — Table cell wrapping + coverage hardening
+
+- 📝 **`ascii.table` cell wrapping** — `wrap: true` word-wraps long cells to multiple lines instead of truncating
+- 🧪 **Coverage hardening** — closed remaining v1.4.8 branch gaps (reachable → tests, unreachable → documented `istanbul ignore`)
+
+```js
+import { ascii } from 'ansimax';
+
+ascii.table([
+  ['id', 'description'],
+  ['1', 'a fairly long description that wraps neatly across several lines'],
+], { maxWidth: 40, wrap: true });
+```
+
+Column sizing runs first (water-filling), then cells wrap within the resulting widths. Rows grow to fit their tallest cell. `wrap: false` (default) keeps v1.4.8 ellipsis behavior.
+
+Drop-in replacement for `1.4.8`.
 
 ### v1.4.8 — Grids, tables, wrapping + scroll regions
 

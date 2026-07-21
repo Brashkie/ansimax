@@ -929,6 +929,7 @@ const _luminance = (p: Pixel): number => {
  */
 const _sobelEdges = (pixels: PixelGrid): number[][] => {
   const h = pixels.length;
+  /* istanbul ignore next — `: 0` defensive: callers always pass a resized non-empty grid */
   const w = h > 0 ? (pixels[0] as Pixel[]).length : 0;
   const out: number[][] = Array.from({ length: h }, () => new Array<number>(w).fill(0));
 
@@ -1494,6 +1495,7 @@ const _renderFigletLine = (
   // For each character, look up its glyph (or space-equivalent)
   const glyphsForText: string[][] = [];
   for (const ch of text) {
+    /* istanbul ignore next — `?? 32` unreachable: for-of yields valid chars, codePointAt(0) is defined */
     const code = ch.codePointAt(0) ?? 32;
     const glyph = font.glyphs.get(code);
     if (glyph) {
@@ -1516,6 +1518,7 @@ const _renderFigletLine = (
     let row = '';
     for (let i = 0; i < glyphsForText.length; i++) {
       const g = glyphsForText[i] as string[];
+      /* istanbul ignore next — `?? ''` unreachable: well-formed glyphs have font.height rows */
       row += (g[r] as string ?? '');
       // Add kerning spacer between glyphs (but not after the last one)
       if (i < glyphsForText.length - 1 && kerningSpacer) {

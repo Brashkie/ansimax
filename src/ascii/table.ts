@@ -18,7 +18,7 @@
 //  the genuinely wide columns (descriptions) absorb the loss.
 // ─────────────────────────────────────────────
 
-import { visibleLen, truncateAnsi, padEnd } from '../utils/helpers.js';
+import { visibleLen, truncateAnsi, padEnd, wordWrap } from '../utils/helpers.js';
 
 export type TableBorderStyle =
   | 'single' | 'double' | 'rounded' | 'heavy' | 'ascii' | 'none';
@@ -70,6 +70,15 @@ export interface TableOptions {
    * are shrunk (widest-first) and cell text truncated with `…` to fit.
    */
   maxWidth?: number | null;
+  /**
+   * **v1.4.9** — When `true`, cells wider than their column are word-wrapped
+   * to multiple lines instead of being truncated with `…`. Rows grow taller
+   * to fit their tallest cell. Combines with `maxWidth` (columns are sized
+   * first, then long cells wrap within the resulting widths).
+   *
+   * @since 1.4.9
+   */
+  wrap?: boolean;
 }
 
 const _alignCell = (text: string, width: number, align: TableAlign): string => {
@@ -186,19 +195,49 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
 
   const pad = ' '.repeat(padding);
   const alignOf = (c: number): TableAlign => aligns[c] ?? 'left';
+  const doWrap = opts.wrap === true;
 
-  // Render a single data row
+  // Render a single data row. Returns one or more visual lines (multiple
+  // when wrap is enabled and a cell overflows its column width).
   const renderRow = (row: string[]): string => {
-    const cells: string[] = [];
+    const S = bordered
+      ? TABLE_STYLES[borderStyle as Exclude<TableBorderStyle, 'none'>]
+      : null;
+
+    // Compute the wrapped/aligned lines for each cell.
+    const cellLines: string[][] = [];
+    let rowHeight = 1;
     for (let c = 0; c < cols; c++) {
       const w = widths[c] as number;
-      let cell = row[c] ?? '';
-      if (visibleLen(cell) > w) cell = truncateAnsi(cell, w, '…');
-      cells.push(pad + _alignCell(cell, w, alignOf(c)) + pad);
+      const raw = row[c] ?? '';
+      let lines: string[];
+      if (doWrap && visibleLen(raw) > w) {
+        // Word-wrap to the column width → multiple lines.
+        lines = wordWrap(raw, w);
+        /* istanbul ignore next — wrapAnsi returns [] only for empty input, already handled above */
+        if (lines.length === 0) lines = [''];
+      } else if (!doWrap && visibleLen(raw) > w) {
+        // Truncate with ellipsis (v1.4.8 behavior).
+        lines = [truncateAnsi(raw, w, '…')];
+      } else {
+        lines = [raw];
+      }
+      cellLines.push(lines);
+      if (lines.length > rowHeight) rowHeight = lines.length;
     }
-    if (!bordered) return cells.join(' ');
-    const S = TABLE_STYLES[borderStyle as Exclude<TableBorderStyle, 'none'>];
-    return S.v + cells.join(S.v) + S.v;
+
+    // Assemble each visual line of the row, padding shorter cells with blanks.
+    const visualLines: string[] = [];
+    for (let ln = 0; ln < rowHeight; ln++) {
+      const cells: string[] = [];
+      for (let c = 0; c < cols; c++) {
+        const w = widths[c] as number;
+        const cellLine = (cellLines[c] as string[])[ln] ?? '';
+        cells.push(pad + _alignCell(cellLine, w, alignOf(c)) + pad);
+      }
+      visualLines.push(S ? S.v + cells.join(S.v) + S.v : cells.join(' '));
+    }
+    return visualLines.join('\n');
   };
 
   // Render a horizontal rule (top / mid / bottom) with proper junctions

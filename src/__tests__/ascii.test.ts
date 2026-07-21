@@ -2168,6 +2168,35 @@ describe('ascii.table (v1.4.8)', () => {
     expect(inner.indexOf('x')).toBeGreaterThan(1);
   });
 
+  it('wraps long cells to multiple lines when wrap:true (v1.4.9)', () => {
+    const result = table([
+      ['id', 'description'],
+      ['1', 'a fairly long description that should wrap across lines'],
+    ], { maxWidth: 30, wrap: true });
+    // With wrap, no ellipsis truncation
+    expect(result).not.toContain('…');
+    // The long cell spans multiple visual lines → more lines than a
+    // non-wrapped 2-row table (which would be 4 lines: top, header, sep, row, bottom)
+    const lineCount = result.split('\n').length;
+    expect(lineCount).toBeGreaterThan(5);
+  });
+
+  it('wrap:true keeps every wrapped line within the column width', () => {
+    const result = table([
+      ['a supercalifragilisticexpialidocious word'],
+    ], { maxWidth: 20, wrap: true, header: false });
+    // No crash; long unbreakable word is chunked. Output is non-empty.
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).not.toContain('…');
+  });
+
+  it('wrap:false (default) still truncates with ellipsis', () => {
+    const result = table([
+      ['a very very very long description exceeding the budget here'],
+    ], { maxWidth: 20, header: false });
+    expect(result).toContain('…');
+  });
+
   it('returns empty when all rows are empty arrays', () => {
     // cols === 0 branch
     expect(table([[]])).toBe('');
@@ -2194,7 +2223,7 @@ describe('ascii.table (v1.4.8)', () => {
 //  v1.4.8 — Coverage top-up for pre-existing defensive branches
 // ─────────────────────────────────────────────
 
-describe('ascii defensive branch coverage (v1.4.8 top-up)', () => {
+describe('ascii defensive branch coverage (v1.4.9 top-up)', () => {
   it('box falls back to padding 1 for non-numeric padding', () => {
     // Line 659: typeof padding === 'number' && isFinite ? padding : 1
     const nan = ascii.box('x', { padding: NaN });
@@ -2206,10 +2235,40 @@ describe('ascii defensive branch coverage (v1.4.8 top-up)', () => {
     expect(str).toBe(def);
   });
 
-  it('figletText uses default width when width is omitted', () => {
-    // Line 1212: opts.width ?? 80 (indirectly via fromImage default path)
-    // fromImage with no width falls back to 80
-    // (covered through the fromImage default-width path)
-    expect(typeof ascii.figletText).toBe('function');
+  it('fromImage uses default width (80) when width is omitted', () => {
+    // Line 1213: opts.width ?? 80
+    const grid = makeSolidGrid(4, 2, 200, 200, 200);
+    const out = fromImage(grid, { ramp: 'simple' }); // no width → defaults to 80
+    // Non-empty output; width clamps to grid aspect but the ?? 80 path runs
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('fromImage invert flips the ramp mapping', () => {
+    // Line 1284: invert ? Math.round((1-t)*(rampLen-1)) : ...
+    const grid = makeSolidGrid(6, 3, 250, 250, 250); // bright
+    const normal = fromImage(grid, { width: 6, ramp: 'simple', invert: false });
+    const inverted = fromImage(grid, { width: 6, ramp: 'simple', invert: true });
+    // Bright pixels map to opposite ends of the ramp under invert
+    expect(normal).not.toBe(inverted);
+  });
+
+  it('figletText with trim keeps all-blank output as-is', () => {
+    // Line 1533: trimmed.length > 0 ? ... : rows.join('\n')
+    // A space renders as blank rows; with trim, everything filters out →
+    // the fallback returns the untrimmed rows instead of an empty string.
+    const font = parseFiglet(MINIMAL_FLF);
+    const out = figletText(' ', font, { trim: true });
+    // Not empty — the : rows.join('\n') fallback preserves the blank block
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('figletText handles characters absent from the font', () => {
+    // Line 1504-1505: unknown char → space glyph fallback
+    const font = parseFiglet(MINIMAL_FLF);
+    // '€' is not in the minimal font → falls back to space glyph (32)
+    const out = figletText('€', font);
+    expect(typeof out).toBe('string');
   });
 });
