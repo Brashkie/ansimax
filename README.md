@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.9-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.10-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.9'));
+console.log(components.badge('VERSION', 'v1.4.10'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1067,6 +1067,20 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.10 — ascii module split + table minColWidth
+
+- 🧩 **`ascii/` module split** — 1575-line `index.ts` → 9 focused modules (types/fonts/render/shapes/image/figlet/stream/table/index)
+- 📏 **`ascii.table` `minColWidth`** — floor on column shrinking so narrow columns stay legible
+
+```js
+import { ascii } from 'ansimax';
+
+ascii.table(rows, { maxWidth: 30, minColWidth: 4 });
+// No column shrinks below 4 visible chars
+```
+
+The module split is pure rearrangement — the `ascii` namespace and all exports are 100% backward-compatible. The dependency graph is strictly layered and acyclic. Drop-in replacement for `1.4.9`.
 
 ### v1.4.9 — Table cell wrapping + coverage hardening
 

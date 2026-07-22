@@ -58,7 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 console.clear();
 
-const banner = ascii.figletText('STARDUST', { font: 'standard' });
+const banner = ascii.figlet('STARDUST', { font: 'big' });
 const colored = gradient(banner, ['#ff79c6', '#bd93f9', '#8be9fd']);
 console.log(colored);
 

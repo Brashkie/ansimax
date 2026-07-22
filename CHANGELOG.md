@@ -3,6 +3,71 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.10] — ascii module split + table minColWidth
+
+Splits the 1575-line `ascii/index.ts` into focused modules and adds a
+minimum-column-width control to `ascii.table`. Zero breaking changes.
+
+### Improved — `ascii/` module split (1575 → 9 files)
+
+Following the pattern of markdown (v1.4.1) and panels (v1.4.5), the
+monolithic `src/ascii/index.ts` is split into focused modules:
+
+```
+src/ascii/
+├── types.ts    (231 lines)  ← public types (Glyph, FontMap, all Options)
+├── fonts.ts    (388 lines)  ← BLOCK/SMALL fonts, LRU cache, renderFont, registry
+├── render.ts   (127 lines)  ← big/small/figlet + banner pipeline (stages)
+├── shapes.ts   (209 lines)  ← box/divider/logo/measure
+├── image.ts    (368 lines)  ← fromImage + luminance/sobel/dither/resize
+├── figlet.ts   (179 lines)  ← parseFiglet + figletText (.flf support)
+├── stream.ts   (42 lines)   ← streaming async-iterator render
+├── table.ts    (276 lines)  ← auto-layout tables
+└── index.ts    (98 lines)   ← barrel + `ascii` namespace
+```
+
+**Zero API changes** — the barrel re-exports everything that was public
+before, and the `ascii` namespace is identical. Internal symbols
+(`renderFont`, `BLOCK`, `SMALL`, `FONTS`, `ensureString`, `RenderOptions`)
+are now shared across modules via explicit exports rather than closure
+scope. The dependency graph is strictly layered and acyclic:
+`types ← fonts ← render ← {shapes, stream}`, with `image`/`figlet`/`table`
+depending only on `types`.
+
+### Added — `ascii.table` minimum column width (`minColWidth`)
+
+The water-filling shrink now respects a per-column floor, so narrow-but-
+important columns (ids, flags) stay legible under a tight `maxWidth`:
+
+```js
+ascii.table(rows, { maxWidth: 30, minColWidth: 4 });
+// No column is shrunk below 4 visible chars
+```
+
+The content budget is floored at `cols × minColWidth`, so columns stop
+shrinking at the floor rather than collapsing to a single character.
+
+**Invariant update**: v1.4.9 documented the water-fill break guard as
+unreachable because `contentBudget >= cols`. With `minColWidth` the floor
+becomes `cols × minColWidth`, so the guard's `istanbul ignore` comment was
+updated to reflect the new (still unreachable) invariant:
+`contentBudget >= cols × minColWidth`.
+
+### Notes
+
+- **Zero breaking changes** — split is pure rearrangement; `minColWidth`
+  is opt-in (default `1`)
+- New tests: `minColWidth` behavior + ascii module-split verification
+  (direct submodule imports, namespace↔submodule identity, main barrel intact)
+
+### Roadmap
+
+- ✅ v1.4.10 — ascii module split + table minColWidth — **done**
+- ⏳ CommonMark strict mode (footnotes, HTML blocks) — pending
+- ⏳ Custom markdown theme registry — pending
+
+---
+
 ## [1.4.9] — Table cell wrapping + coverage hardening
 
 A focused release: extends `ascii.table` with multi-line cell wrapping and

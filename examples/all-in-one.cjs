@@ -26,6 +26,9 @@ const {
   gradientRect,
   tree,
   box,
+  // v1.4.x
+  markdown,
+  panels,
 } = require('ansimax');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -118,7 +121,7 @@ async function main() {
   console.log(components.section('🏷️  Badges & Status', { width: 60 }));
   console.log();
   console.log(' ',
-    components.badge('VERSION', 'v1.4.9'),
+    components.badge('VERSION', 'v1.4.10'),
     components.badge('BUILD', 'passing'),
     components.badge('LICENSE', 'Apache 2.0'));
   console.log();
@@ -190,7 +193,61 @@ async function main() {
   }
   console.log();
 
-  // ── 14. Final box ─────────────────────────────────────────
+  // ── 14. Markdown rendering + syntax highlighting (v1.4.x) ─
+  console.log(color.bold('── Markdown → terminal ──'));
+  console.log(markdown.render([
+    '## Release notes',
+    '',
+    'Supports **bold**, *italic*, `code`, and [links](https://example.com).',
+    '',
+    '- [x] Syntax highlighting',
+    '- [ ] Footnotes',
+    '',
+    '```js',
+    'const greet = (name) => `Hello, ${name}!`;',
+    '```',
+  ].join('\n')));
+  console.log();
+
+  // ── 15. Auto-layout table (v1.4.8+) ───────────────────────
+  console.log(color.bold('── ascii.table ──'));
+  console.log(ascii.table([
+    ['Module', 'Purpose', 'Since'],
+    ['markdown', 'terminal markdown renderer', 'v1.4.0'],
+    ['panels.flex', 'flexbox-style layout with justify + grow', 'v1.4.7'],
+    ['ascii.table', 'auto-sized tables with cell wrapping', 'v1.4.8'],
+  ], {
+    align: ['left', 'left', 'right'],
+    borderStyle: 'rounded',
+    maxWidth: 64,
+    wrap: true,
+    minColWidth: 6,
+  }));
+  console.log();
+
+  // ── 16. Grid + flex + wrap layouts (v1.4.x) ───────────────
+  console.log(color.bold('── Layout engines ──'));
+  const cards = ['A', 'B', 'C', 'D', 'E'].map((ch) =>
+    ascii.box(ch, { borderStyle: 'rounded', padding: 0 }));
+
+  // CSS Grid with per-cell alignment
+  console.log(panels.grid(cards.slice(0, 3), {
+    columns: 3,
+    gapX: 2,
+    cellWidth: 12,
+    cellAlign: ['start', 'center', 'end'],
+  }));
+  console.log();
+
+  // Flexbox-style distribution
+  console.log(panels.flex(cards.slice(0, 3), { width: 44, justify: 'between' }));
+  console.log();
+
+  // Wrapping flow — cards reflow onto new rows when they overflow
+  console.log(panels.wrap(cards, { maxWidth: 28, gapX: 2, gapY: 0 }));
+  console.log();
+
+  // ── 17. Final box ─────────────────────────────────────────
   themes.use('dracula');
   console.log(box(
     themes.primary('✨ Ansimax demo complete ✨') + '\n' +
@@ -199,7 +256,7 @@ async function main() {
   ));
   console.log();
 
-  // ── 15. Farewell ──────────────────────────────────────────
+  // ── 18. Farewell ──────────────────────────────────────────
   await animate.fadeOut('Thanks for trying ansimax!', { duration: 800 });
   console.log();
 }

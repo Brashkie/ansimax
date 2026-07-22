@@ -39,6 +39,30 @@ Each examples file is organized in this order:
 10. **`images`** — pixel art, canvas, gradient rectangles
 11. **`panels`** + **`json`** — split layouts + pretty-printing (v1.3.0+)
 
+### Added since v1.4.0 — not yet covered in the example files
+
+These modules and APIs shipped after the example files were written. They
+are documented in the main [README](../README.md) and
+[CHANGELOG](../CHANGELOG.md); dedicated example sections are still pending.
+
+12. **`markdown`** — markdown → terminal renderer with themes, tables,
+    nested/task lists, autolinks, reference links (v1.4.0–v1.4.7)
+    - `markdown.render()`, `parseBlocks()`, `parseInline()`
+    - Syntax highlighting for code blocks: `highlight()`, `tokenize()`,
+      `isHighlightSupported()` — js/ts/json/bash (v1.4.5)
+13. **`panels.grid`** / **`panels.gridAreas`** — CSS Grid-inspired layout with
+    `colSpan`, `rowSpan` (mark-and-pack), template areas, per-cell alignment
+    (v1.4.1–v1.4.4, v1.4.8)
+14. **`panels.flex`** — flexbox-style layout: `justify`
+    (start/end/center/between/around/evenly) + `grow` weights (v1.4.7)
+15. **`panels.wrap`** — wrapping block flow (greedy bin-packing) (v1.4.8)
+16. **`ascii.table`** — auto-layout tables with water-filling column sizing,
+    6 border styles, cell wrapping, `minColWidth` (v1.4.8–v1.4.10)
+17. **`cursor.scrollRegion`** / **`cursor.batch`** — DECSTBM scroll regions and
+    atomic escape-sequence writes (v1.4.8)
+18. **Math toolkit** — `lerp`, `smoothstep`, `mod`, `gcd`, `distribute`, and
+    more (v1.4.6)
+
 ---
 
 ## 💡 Running the examples

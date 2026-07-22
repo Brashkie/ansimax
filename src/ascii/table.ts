@@ -79,6 +79,15 @@ export interface TableOptions {
    * @since 1.4.9
    */
   wrap?: boolean;
+  /**
+   * **v1.4.10** — Minimum width (visible chars, excluding padding) for every
+   * column. The water-filling shrink will not reduce any column below this,
+   * so narrow-but-important columns stay legible even under a tight
+   * `maxWidth`. Default `1`.
+   *
+   * @since 1.4.10
+   */
+  minColWidth?: number;
 }
 
 const _alignCell = (text: string, width: number, align: TableAlign): string => {
@@ -103,6 +112,7 @@ const _alignCell = (text: string, width: number, align: TableAlign): string => {
  * @param padding   per-side padding
  * @param border    whether borders consume width (1 col per separator)
  * @param budget    optional total-width cap
+ * @param minCol    minimum per-column content width (never shrink below)
  */
 const _computeColumnWidths = (
   rows: string[][],
@@ -110,6 +120,7 @@ const _computeColumnWidths = (
   padding: number,
   border: boolean,
   budget: number | null,
+  minCol: number,
 ): number[] => {
   // 1. Natural widths
   const widths = Array<number>(cols).fill(0);
@@ -127,11 +138,11 @@ const _computeColumnWidths = (
   const cellPad = padding * 2;
   // Borders: cols+1 verticals when bordered, else (cols-1) single spaces
   const chrome = border ? (cols + 1) + cols * cellPad : Math.max(0, cols - 1) + cols * cellPad;
-  const contentBudget = Math.max(cols, budget - chrome); // at least 1 col each
+  // Floor the content budget at cols * minCol so no column drops below minCol.
+  const contentBudget = Math.max(cols * minCol, budget - chrome);
 
   // 3. Water-filling shrink: trim the widest column by 1 until we fit.
   let total = widths.reduce((a, b) => a + b, 0);
-  // Guard: never shrink a column below 1 visible char.
   let guard = 0;
   const maxIters = total * cols + 1; // generous upper bound
   while (total > contentBudget && guard < maxIters) {
@@ -140,13 +151,13 @@ const _computeColumnWidths = (
     for (let c = 1; c < cols; c++) {
       if ((widths[c] as number) > (widths[widest] as number)) widest = c;
     }
-    // Guard against shrinking below 1 visible char. This is defense in
-    // depth: contentBudget = Math.max(cols, budget - chrome) is always >= cols,
-    // and once every column reaches width 1 the total equals cols, so the
-    // loop condition (total > contentBudget) is already false. The break is
-    // therefore mathematically unreachable — kept as a safety net only.
-    /* istanbul ignore next — unreachable: contentBudget >= cols by construction */
-    if ((widths[widest] as number) <= 1) break;
+    // Never shrink below the minimum column width. Like the previous
+    // guard, this is unreachable in practice: contentBudget is floored at
+    // cols*minCol, so once every column reaches minCol the total equals
+    // contentBudget and the loop condition is already false. Kept as a
+    // safety net for future changes to the budget formula.
+    /* istanbul ignore next — unreachable: contentBudget >= cols*minCol by construction */
+    if ((widths[widest] as number) <= minCol) break;
     widths[widest] = (widths[widest] as number) - 1;
     total--;
     guard++;
@@ -182,6 +193,7 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
   const aligns = Array.isArray(opts.align) ? opts.align : [];
   const budget = opts.maxWidth != null ? Math.max(0, Math.floor(opts.maxWidth)) : null;
   const bordered = borderStyle !== 'none';
+  const minCol = Math.max(1, Math.floor(opts.minColWidth ?? 1));
 
   // Normalize rows → string matrix; determine column count from widest row.
   const rows: string[][] = data.map((row) =>
@@ -191,7 +203,7 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
   const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
   if (cols === 0) return '';
 
-  const widths = _computeColumnWidths(rows, cols, padding, bordered, budget);
+  const widths = _computeColumnWidths(rows, cols, padding, bordered, budget, minCol);
 
   const pad = ' '.repeat(padding);
   const alignOf = (c: number): TableAlign => aligns[c] ?? 'left';

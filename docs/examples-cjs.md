@@ -147,10 +147,10 @@ console.log(ascii.box(multi, { borderStyle: 'rounded', padding: 1 }));
 ```js
 const { ascii, gradient } = require('ansimax');
 
-const banner = ascii.figletText('ANSIMAX', { font: 'standard' });
+const banner = ascii.figlet('ANSIMAX', { font: 'big' });
 console.log(gradient(banner, ['#ff79c6', '#bd93f9', '#8be9fd']));
 
-const compact = ascii.figletText('v1.3.2', { font: 'small' });
+const compact = ascii.figlet('v1.4.10', { font: 'small' });
 console.log(ascii.box(compact, { borderStyle: 'rounded' }));
 ```
 

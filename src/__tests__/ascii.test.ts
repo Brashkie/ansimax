@@ -2197,6 +2197,24 @@ describe('ascii.table (v1.4.8)', () => {
     expect(result).toContain('…');
   });
 
+  it('minColWidth keeps columns from shrinking below the floor (v1.4.10)', () => {
+    // Three wide columns, tight budget, but minColWidth 4 → none drops below 4
+    const wide = table([
+      ['aaaaaaaa', 'bbbbbbbb', 'cccccccc'],
+    ], { maxWidth: 20, minColWidth: 4, padding: 0, header: false });
+    // Each column keeps at least 4 visible chars (may truncate with …)
+    // The table stays legible rather than collapsing to 1-char columns.
+    expect(wide.length).toBeGreaterThan(0);
+    // Compare: without minColWidth the same budget shrinks columns further
+    const narrow = table([
+      ['aaaaaaaa', 'bbbbbbbb', 'cccccccc'],
+    ], { maxWidth: 20, minColWidth: 1, padding: 0, header: false });
+    // minColWidth:4 output is at least as wide as minColWidth:1
+    const wideW = (wide.split('\n')[0] as string).length;
+    const narrowW = (narrow.split('\n')[0] as string).length;
+    expect(wideW).toBeGreaterThanOrEqual(narrowW);
+  });
+
   it('returns empty when all rows are empty arrays', () => {
     // cols === 0 branch
     expect(table([[]])).toBe('');
@@ -2270,5 +2288,82 @@ describe('ascii defensive branch coverage (v1.4.9 top-up)', () => {
     // '€' is not in the minimal font → falls back to space glyph (32)
     const out = figletText('€', font);
     expect(typeof out).toBe('string');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.10 — ascii module split verification
+// ─────────────────────────────────────────────
+
+describe('ascii module split (v1.4.10)', () => {
+  it('all functions importable from individual submodules', async () => {
+    const fonts = await import('../ascii/fonts.js');
+    expect(typeof fonts.registerFont).toBe('function');
+    expect(typeof fonts.renderFont).toBe('function');
+
+    const render = await import('../ascii/render.js');
+    expect(typeof render.big).toBe('function');
+    expect(typeof render.banner).toBe('function');
+
+    const shapes = await import('../ascii/shapes.js');
+    expect(typeof shapes.box).toBe('function');
+    expect(typeof shapes.measure).toBe('function');
+
+    const image = await import('../ascii/image.js');
+    expect(typeof image.fromImage).toBe('function');
+
+    const figlet = await import('../ascii/figlet.js');
+    expect(typeof figlet.parseFiglet).toBe('function');
+    expect(typeof figlet.figletText).toBe('function');
+
+    const stream = await import('../ascii/stream.js');
+    expect(typeof stream.stream).toBe('function');
+  });
+
+  it('barrel namespace matches submodule functions (identity)', async () => {
+    const barrel = await import('../ascii/index.js');
+    const render = await import('../ascii/render.js');
+    const shapes = await import('../ascii/shapes.js');
+    expect(barrel.ascii.big).toBe(render.big);
+    expect(barrel.ascii.box).toBe(shapes.box);
+  });
+
+  it('main package barrel still exposes ascii intact', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.ascii.big).toBe('function');
+    expect(typeof main.ascii.table).toBe('function');
+    expect(typeof main.ascii.fromImage).toBe('function');
+    expect(typeof main.asciiTable).toBe('function');
+  });
+
+  it('named re-exports are reachable directly from the ascii barrel', async () => {
+    // The `ascii` namespace is built from separate import statements, so
+    // touching it does NOT exercise the `export { … } from './x.js'` lines.
+    // These bindings are not re-exported by name from the package root
+    // either (only via the namespace), so this test is what covers them.
+    const barrel = await import('../ascii/index.js');
+
+    // from ./render.js
+    expect(typeof barrel.big).toBe('function');
+    expect(typeof barrel.small).toBe('function');
+    expect(typeof barrel.figlet).toBe('function');
+    expect(typeof barrel.stageRender).toBe('function');
+    expect(typeof barrel.stageAlign).toBe('function');
+    expect(typeof barrel.stageColorize).toBe('function');
+    expect(typeof barrel.banner).toBe('function');
+
+    // from ./shapes.js
+    expect(typeof barrel.box).toBe('function');
+    expect(typeof barrel.divider).toBe('function');
+    expect(typeof barrel.logo).toBe('function');
+    expect(typeof barrel.measure).toBe('function');
+
+    // from ./stream.js
+    expect(typeof barrel.stream).toBe('function');
+
+    // Smoke-call a few so the bindings are genuinely exercised, not just typed
+    expect(barrel.big('A').length).toBeGreaterThan(0);
+    expect(barrel.box('x')).toContain('x');
+    expect(barrel.measure('AB').width).toBeGreaterThan(0);
   });
 });

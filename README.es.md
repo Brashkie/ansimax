@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.9-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.10-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.9'));
+console.log(components.badge('VERSION', 'v1.4.10'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1069,6 +1069,20 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.10 — Split del módulo ascii + minColWidth en tablas
+
+- 🧩 **Split del módulo `ascii/`** — `index.ts` de 1575 líneas → 9 módulos enfocados (types/fonts/render/shapes/image/figlet/stream/table/index)
+- 📏 **`minColWidth` en `ascii.table`** — piso para el encogimiento de columnas, mantiene columnas angostas legibles
+
+```js
+import { ascii } from 'ansimax';
+
+ascii.table(rows, { maxWidth: 30, minColWidth: 4 });
+// Ninguna columna baja de 4 chars visibles
+```
+
+El split es puro reordenamiento — el namespace `ascii` y todos los exports son 100% backward-compatible. El grafo de dependencias es estrictamente en capas y acíclico. Drop-in replacement para `1.4.9`.
 
 ### v1.4.9 — Wrapping de celdas en tablas + coverage hardening
 

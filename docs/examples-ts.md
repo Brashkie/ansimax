@@ -159,12 +159,12 @@ console.log(ascii.box(multi, { borderStyle: 'rounded', padding: 1 }));
 ```ts
 import { ascii, gradient } from 'ansimax';
 
-const banner: string = ascii.figletText('ANSIMAX', { font: 'standard' });
+const banner: string = ascii.figlet('ANSIMAX', { font: 'big' });
 const colored: string = gradient(banner, ['#ff79c6', '#bd93f9', '#8be9fd']);
 console.log(colored);
 
 // Different font
-const compact: string = ascii.figletText('v1.3.2', { font: 'small' });
+const compact: string = ascii.figlet('v1.4.10', { font: 'small' });
 console.log(ascii.box(compact, { borderStyle: 'rounded' }));
 ```
 
