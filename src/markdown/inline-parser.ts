@@ -20,7 +20,7 @@
 import { color } from '../colors/index.js';
 import { hyperlink } from '../utils/ansi.js';
 import type { InlineOptions } from './types.js';
-import { THEMES } from './theme.js';
+import { resolveTheme } from './theme.js';
 
 /**
  * Characters that have special meaning in markdown. A leading backslash
@@ -59,7 +59,7 @@ export const parseInline = (
   opts: InlineOptions = { theme: 'dark', inlineCodeBackground: true },
 ): string => {
   if (typeof text !== 'string' || text.length === 0) return '';
-  const t = THEMES[opts.theme];
+  const t = resolveTheme(opts.theme);
 
   // ── Step 0: CommonMark backslash escapes (v1.4.3) ──
   // `\X` → placeholder. Restored literal at the end so X never triggers
@@ -100,6 +100,26 @@ export const parseInline = (
     linkSlots.push(rendered);
     return `\x00LINK${linkSlots.length - 1}\x00`;
   };
+
+  // 2a-fn. Footnote references (v1.4.11). Resolved BEFORE any link form:
+  // `[^1]` would otherwise be swallowed by the shortcut-link pattern
+  // `[ref]`. Numbering follows first-reference order (GFM), so the number
+  // is assigned the first time a label is seen and reused afterwards.
+  const fn = opts.footnotes;
+  if (fn && fn.defs.size > 0) {
+    s = s.replace(/\[\^([^\]]+)\]/g, (full, rawLabel: string) => {
+      const label = _normalizeRef(rawLabel);
+      if (!fn.defs.has(label)) return full; // undefined footnote → literal
+      let idx = fn.order.indexOf(label);
+      if (idx === -1) {
+        fn.order.push(label);
+        idx = fn.order.length - 1;
+      }
+      // Stash so the marker survives the emphasis passes untouched.
+      linkSlots.push(color.hex(t.link)(`[${idx + 1}]`));
+      return `\x00LINK${linkSlots.length - 1}\x00`;
+    });
+  }
 
   // 2a. Explicit links [label](url) — highest priority
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) =>

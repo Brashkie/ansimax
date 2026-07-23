@@ -115,6 +115,12 @@ export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';
 // v1.4.0 — Phase 4 closure: Markdown rendering
 export { markdown, render as renderMarkdown, parseBlocks as parseMarkdownBlocks, parseInline as parseMarkdownInline } from './markdown/index.js';
 export type { MarkdownOptions, MarkdownTheme, ListItem } from './markdown/index.js';
+// v1.4.11 — markdown theme registry + footnotes
+export {
+  registerMarkdownTheme, unregisterMarkdownTheme, listMarkdownThemes,
+  hasMarkdownTheme, clearMarkdownThemes, collectFootnotes,
+} from './markdown/index.js';
+export type { MarkdownPalette, FootnoteState } from './markdown/index.js';
 // v1.4.5 — syntax highlighting
 export { highlight as highlightCode, tokenize as tokenizeCode, isHighlightSupported } from './markdown/index.js';
 export type { TokenKind, Token } from './markdown/index.js';

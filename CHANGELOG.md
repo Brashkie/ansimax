@@ -3,6 +3,134 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.11] — Phase 4 closure: theme registry, footnotes, HTML blocks
+
+Closes the two remaining Phase 4 roadmap items. Zero breaking changes.
+
+### Added — Custom markdown theme registry
+
+Register your own palette and pass its name as `theme`:
+
+```js
+import { registerMarkdownTheme, markdown } from 'ansimax';
+
+registerMarkdownTheme('solarized', {
+  h1: ['#b58900', '#cb4b16'],
+  h2: '#cb4b16', h3: '#d33682', h4: '#6c71c4',
+  h5: '#268bd2', h6: '#2aa198',
+  code: '#b58900', codeBlockBorder: '#586e75',
+  link: '#268bd2', blockquote: '#586e75',
+  hr: '#586e75', tableHeader: '#cb4b16',
+});
+
+console.log(markdown.render('# Hello', { theme: 'solarized' }));
+```
+
+- **Validated at registration** — a `TypeError` naming the offending key is
+  thrown for a non-hex color or an `h1` gradient with fewer than 2 stops,
+  so a broken theme fails at setup instead of rendering wrong colors
+- **Names are normalized** (trim + lowercase), so `'MyTheme'` and
+  `'  mytheme '` are the same theme
+- **Built-ins are protected** — overriding `dark`/`light` requires
+  `{ force: true }`
+- **Unknown names fall back to `dark`** rather than throwing: a typo in a
+  theme name should never break rendering
+- `MarkdownTheme` widened from `'dark' | 'light'` to accept registered
+  names while keeping autocomplete for the built-ins
+
+API: `registerMarkdownTheme`, `unregisterMarkdownTheme`, `listMarkdownThemes`,
+`hasMarkdownTheme`, `clearMarkdownThemes` (plus `markdown.registerTheme` etc.
+on the namespace) and the `MarkdownPalette` type.
+
+### Added — Footnotes (`[^label]`)
+
+```js
+markdown.render(`
+Newton stood on shoulders[^giants], as did others[^giants].
+
+[^giants]: Letter to Robert Hooke, 1675.
+`);
+```
+
+- **Numbered by first reference, not by definition order** (GFM behavior).
+  A document defining `[^z]` before `[^a]` but citing `[^a]` first still
+  prints `a` as `[1]` — the inline parser appends to a shared `order` array
+  the first time it meets each label, and reuses that index afterwards
+- **Repeated references reuse the same number**
+- **A footnote section** is appended after a rule, listing only the
+  footnotes actually cited (an uncited definition is dropped, as in GFM)
+- **Undefined references stay literal** — `[^nope]` renders as text
+- Definitions are stripped from the body before block parsing
+
+**Parser fix**: `[^1]: Note` used to be captured by the reference-link
+definition pattern whenever the note text was a single word (yielding a
+bogus link ref). `LINK_REF_DEF_RE` now excludes `^`-prefixed labels, and
+footnote definitions are collected in an earlier pass, so the two forms are
+independent.
+
+API: `collectFootnotes` and the `FootnoteState` type.
+
+### Added — HTML blocks (`htmlMode`)
+
+Raw HTML blocks (CommonMark §4.6) are now recognized as their own block
+type instead of leaking into paragraphs:
+
+```js
+markdown.render('<div>hello</div>');                    // → hello
+markdown.render('<div>x</div>', { htmlMode: 'raw' });   // → <div>x</div> (dim)
+markdown.render('<div>x</div>', { htmlMode: 'hide' });  // → (nothing)
+```
+
+- `'strip'` (default) — removes comments and tags, keeps the readable text,
+  which is the only sensible default for a terminal
+- `'raw'` — prints the markup verbatim, dimmed
+- `'hide'` — drops the block
+- Detection covers tags, closing tags, comments, declarations and
+  processing instructions at line start; inline `5 < 6` and `<div>` inside a
+  fenced code block are correctly left alone
+
+**Autolink disambiguation**: the start condition requires a tag name to be
+followed by whitespace, `>` or `/`. Without that lookahead `<https://…>` on
+its own line matches `<tag` and an autolink from v1.4.6 would silently
+become an HTML block. `<div>`, `<br/>` and `<p class="x">` still qualify;
+`<https://example.com>` does not.
+
+**Paragraph interruption**: per CommonMark, a *block-level* tag (type 6 —
+`div`, `p`, `table`, `details`, …) interrupts an open paragraph, while an
+inline or unknown tag (type 7 — `<span>`, `<b>`, `<custom-el>`) does not.
+Both cases are covered, so `text\n<div>x</div>` splits into a paragraph plus
+an HTML block, but `text\n<span>x</span>` stays a single paragraph.
+
+### Improved — Internal cleanup
+
+- `syntax.ts` no longer imports `THEMES` just to `void` it (dead code left
+  over from v1.4.5)
+- Theme lookup moved from direct `THEMES[name]` indexing to `resolveTheme()`
+  in both the renderer and the inline parser, so registered themes work
+  everywhere the built-ins do
+
+### Improved — Tests
+
+`+38` tests: theme registry (registration, normalization, protection,
+validation errors, fallback), footnotes (collection, first-reference
+numbering, reuse, section, undefined refs, link-ref coexistence), HTML
+blocks (all three modes, comments, multi-line, inline `<`, fenced code),
+and barrel re-exports.
+
+### Notes
+
+- **Zero breaking changes** — `MarkdownTheme` was widened, not narrowed;
+  `htmlMode` defaults to the closest thing to the old behavior
+- **Phase 4 is now fully closed**
+
+### Roadmap
+
+- ✅ v1.4.11 — Custom theme registry + footnotes + HTML blocks — **done**
+- ✅ **Phase 4 complete** — markdown rendering, CommonMark coverage,
+  syntax highlighting, theming
+
+---
+
 ## [1.4.10] — ascii module split + table minColWidth
 
 Splits the 1575-line `ascii/index.ts` into focused modules and adds a

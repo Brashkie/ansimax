@@ -521,9 +521,12 @@ const x = 42;
   });
 
   it('falls back to dark theme for invalid theme value', () => {
-    // @ts-expect-error testing invalid theme
+    // v1.4.11: `MarkdownTheme` now accepts any string (registered themes),
+    // so an unknown name is no longer a *type* error — it is a runtime
+    // fallback. Assert the fallback actually resolves to dark.
     const result = render('# Title', { theme: 'invalid' });
     expect(stripAnsi(result)).toContain('Title');
+    expect(result).toBe(render('# Title', { theme: 'dark' }));
   });
 });
 
@@ -1146,5 +1149,422 @@ describe('reference links rendering (v1.4.7)', () => {
     const result = render(src);
     const stripped = stripAnsi(result);
     expect(stripped).toContain('direct');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.11 — Phase 4 closure: theme registry, footnotes, HTML blocks
+// ─────────────────────────────────────────────
+
+import {
+  registerMarkdownTheme, unregisterMarkdownTheme, listMarkdownThemes,
+  hasMarkdownTheme, clearMarkdownThemes, collectFootnotes,
+} from '../markdown/index.js';
+import { resolveTheme } from '../markdown/theme.js';
+
+const VALID_PALETTE = {
+  h1: ['#b58900', '#cb4b16'],
+  h2: '#cb4b16', h3: '#d33682', h4: '#6c71c4',
+  h5: '#268bd2', h6: '#2aa198',
+  code: '#b58900', codeBlockBorder: '#586e75',
+  link: '#268bd2', blockquote: '#586e75',
+  hr: '#586e75', tableHeader: '#cb4b16',
+};
+
+describe('markdown theme registry (v1.4.11)', () => {
+  afterEach(() => clearMarkdownThemes());
+
+  it('registers and resolves a custom theme', () => {
+    registerMarkdownTheme('solarized', VALID_PALETTE);
+    expect(hasMarkdownTheme('solarized')).toBe(true);
+    expect(resolveTheme('solarized').h2).toBe('#cb4b16');
+  });
+
+  it('normalizes the name (trim + lowercase)', () => {
+    registerMarkdownTheme('  MyTheme  ', VALID_PALETTE);
+    expect(hasMarkdownTheme('mytheme')).toBe(true);
+    expect(hasMarkdownTheme('MYTHEME')).toBe(true);
+  });
+
+  it('lists built-ins first, then registered themes', () => {
+    registerMarkdownTheme('custom', VALID_PALETTE);
+    const list = listMarkdownThemes();
+    expect(list[0]).toBe('dark');
+    expect(list[1]).toBe('light');
+    expect(list).toContain('custom');
+  });
+
+  it('protects built-in names unless force is set', () => {
+    expect(() => registerMarkdownTheme('dark', VALID_PALETTE)).toThrow(/built-in/);
+    expect(() => registerMarkdownTheme('dark', VALID_PALETTE, { force: true })).not.toThrow();
+  });
+
+  it('unregister removes only registered themes', () => {
+    registerMarkdownTheme('temp', VALID_PALETTE);
+    expect(unregisterMarkdownTheme('temp')).toBe(true);
+    expect(hasMarkdownTheme('temp')).toBe(false);
+    // Built-ins survive and stay resolvable
+    expect(hasMarkdownTheme('dark')).toBe(true);
+  });
+
+  it('unregister returns false for unknown / non-string', () => {
+    expect(unregisterMarkdownTheme('nope')).toBe(false);
+    expect(unregisterMarkdownTheme(42 as unknown as string)).toBe(false);
+  });
+
+  it('hasMarkdownTheme is false for unknown and non-string', () => {
+    expect(hasMarkdownTheme('nope')).toBe(false);
+    expect(hasMarkdownTheme(null as unknown as string)).toBe(false);
+  });
+
+  it('unknown theme names fall back to dark instead of throwing', () => {
+    const fallback = resolveTheme('does-not-exist');
+    expect(fallback).toEqual(resolveTheme('dark'));
+    expect(resolveTheme(undefined)).toEqual(resolveTheme('dark'));
+  });
+
+  it('rejects an invalid name', () => {
+    expect(() => registerMarkdownTheme('', VALID_PALETTE)).toThrow(TypeError);
+    expect(() => registerMarkdownTheme('   ', VALID_PALETTE)).toThrow(TypeError);
+  });
+
+  it('rejects a non-object palette', () => {
+    expect(() => registerMarkdownTheme('x', null as never)).toThrow(/must be an object/);
+    expect(() => registerMarkdownTheme('x', [] as never)).toThrow(/got array/);
+  });
+
+  it('rejects a bad h1 gradient', () => {
+    expect(() => registerMarkdownTheme('x', { ...VALID_PALETTE, h1: ['#fff'] }))
+      .toThrow(/2\+ hex colors/);
+    expect(() => registerMarkdownTheme('x', { ...VALID_PALETTE, h1: ['#fff', 'nope'] }))
+      .toThrow(/h1\[1\]/);
+  });
+
+  it('rejects a non-hex solid color, naming the key', () => {
+    expect(() => registerMarkdownTheme('x', { ...VALID_PALETTE, link: 'blue' }))
+      .toThrow(/link is not a hex color/);
+  });
+
+  it('render accepts a registered theme name', () => {
+    setNoColor(false);
+    registerMarkdownTheme('solarized', VALID_PALETTE);
+    const out = render('# Title', { theme: 'solarized' });
+    expect(stripAnsi(out)).toContain('Title');
+    resetNoColor();
+  });
+});
+
+describe('footnotes (v1.4.11)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('collects definitions and strips them from the source', () => {
+    const { defs, cleaned } = collectFootnotes('Text [^a].\n\n[^a]: the note');
+    expect(defs.get('a')).toBe('the note');
+    expect(cleaned).not.toContain('[^a]: ');
+    expect(cleaned).toContain('Text [^a].');
+  });
+
+  it('first definition wins on duplicates', () => {
+    const { defs } = collectFootnotes('[^a]: first\n[^a]: second');
+    expect(defs.get('a')).toBe('first');
+  });
+
+  it('normalizes labels (case + whitespace)', () => {
+    const { defs } = collectFootnotes('[^My  Note]: text');
+    expect(defs.get('my note')).toBe('text');
+  });
+
+  it('handles empty input', () => {
+    const { defs, cleaned } = collectFootnotes('');
+    expect(defs.size).toBe(0);
+    expect(cleaned).toBe('');
+  });
+
+  it('numbers by FIRST REFERENCE order, not definition order', () => {
+    // 'z' is defined first but 'a' is referenced first → a=[1], z=[2]
+    const src = 'See [^a] then [^z].\n\n[^z]: zulu\n[^a]: alpha';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('See [1] then [2].');
+    // The footnote section lists alpha first
+    const alphaPos = stripped.indexOf('alpha');
+    const zuluPos = stripped.indexOf('zulu');
+    expect(alphaPos).toBeGreaterThan(-1);
+    expect(alphaPos).toBeLessThan(zuluPos);
+  });
+
+  it('repeated references reuse the same number', () => {
+    const src = 'A [^n] and again [^n].\n\n[^n]: note';
+    const stripped = stripAnsi(render(src));
+    expect((stripped.match(/\[1\]/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders a footnote section with the definition text', () => {
+    const stripped = stripAnsi(render('Cite [^src].\n\n[^src]: Knuth, 1984'));
+    expect(stripped).toContain('Knuth, 1984');
+  });
+
+  it('leaves undefined footnote references as literal text', () => {
+    const stripped = stripAnsi(render('Missing [^nope] here.'));
+    expect(stripped).toContain('[^nope]');
+  });
+
+  it('emits no section when nothing is referenced', () => {
+    const stripped = stripAnsi(render('Plain text.\n\n[^unused]: never cited'));
+    expect(stripped).not.toContain('never cited');
+    expect(stripped.trim()).toBe('Plain text.');
+  });
+
+  it('does not confuse a footnote definition with a link reference', () => {
+    // Single-word definitions used to be swallowed by LINK_REF_DEF_RE
+    const stripped = stripAnsi(render('See [^a].\n\n[^a]: Note'));
+    expect(stripped).toContain('[1]');
+    expect(stripped).toContain('Note');
+  });
+
+  it('coexists with reference links', () => {
+    const src = 'A [link][r] and a [^f].\n\n[r]: https://example.com\n[^f]: footnote';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('link');
+    expect(stripped).toContain('[1]');
+    expect(stripped).toContain('footnote');
+  });
+});
+
+describe('HTML blocks (v1.4.11)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('parses an HTML block', () => {
+    const blocks = parseBlocks('<div>hello</div>');
+    expect(blocks[0]?.type).toBe('html');
+  });
+
+  it('strips tags by default, keeping the text', () => {
+    const stripped = stripAnsi(render('<div>hello world</div>'));
+    expect(stripped).toContain('hello world');
+    expect(stripped).not.toContain('<div>');
+  });
+
+  it('htmlMode raw prints the markup verbatim', () => {
+    const stripped = stripAnsi(render('<div>x</div>', { htmlMode: 'raw' }));
+    expect(stripped).toContain('<div>x</div>');
+  });
+
+  it('htmlMode hide drops the block entirely', () => {
+    const stripped = stripAnsi(render('before\n\n<div>x</div>\n\nafter', { htmlMode: 'hide' }));
+    expect(stripped).toContain('before');
+    expect(stripped).toContain('after');
+    expect(stripped).not.toContain('x</div>');
+  });
+
+  it('removes HTML comments when stripping', () => {
+    const stripped = stripAnsi(render('<!-- a comment -->'));
+    expect(stripped).not.toContain('comment');
+  });
+
+  it('handles multi-line blocks up to a blank line', () => {
+    const blocks = parseBlocks('<details>\n<summary>More</summary>\n</details>\n\nafter');
+    expect(blocks[0]?.type).toBe('html');
+    const para = blocks.find((b) => b.type === 'paragraph');
+    expect(para).toBeDefined();
+  });
+
+  it('does not treat inline < as an HTML block', () => {
+    const blocks = parseBlocks('5 < 6 is true');
+    expect(blocks[0]?.type).toBe('paragraph');
+  });
+
+  it('leaves HTML inside fenced code blocks untouched', () => {
+    const blocks = parseBlocks('```html\n<div>x</div>\n```');
+    expect(blocks[0]?.type).toBe('codeblock');
+  });
+});
+
+describe('v1.4.11 — barrel re-exports', () => {
+  afterEach(() => clearMarkdownThemes());
+
+  it('theme registry + footnotes exported from main barrel', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.registerMarkdownTheme).toBe('function');
+    expect(typeof main.unregisterMarkdownTheme).toBe('function');
+    expect(typeof main.listMarkdownThemes).toBe('function');
+    expect(typeof main.hasMarkdownTheme).toBe('function');
+    expect(typeof main.clearMarkdownThemes).toBe('function');
+    expect(typeof main.collectFootnotes).toBe('function');
+  });
+
+  it('available on the markdown namespace', () => {
+    expect(typeof markdown.registerTheme).toBe('function');
+    expect(typeof markdown.listThemes).toBe('function');
+    expect(typeof markdown.hasTheme).toBe('function');
+    expect(typeof markdown.collectFootnotes).toBe('function');
+    markdown.registerTheme('ns-theme', VALID_PALETTE);
+    expect(markdown.hasTheme('ns-theme')).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.11 — Regression guards found in self-review
+// ─────────────────────────────────────────────
+
+describe('v1.4.11 regressions', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('an autolink on its own line is NOT parsed as an HTML block', () => {
+    // The HTML-block start condition matches `<tag`; without the
+    // `(?=[\s/>])` lookahead, `<https://…>` would match too and the
+    // autolink from v1.4.6 would silently stop working.
+    const blocks = parseBlocks('<https://example.com>');
+    expect(blocks[0]?.type).toBe('paragraph');
+
+    const stripped = stripAnsi(render('<https://example.com>'));
+    expect(stripped).toContain('example.com');
+    expect(stripped).not.toContain('<https');
+  });
+
+  it('http and ftp autolinks are equally unaffected', () => {
+    expect(parseBlocks('<http://x.com>')[0]?.type).toBe('paragraph');
+    expect(parseBlocks('<ftp://files.org>')[0]?.type).toBe('paragraph');
+  });
+
+  it('tags with attributes are still detected as HTML', () => {
+    expect(parseBlocks('<p class="note">x</p>')[0]?.type).toBe('html');
+    expect(parseBlocks('<!DOCTYPE html>')[0]?.type).toBe('html');
+  });
+
+  it('a footnote citing another footnote resolves both and terminates', () => {
+    const src = 'Start [^a].\n\n[^a]: see [^b]\n[^b]: the end';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('[1]');
+    expect(stripped).toContain('[2]');
+    expect(stripped).toContain('the end');
+  });
+
+  it('mutually-referencing footnotes do not loop forever', () => {
+    const src = 'Go [^a].\n\n[^a]: see [^b]\n[^b]: see [^a]';
+    const stripped = stripAnsi(render(src));
+    // Both get a number, and rendering completes
+    expect(stripped).toContain('[1]');
+    expect(stripped).toContain('[2]');
+  });
+});
+
+describe('HTML block-level paragraph interruption (v1.4.11)', () => {
+  it('a block-level tag interrupts an open paragraph', () => {
+    const blocks = parseBlocks('some text\n<div>markup</div>');
+    expect(blocks[0]?.type).toBe('paragraph');
+    expect(blocks[1]?.type).toBe('html');
+  });
+
+  it('an inline tag does NOT interrupt (CommonMark type 7)', () => {
+    const blocks = parseBlocks('some text\n<span>inline</span>');
+    // Stays a single paragraph
+    expect(blocks.filter((b) => b.type === 'html').length).toBe(0);
+    expect(blocks[0]?.type).toBe('paragraph');
+  });
+
+  it('an unknown/custom element does not interrupt either', () => {
+    const blocks = parseBlocks('text\n<custom-el>x</custom-el>');
+    expect(blocks.filter((b) => b.type === 'html').length).toBe(0);
+  });
+
+  it('a closing block tag also interrupts', () => {
+    const blocks = parseBlocks('text\n</p>');
+    expect(blocks[1]?.type).toBe('html');
+  });
+
+  it('tag matching is case-insensitive', () => {
+    expect(parseBlocks('text\n<DIV>x</DIV>')[1]?.type).toBe('html');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.11 — "defined but unmatched" branches
+//
+//  Both the footnote and reference-link resolvers are wrapped in a
+//  `size > 0` guard, so a document with NO definitions skips the block
+//  entirely and never reaches the "this label has no definition" branch.
+//  These cases supply at least one definition AND cite a different,
+//  undefined label, which is the only way in.
+// ─────────────────────────────────────────────
+
+describe('unmatched labels alongside real definitions (v1.4.11)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('an undefined footnote stays literal while a defined one resolves', () => {
+    const src = 'Missing [^nope] but [^real] works.\n\n[^real]: exists';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('[^nope]');   // untouched
+    expect(stripped).toContain('[1]');       // the defined one got numbered
+    expect(stripped).toContain('exists');    // and its section rendered
+  });
+
+  it('an unresolved full reference link stays literal alongside a resolved one', () => {
+    const src = 'See [text][nope] and [ok][real].\n\n[real]: https://example.com';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('[text][nope]');   // literal
+    expect(stripped).toContain('ok');             // resolved label text
+  });
+
+  it('an unresolved shortcut reference stays literal alongside a resolved one', () => {
+    const src = 'See [nope] and [real].\n\n[real]: https://example.com';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('[nope]');   // literal
+    expect(stripped).toContain('real');     // resolved
+  });
+
+  it('a collapsed reference with no definition stays literal', () => {
+    const src = 'See [nope][] and [real][].\n\n[real]: https://example.com';
+    const stripped = stripAnsi(render(src));
+    expect(stripped).toContain('[nope][]');
+    expect(stripped).toContain('real');
+  });
+});
+
+describe('markdown barrel named re-exports (v1.4.11)', () => {
+  afterEach(() => clearMarkdownThemes());
+
+  it('resolveTheme is reachable by name from the markdown barrel', async () => {
+    // The `markdown` namespace is assembled from separate import
+    // statements, so using it does NOT exercise the
+    // `export { … resolveTheme } from './theme.js'` line. Importing the
+    // binding by name from the barrel is what covers it.
+    const barrel = await import('../markdown/index.js');
+    expect(typeof barrel.resolveTheme).toBe('function');
+
+    // Exercise it for real, not just typeof
+    expect(barrel.resolveTheme('dark').h2).toBe('#bd93f9');
+    expect(barrel.resolveTheme('light').h2).toBe('#6f42c1');
+    expect(barrel.resolveTheme('unknown-name')).toEqual(barrel.resolveTheme('dark'));
+
+    // And that it sees runtime registrations
+    barrel.registerMarkdownTheme('barrel-theme', VALID_PALETTE);
+    expect(barrel.resolveTheme('barrel-theme').h2).toBe('#cb4b16');
+  });
+
+  it('resolveTheme is also on the markdown namespace', () => {
+    expect(typeof markdown.resolveTheme).toBe('function');
+    expect(markdown.resolveTheme('dark').link).toBe('#8be9fd');
+  });
+
+  it('the parsing helpers are reachable by name from the barrel too', async () => {
+    // Same reasoning as above: elsewhere these are imported straight from
+    // './block-parser.js', which leaves the barrel's re-export bindings
+    // unexercised.
+    const barrel = await import('../markdown/index.js');
+    expect(typeof barrel.parseBlocks).toBe('function');
+    expect(typeof barrel.collectLinkRefs).toBe('function');
+    expect(typeof barrel.normalizeRefLabel).toBe('function');
+    expect(typeof barrel.collectFootnotes).toBe('function');
+
+    // Exercise each one so the binding is genuinely used
+    expect(barrel.parseBlocks('# H')[0]?.type).toBe('heading');
+    expect(barrel.collectLinkRefs('[r]: https://x.com').refs.get('r')?.url)
+      .toBe('https://x.com');
+    expect(barrel.normalizeRefLabel('  My  Ref ')).toBe('my ref');
+    expect(barrel.collectFootnotes('[^a]: note').defs.get('a')).toBe('note');
   });
 });

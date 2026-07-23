@@ -20,9 +20,10 @@ import { color, gradient } from '../colors/index.js';
 import { ascii } from '../ascii/index.js';
 import { components } from '../components/index.js';
 import { isFiniteNumber } from '../utils/helpers.js';
-import type { MarkdownOptions, InlineOptions, ListItem } from './types.js';
-import { THEMES, type ThemePalette } from './theme.js';
-import { parseBlocks, collectLinkRefs } from './block-parser.js';
+import type { MarkdownOptions, InlineOptions, ListItem, FootnoteState } from './types.js';
+import { resolveTheme } from './theme.js';
+import type { MarkdownPalette } from './types.js';
+import { parseBlocks, collectLinkRefs, collectFootnotes } from './block-parser.js';
 import { parseInline } from './inline-parser.js';
 import { highlight, isHighlightSupported } from './syntax.js';
 
@@ -69,19 +70,32 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
     theme = 'dark',
     headingGradient,
     boxCodeBlocks = true,
+    htmlMode = 'strip',
     inlineCodeBackground = true,
   } = opts;
 
   const safeWidth = isFiniteNumber(width) && width > 4 ? Math.floor(width) : 80;
-  const t = THEMES[theme] ?? THEMES.dark;
+  // v1.4.11 — resolveTheme also honors runtime-registered themes
+  const t = resolveTheme(theme);
   const h1Colors = headingGradient && headingGradient.length >= 2 ? headingGradient : t.h1;
+
+  // v1.4.11 — collect footnote definitions FIRST. Both footnote and
+  // link-reference definitions end in `]:`, so stripping footnotes up front
+  // keeps the two passes independent.
+  const { defs: footnoteDefs, cleaned: withoutFootnotes } = collectFootnotes(source);
 
   // v1.4.7 — collect reference-link definitions and strip them from the
   // source before block parsing, so `[ref]: url` lines don't render.
-  const { refs, cleaned } = collectLinkRefs(source);
+  const { refs, cleaned } = collectLinkRefs(withoutFootnotes);
+
+  // Shared numbering state — the inline parser appends to `order` as it
+  // meets each `[^label]`, which is what fixes the printed numbers.
+  const footnotes: FootnoteState = { defs: footnoteDefs, order: [] };
 
   const blocks = parseBlocks(cleaned);
-  const inlineOpts: InlineOptions = { theme, inlineCodeBackground, linkRefs: refs };
+  const inlineOpts: InlineOptions = {
+    theme, inlineCodeBackground, linkRefs: refs, footnotes,
+  };
 
   const out: string[] = [];
 
@@ -94,6 +108,26 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
       case 'hr':
         out.push(color.hex(t.hr)(ascii.divider({ width: safeWidth, char: '─' })));
         break;
+
+      // v1.4.11 — Raw HTML block. A terminal has no HTML engine, so the
+      // block is stripped (default), printed verbatim, or dropped.
+      case 'html': {
+        if (htmlMode === 'hide') break;
+        if (htmlMode === 'raw') {
+          out.push(color.dim(block.content));
+          break;
+        }
+        // 'strip' — drop tags and comments, keep the readable text.
+        const stripped = block.content
+          .replace(/<!--[\s\S]*?-->/g, '')   // comments first (may span lines)
+          .replace(/<[^>]*>/g, '')            // then tags
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0)
+          .join('\n');
+        if (stripped.length > 0) out.push(parseInline(stripped, inlineOpts));
+        break;
+      }
 
       case 'heading': {
         const inline = parseInline(block.text, inlineOpts);
@@ -178,6 +212,28 @@ export const render = (source: string, opts: MarkdownOptions = {}): string => {
     }
   }
 
+  // v1.4.11 — Footnote section. `footnotes.order` was populated by the
+  // inline parser in first-reference order, so indices here match the
+  // markers printed in the body. Only referenced footnotes are listed;
+  // a definition nobody cites is silently dropped (GFM does the same).
+  //
+  // Note the loop re-reads `order.length` each pass on purpose: rendering a
+  // footnote can cite another one, which appends to `order` and gets picked
+  // up in a later iteration. This terminates because a label is appended
+  // only the first time it is seen, so `order.length <= defs.size`; a cycle
+  // (`[^a]: see [^b]` / `[^b]: see [^a]`) resolves both and stops.
+  if (footnotes.order.length > 0) {
+    while (out.length > 0 && out[out.length - 1] === '') out.pop();
+    out.push('');
+    out.push(color.hex(t.hr)('─'.repeat(Math.min(safeWidth, 40))));
+    for (let i = 0; i < footnotes.order.length; i++) {
+      const label = footnotes.order[i] as string;
+      const text = footnotes.defs.get(label) ?? '';
+      const marker = color.hex(t.link)(`[${i + 1}]`);
+      out.push(`${marker} ${parseInline(text, inlineOpts)}`);
+    }
+  }
+
   // Collapse trailing blanks, preserve internal structure
   while (out.length > 0 && out[out.length - 1] === '') out.pop();
 
@@ -204,7 +260,7 @@ const BULLETS: readonly [string, string, string, string] = ['•', '◦', '▪',
 const _renderList = (
   block: { ordered: boolean; items: ListItem[] },
   inlineOpts: InlineOptions,
-  t: ThemePalette,
+  t: MarkdownPalette,
   depth: number,
 ): string => {
   const indent = _LIST_INDENT.repeat(depth + 1);

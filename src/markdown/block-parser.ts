@@ -31,7 +31,37 @@ const BLOCKQUOTE_RE = /^>\s?(.*)$/;
 const TABLE_SEPARATOR_RE = /^\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)+\|?[ \t]*$/;
 const TABLE_ROW_RE = /^\|.*\|[ \t]*$/;
 // v1.4.7 — Reference-link definition: [label]: url "optional title"
-const LINK_REF_DEF_RE = /^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(\S+)(?:[ \t]+["'(]([^"')]*)["')])?[ \t]*$/;
+// v1.4.11 — the label must NOT start with '^': that form is a footnote
+// definition ([^1]: note), which would otherwise be mis-read as a link ref
+// whenever its text happens to be a single word.
+const LINK_REF_DEF_RE = /^[ \t]{0,3}\[([^^\]][^\]]*|[^\]])\]:[ \t]*(\S+)(?:[ \t]+["'(]([^"')]*)["')])?[ \t]*$/;
+
+// v1.4.11 — HTML block start (CommonMark §4.6, practical subset):
+// an opening/closing tag, a comment, a declaration, or a processing
+// instruction at the very start of the line.
+// The `(?=[\s/>])` lookahead is what separates a tag from an autolink:
+// `<div>` and `<br/>` qualify, but `<https://…>` does not, because a URL
+// scheme is followed by ':'. Without it, an autolink sitting on its own
+// line would be swallowed as an HTML block (regression against v1.4.6).
+const HTML_BLOCK_START_RE = /^[ \t]{0,3}<(?:\/?[a-zA-Z][a-zA-Z0-9-]*(?=[\s/>])|!--|![A-Za-z]|\?)/;
+
+// v1.4.11 — CommonMark §4.6 "type 6" block-level tag names. Only these
+// interrupt an open paragraph; an inline tag (<span>, <b>) or an unknown
+// one is type 7, which per spec does NOT interrupt.
+const HTML_BLOCK_TAGS = [
+  'address', 'article', 'aside', 'blockquote', 'details', 'dialog', 'div',
+  'dl', 'dt', 'dd', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav',
+  'ol', 'p', 'pre', 'section', 'summary', 'table', 'tbody', 'td', 'tfoot',
+  'th', 'thead', 'tr', 'ul',
+];
+const HTML_PARA_BREAK_RE = new RegExp(
+  `^[ \\t]{0,3}</?(?:${HTML_BLOCK_TAGS.join('|')})(?=[\\s/>])`,
+  'i',
+);
+
+// v1.4.11 — Footnote definition: [^label]: text (to end of line)
+const FOOTNOTE_DEF_RE = /^[ \t]{0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
 
 // ─────────────────────────────────────────────
 //  Helpers
@@ -139,6 +169,23 @@ export const parseBlocks = (source: string): Block[] => {
       continue;
     }
 
+    // ── v1.4.11: HTML block (CommonMark §4.6) ──
+    // Practical subset of the spec's start conditions: a line beginning
+    // with `<tag`, `</tag`, `<!--`, `<!`, or `<?`. The block runs to the
+    // next blank line (spec condition 6/7), which covers the shapes that
+    // actually appear in READMEs — <div>, <details>, <br/>, comments.
+    // Deliberately checked AFTER code fences so `<div>` inside a fenced
+    // block stays code, and after nothing else that could start with '<'.
+    if (HTML_BLOCK_START_RE.test(line)) {
+      const htmlLines: string[] = [];
+      while (i < lines.length && (lines[i] as string).trim() !== '') {
+        htmlLines.push(lines[i] as string);
+        i++;
+      }
+      out.push({ type: 'html', content: htmlLines.join('\n') });
+      continue;
+    }
+
     // ── Blockquote (consecutive `> ` lines merge) ──
     if (BLOCKQUOTE_RE.test(line)) {
       const qLines: string[] = [];
@@ -196,7 +243,9 @@ export const parseBlocks = (source: string): Block[] => {
           || BLOCKQUOTE_RE.test(next)
           || UNORDERED_LIST_RE.test(next)
           || ORDERED_LIST_RE.test(next)
-          || TABLE_ROW_RE.test(next)) {
+          || TABLE_ROW_RE.test(next)
+          // v1.4.11 — a block-level HTML tag interrupts a paragraph
+          || HTML_PARA_BREAK_RE.test(next)) {
         break;
       }
       paraLines.push(next);
@@ -385,4 +434,48 @@ export const collectLinkRefs = (
   }
 
   return { refs, cleaned: kept.join('\n') };
+};
+
+// ─────────────────────────────────────────────
+//  v1.4.11 — Footnote definitions
+// ─────────────────────────────────────────────
+
+/**
+ * Scan markdown source for footnote definitions (`[^label]: text`) and
+ * return a lookup map plus the source with those lines removed.
+ *
+ * Must run BEFORE `collectLinkRefs`: both forms end in `]:`, and although
+ * `LINK_REF_DEF_RE` now excludes `^`-prefixed labels, stripping footnotes
+ * first keeps the two passes independent of each other's regex details.
+ *
+ * Labels are normalized with the same rules as link references
+ * (lowercase + trim + whitespace collapse) so `[^My Note]` and
+ * `[^my  note]` refer to the same footnote. First definition wins.
+ *
+ * @since 1.4.11
+ */
+export const collectFootnotes = (
+  source: string,
+): { defs: Map<string, string>; cleaned: string } => {
+  const defs = new Map<string, string>();
+  if (typeof source !== 'string' || source.length === 0) {
+    return { defs, cleaned: '' };
+  }
+
+  const lines = _normalize(source).split('\n');
+  const kept: string[] = [];
+
+  for (const line of lines) {
+    const m = FOOTNOTE_DEF_RE.exec(line);
+    if (m) {
+      const label = normalizeRefLabel(m[1] as string);
+      const text = (m[2] as string).trim();
+      // First definition wins, mirroring link-reference semantics.
+      if (!defs.has(label)) defs.set(label, text);
+      continue; // definition line is consumed
+    }
+    kept.push(line);
+  }
+
+  return { defs, cleaned: kept.join('\n') };
 };

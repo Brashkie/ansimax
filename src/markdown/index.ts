@@ -17,11 +17,21 @@
 // ─────────────────────────────────────────────
 
 // Public types
-export type { MarkdownTheme, MarkdownOptions, InlineOptions, Block, ListItem, LinkRef } from './types.js';
+export type {
+  MarkdownTheme, MarkdownOptions, InlineOptions, Block, ListItem, LinkRef,
+  // v1.4.11
+  MarkdownPalette, FootnoteState,
+} from './types.js';
 export type { TokenKind, Token } from './syntax.js';
 
 // Parsing
-export { parseBlocks, collectLinkRefs, normalizeRefLabel } from './block-parser.js';
+export { parseBlocks, collectLinkRefs, normalizeRefLabel, collectFootnotes } from './block-parser.js';
+
+// v1.4.11 — theme registry
+export {
+  registerMarkdownTheme, unregisterMarkdownTheme, listMarkdownThemes,
+  hasMarkdownTheme, clearMarkdownThemes, resolveTheme,
+} from './theme.js';
 export { parseInline } from './inline-parser.js';
 
 // Rendering
@@ -38,6 +48,15 @@ import { parseBlocks as _parseBlocks } from './block-parser.js';
 import { parseInline as _parseInline } from './inline-parser.js';
 import { render as _render } from './renderer.js';
 import { highlight as _highlight, tokenize as _tokenize, isHighlightSupported as _isSup } from './syntax.js';
+import {
+  resolveTheme as _resolveTheme,
+  registerMarkdownTheme as _registerTheme,
+  unregisterMarkdownTheme as _unregisterTheme,
+  listMarkdownThemes as _listThemes,
+  hasMarkdownTheme as _hasTheme,
+  clearMarkdownThemes as _clearThemes,
+} from './theme.js';
+import { collectFootnotes as _collectFootnotes } from './block-parser.js';
 
 /**
  * Markdown → terminal renderer. Use `markdown.render(source, opts?)` to
@@ -60,6 +79,14 @@ export const markdown = {
   highlight: _highlight,
   tokenize: _tokenize,
   isHighlightSupported: _isSup,
+  // v1.4.11 — theme registry + footnotes
+  registerTheme: _registerTheme,
+  unregisterTheme: _unregisterTheme,
+  listThemes: _listThemes,
+  hasTheme: _hasTheme,
+  clearThemes: _clearThemes,
+  resolveTheme: _resolveTheme,
+  collectFootnotes: _collectFootnotes,
 };
 
 export default markdown;

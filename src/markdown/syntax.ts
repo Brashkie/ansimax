@@ -19,7 +19,6 @@
 
 import { color } from '../colors/index.js';
 import type { MarkdownTheme } from './types.js';
-import { THEMES } from './theme.js';
 
 /** Named token classes shared across languages. */
 export type TokenKind =
@@ -276,6 +275,3 @@ export const highlight = (code: string, lang: string, theme: MarkdownTheme = 'da
 
   return out.join('');
 };
-
-// Silence unused warning — kept for API completeness / future extension
-void THEMES;

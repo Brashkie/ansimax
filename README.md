@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.10-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.11-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.10'));
+console.log(components.badge('VERSION', 'v1.4.11'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -899,7 +899,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
 - [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
 - [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
-- [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks (v1.4.0–v1.4.6)
+- [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks, reference links, footnotes, HTML blocks (v1.4.0–v1.4.11)
+- [x] **Markdown theme registry** — custom palettes via `registerMarkdownTheme` (v1.4.11)
 - [x] **Syntax highlighting** — built-in grammars for JS/TS/JSON/Bash with aliases (v1.4.5)
 - [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flexbox-style flow (`flex` with justify + grow, v1.4.7)
 - [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
@@ -1067,6 +1068,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.11 — Phase 4 closure: theme registry, footnotes, HTML blocks
+
+- 🎨 **Custom markdown themes** — `registerMarkdownTheme(name, palette)`, validated at registration
+- 📌 **Footnotes** — `[^label]` + `[^label]: text`, numbered by first reference (GFM behavior)
+- 🏷️ **HTML blocks** — `htmlMode: 'strip' | 'raw' | 'hide'` (CommonMark §4.6)
+- 🧪 **+38 tests**
+
+```js
+import { registerMarkdownTheme, markdown } from 'ansimax';
+
+registerMarkdownTheme('solarized', {
+  h1: ['#b58900', '#cb4b16'], h2: '#cb4b16', h3: '#d33682',
+  h4: '#6c71c4', h5: '#268bd2', h6: '#2aa198',
+  code: '#b58900', codeBlockBorder: '#586e75', link: '#268bd2',
+  blockquote: '#586e75', hr: '#586e75', tableHeader: '#cb4b16',
+});
+
+markdown.render('# Title\n\nCited[^a].\n\n[^a]: The note.', { theme: 'solarized' });
+```
+
+**Phase 4 is now complete.** Drop-in replacement for `1.4.10`.
 
 ### v1.4.10 — ascii module split + table minColWidth
 

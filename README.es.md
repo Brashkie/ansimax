@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.10-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.11-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.10'));
+console.log(components.badge('VERSION', 'v1.4.11'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -899,7 +899,8 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` con alineación + anidamiento (v1.3.0)
 - [x] **Pretty-printing JSON/YAML** — coloreado, depth-limit, cycle-safe (v1.3.0)
 - [x] **Sistema de grid** — inspirado en CSS Grid: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, y template areas con `gridAreas` (v1.4.1–v1.4.4)
-- [x] **Renderizado de Markdown** — headings (ATX + setext), listas (anidadas + task lists), code blocks, tablas, blockquotes, estilos inline, escapes CommonMark, autolinks (v1.4.0–v1.4.6)
+- [x] **Renderizado de Markdown** — headings (ATX + setext), listas (anidadas + task lists), code blocks, tablas, blockquotes, estilos inline, escapes CommonMark, autolinks, reference links, footnotes, bloques HTML (v1.4.0–v1.4.11)
+- [x] **Registry de temas markdown** — paletas personalizadas con `registerMarkdownTheme` (v1.4.11)
 - [x] **Syntax highlighting** — gramáticas integradas para JS/TS/JSON/Bash con aliases (v1.4.5)
 - [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flow estilo flexbox (`flex` con justify + grow, v1.4.7)
 - [ ] **Integración de logging** (drop-in para `console`/`pino`/`winston`)
@@ -1069,6 +1070,28 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.11 — Cierre de Fase 4: registry de temas, footnotes, bloques HTML
+
+- 🎨 **Temas markdown personalizados** — `registerMarkdownTheme(name, palette)`, validado al registrar
+- 📌 **Footnotes** — `[^label]` + `[^label]: texto`, numeradas por primera referencia (comportamiento GFM)
+- 🏷️ **Bloques HTML** — `htmlMode: 'strip' | 'raw' | 'hide'` (CommonMark §4.6)
+- 🧪 **+38 tests**
+
+```js
+import { registerMarkdownTheme, markdown } from 'ansimax';
+
+registerMarkdownTheme('solarized', {
+  h1: ['#b58900', '#cb4b16'], h2: '#cb4b16', h3: '#d33682',
+  h4: '#6c71c4', h5: '#268bd2', h6: '#2aa198',
+  code: '#b58900', codeBlockBorder: '#586e75', link: '#268bd2',
+  blockquote: '#586e75', hr: '#586e75', tableHeader: '#cb4b16',
+});
+
+markdown.render('# Título\n\nCitado[^a].\n\n[^a]: La nota.', { theme: 'solarized' });
+```
+
+**La Fase 4 queda completa.** Drop-in replacement para `1.4.10`.
 
 ### v1.4.10 — Split del módulo ascii + minColWidth en tablas
 
