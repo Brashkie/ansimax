@@ -112,6 +112,15 @@ export type { Alignment, VsplitOptions, HsplitOptions, CenterOptions, FrameOptio
 export { json, pretty as jsonPretty } from './json/index.js';
 export type { PrettyOptions as JsonPrettyOptions } from './json/index.js';
 
+// v1.4.12 — Logging integration
+export {
+  createLogger, prettyTransport, jsonTransport,
+  asConsole, pinoShim, winstonTransport, LEVEL_WEIGHT,
+} from './logger/index.js';
+export type {
+  LogLevel, EmitLevel, LogRecord, Transport, Logger, LoggerOptions,
+} from './logger/index.js';
+
 // v1.4.0 — Phase 4 closure: Markdown rendering
 export { markdown, render as renderMarkdown, parseBlocks as parseMarkdownBlocks, parseInline as parseMarkdownInline } from './markdown/index.js';
 export type { MarkdownOptions, MarkdownTheme, ListItem } from './markdown/index.js';
@@ -221,6 +230,21 @@ import { configure }  from './configure.js';
 import { panels as panelsNs }       from './panels/index.js';
 import { json as jsonNs }           from './json/index.js';
 import { markdown as markdownNs }   from './markdown/index.js';
+import {
+  createLogger as _createLogger, prettyTransport as _prettyT,
+  jsonTransport as _jsonT, asConsole as _asConsole,
+  pinoShim as _pinoShim, winstonTransport as _winstonT,
+} from './logger/index.js';
+
+// v1.4.12 — logger namespace, mirroring the other feature namespaces
+const loggerNs = {
+  create: _createLogger,
+  prettyTransport: _prettyT,
+  jsonTransport: _jsonT,
+  asConsole: _asConsole,
+  pinoShim: _pinoShim,
+  winstonTransport: _winstonT,
+};
 
 const ansimax = {
   color, animate, ascii, loader, frames, components, trees, themes, images, configure,
@@ -229,5 +253,10 @@ const ansimax = {
   json: jsonNs,
   // v1.4.0
   markdown: markdownNs,
+  // v1.4.12
+  logger: loggerNs,
 };
 export default ansimax;
+
+// v1.4.12 — also export the logger namespace as a named binding
+export const logger = loggerNs;

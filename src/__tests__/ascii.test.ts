@@ -2367,3 +2367,24 @@ describe('ascii module split (v1.4.10)', () => {
     expect(barrel.measure('AB').width).toBeGreaterThan(0);
   });
 });
+
+describe('ascii.table caption (v1.4.12)', () => {
+  it('prints a caption below the table', () => {
+    const out = table([['a', 'b'], ['1', '2']], { caption: 'Table 1' });
+    expect(out).toContain('Table 1');
+    // Caption is the last line
+    const lines = out.split('\n');
+    expect(lines[lines.length - 1]).toContain('Table 1');
+  });
+
+  it('omits the caption line when not provided', () => {
+    const out = table([['a']]);
+    expect(out).not.toContain('undefined');
+  });
+
+  it('ignores an empty caption', () => {
+    const withEmpty = table([['a']], { caption: '' });
+    const without = table([['a']]);
+    expect(withEmpty).toBe(without);
+  });
+});

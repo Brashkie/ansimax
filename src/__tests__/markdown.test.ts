@@ -1568,3 +1568,43 @@ describe('markdown barrel named re-exports (v1.4.11)', () => {
     expect(barrel.collectFootnotes('[^a]: note').defs.get('a')).toBe('note');
   });
 });
+
+describe('highlight mark ==text== (v1.4.12)', () => {
+  beforeEach(() => setNoColor(false));
+  afterEach(() => resetNoColor());
+
+  it('renders ==text== as a highlight', () => {
+    const out = render('This is ==important== text.');
+    const stripped = stripAnsi(out);
+    // The == markers are consumed and the inner text survives, regardless
+    // of whether the test environment supports ANSI color (a non-TTY CI
+    // degrades color to plain text — that is correct behavior, so we assert
+    // on the text transformation, not on the presence of escape codes).
+    expect(stripped).toContain('important');
+    expect(stripped).not.toContain('==');
+  });
+
+  it('leaves single = untouched', () => {
+    const stripped = stripAnsi(render('a = b'));
+    expect(stripped).toContain('a = b');
+  });
+
+  it('coexists with bold inside the highlight', () => {
+    const stripped = stripAnsi(render('==**strong**=='));
+    expect(stripped).toContain('strong');
+    expect(stripped).not.toContain('==');
+    expect(stripped).not.toContain('**');
+  });
+
+  it('does not process == inside inline code', () => {
+    // Inline code is stashed before the highlight pass, so `==x==` in a
+    // code span stays literal.
+    const stripped = stripAnsi(render('use `a==b` here'));
+    expect(stripped).toContain('a==b');
+  });
+
+  it('leaves === (three or more) and spaced == alone', () => {
+    expect(stripAnsi(render('a === b'))).toContain('a === b');
+    expect(stripAnsi(render('sep ==== sep'))).toContain('====');
+  });
+});

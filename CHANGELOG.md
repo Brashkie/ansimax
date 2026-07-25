@@ -3,6 +3,91 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.12] — Logging integration + Phase 4/2 improvements
+
+Closes the last Phase 4 roadmap item (logging) and adds two smaller
+improvements to the markdown (Phase 4) and ascii (Phase 2) modules. Zero
+breaking changes.
+
+### Added — Logging integration
+
+A dependency-free structured logger whose output matches the rest of your
+CLI's styling, plus drop-in shims for `console`, `pino`, and `winston`.
+
+```js
+import { createLogger } from 'ansimax';
+
+const log = createLogger({ level: 'debug', name: 'api' });
+log.info('server started', { port: 3000 });
+log.error(new Error('boom'));
+
+const reqLog = log.child({ reqId: 'abc123' });
+reqLog.debug('handling request');
+```
+
+- **7 levels** — `silent` < `fatal` < `error` < `warn` < `info` < `debug`
+  < `trace`, gated by weight; `warn`+ go to stderr, the rest to stdout
+- **Structured fields** — a trailing plain object becomes `key=value`
+  metadata (an `Error` or array stays a positional arg, not fields)
+- **Child loggers** — `log.child({ reqId })` inherits level, name and
+  bound fields and adds its own
+- **Pluggable transports** — `prettyTransport` (colored, human-readable)
+  and `jsonTransport` (one pino-shaped JSON object per line); a throwing
+  transport can never break logging
+- **Runtime control** — `setLevel`, `getLevel`, `isLevelEnabled`
+
+**Drop-in shims:**
+- `asConsole(logger)` — a `console`-compatible object (`console.log` →
+  `info`, etc.) so existing call sites gain colored, level-aware output
+- `pinoShim(logger)` — pino's `(mergingObject, message)` calling convention
+- `winstonTransport(logger)` — accepts winston `{ level, message, ...meta }`
+  log objects, mapping winston levels (`verbose`→`debug`, `silly`→`trace`, …)
+
+API: `createLogger`, `prettyTransport`, `jsonTransport`, `asConsole`,
+`pinoShim`, `winstonTransport`, plus the `logger` namespace
+(`logger.create`, …) and types `Logger`, `LogLevel`, `LogRecord`,
+`Transport`, `LoggerOptions`.
+
+### Added — Markdown highlight `==text==` (Phase 4)
+
+GFM/Obsidian-style highlight marks are now rendered as dark text on a
+colored background (the theme's `tableHeader` color):
+
+```js
+markdown.render('This is ==important==.');
+```
+
+Runs before bold/italic, so `==**strong**==` still emphasizes the inner
+text. A lone `=` is left untouched.
+
+### Added — `ascii.table` caption (Phase 2)
+
+An optional caption printed below the table, dimmed and centered to the
+table width:
+
+```js
+ascii.table(rows, { caption: 'Table 1: Q3 results' });
+```
+
+### Improved — Tests
+
+`+40` tests: logger (levels, fields, children, transports, the three
+shims, barrel), markdown highlight, and table caption.
+
+### Notes
+
+- **Zero breaking changes** — everything is additive
+- The logger reuses ansimax's color + stream primitives, so its output
+  honors the global no-color / color detection
+- **Phase 4 is fully closed**; Phase 2 gains a table caption
+
+### Roadmap
+
+- ✅ v1.4.12 — Logging integration + markdown highlight + table caption — **done**
+- ✅ **Phase 4 complete** (logging was the final item)
+
+---
+
 ## [1.4.11] — Phase 4 closure: theme registry, footnotes, HTML blocks
 
 Closes the two remaining Phase 4 roadmap items. Zero breaking changes.

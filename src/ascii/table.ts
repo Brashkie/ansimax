@@ -19,6 +19,7 @@
 // ─────────────────────────────────────────────
 
 import { visibleLen, truncateAnsi, padEnd, wordWrap } from '../utils/helpers.js';
+import { color } from '../colors/index.js';
 
 export type TableBorderStyle =
   | 'single' | 'double' | 'rounded' | 'heavy' | 'ascii' | 'none';
@@ -88,6 +89,14 @@ export interface TableOptions {
    * @since 1.4.10
    */
   minColWidth?: number;
+  /**
+   * **v1.4.12** — Optional caption printed below the table, dimmed and
+   * centered to the table width. Useful for a source note or a summary
+   * line (e.g. "Table 1: Q3 results").
+   *
+   * @since 1.4.12
+   */
+  caption?: string;
 }
 
 const _alignCell = (text: string, width: number, align: TableAlign): string => {
@@ -274,5 +283,15 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
   }
 
   if (bordered) out.push(rule('bottom'));
+
+  // v1.4.12 — optional caption, dimmed and centered to the table's width.
+  if (typeof opts.caption === 'string' && opts.caption.length > 0) {
+    const tableWidth = Math.max(0, ...out.map((l) => visibleLen(l)));
+    const cap = opts.caption;
+    const capW = visibleLen(cap);
+    const pad = capW < tableWidth ? Math.floor((tableWidth - capW) / 2) : 0;
+    out.push(color.dim(' '.repeat(pad) + cap));
+  }
+
   return out.join('\n');
 };

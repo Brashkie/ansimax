@@ -154,6 +154,12 @@ export const parseInline = (
   // ── Step 3: Strikethrough ~~text~~ ──
   s = s.replace(/~~([^~\n]+)~~/g, (_m, inner: string) => color.strikethrough(inner));
 
+  // ── Step 3b (v1.4.12): Highlight ==text== (GFM/Obsidian "mark") ──
+  // Rendered as dark text on a colored background, like a highlighter pen.
+  // Must run before bold/italic so the inner text can still carry emphasis.
+  s = s.replace(/==([^=\n]+)==/g, (_m, inner: string) =>
+    color.chain().bgHex(t.tableHeader).hex('#000000').apply(inner));
+
   // ── Step 4: Bold **text** or __text__ ──
   s = s.replace(/\*\*([^*\n]+)\*\*/g, (_m, inner: string) => color.bold(inner));
   s = s.replace(/__([^_\n]+)__/g, (_m, inner: string) => color.bold(inner));

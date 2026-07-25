@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.11-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.12-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.11'));
+console.log(components.badge('VERSION', 'v1.4.12'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -903,7 +903,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Registry de temas markdown** — paletas personalizadas con `registerMarkdownTheme` (v1.4.11)
 - [x] **Syntax highlighting** — gramáticas integradas para JS/TS/JSON/Bash con aliases (v1.4.5)
 - [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flow estilo flexbox (`flex` con justify + grow, v1.4.7)
-- [ ] **Integración de logging** (drop-in para `console`/`pino`/`winston`)
+- [x] **Integración de logging** — createLogger con niveles, campos, child loggers, transports + shims console/pino/winston (v1.4.12)
 
 ### ✅ Fase 5 — Control de cursor y pantalla
 - [x] Visibilidad de cursor, save/restore, posicionamiento, navegación por líneas
@@ -1070,6 +1070,24 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.12 — Integración de logging + mejoras de Fase 4/2
+
+- 🪵 **Logging** — `createLogger()` con 7 niveles, campos estructurados, child loggers, transports intercambiables
+- 🔌 **Shims drop-in** — `asConsole`, `pinoShim`, `winstonTransport`
+- 🖊️ **`==highlight==` en markdown** — soporte de marca GFM/Obsidian
+- 📋 **Caption en `ascii.table`** — nota atenuada y centrada bajo la tabla
+- 🧪 **+40 tests**
+
+```js
+import { createLogger } from 'ansimax';
+
+const log = createLogger({ level: 'debug', name: 'api' });
+log.info('server started', { port: 3000 });
+log.child({ reqId: 'abc' }).debug('handling request');
+```
+
+**La Fase 4 queda completa** (logging era el último item). Drop-in replacement para `1.4.11`.
 
 ### v1.4.11 — Cierre de Fase 4: registry de temas, footnotes, bloques HTML
 

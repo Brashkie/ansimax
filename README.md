@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.11-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.12-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.11'));
+console.log(components.badge('VERSION', 'v1.4.12'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -903,7 +903,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Markdown theme registry** — custom palettes via `registerMarkdownTheme` (v1.4.11)
 - [x] **Syntax highlighting** — built-in grammars for JS/TS/JSON/Bash with aliases (v1.4.5)
 - [x] **Layouts** — CSS Grid (`grid`/`gridAreas`) + flexbox-style flow (`flex` with justify + grow, v1.4.7)
-- [ ] **Logging integration** (drop-in replacement for `console`/`pino`/`winston` transports)
+- [x] **Logging integration** — createLogger with levels, fields, child loggers, transports + console/pino/winston shims (v1.4.12)
 
 ### ✅ Phase 5 — Cursor & screen control
 - [x] Cursor visibility, save/restore, positioning, line navigation
@@ -1068,6 +1068,24 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.12 — Logging integration + Phase 4/2 improvements
+
+- 🪵 **Logging** — `createLogger()` with 7 levels, structured fields, child loggers, pluggable transports
+- 🔌 **Drop-in shims** — `asConsole`, `pinoShim`, `winstonTransport`
+- 🖊️ **Markdown `==highlight==`** — GFM/Obsidian mark support
+- 📋 **`ascii.table` caption** — dimmed, centered note below the table
+- 🧪 **+40 tests**
+
+```js
+import { createLogger } from 'ansimax';
+
+const log = createLogger({ level: 'debug', name: 'api' });
+log.info('server started', { port: 3000 });
+log.child({ reqId: 'abc' }).debug('handling request');
+```
+
+**Phase 4 is now complete** (logging was the final item). Drop-in replacement for `1.4.11`.
 
 ### v1.4.11 — Phase 4 closure: theme registry, footnotes, HTML blocks
 
