@@ -17,6 +17,9 @@ import ansimax, {
   termSize, hexToRgb, rgbToHex, stripAnsi, visibleLen, clamp, lerpColor,
   isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, center, wordWrap, lerp, rgbTo256,
   compose, setNoColor, isNoColor, resetNoColor,
+  // v1.4.13 — Phase 2 & 3 improvements
+  mirrorStops,
+  registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps, hasAsciiRamp, clearAsciiRamps,
 } from '../index.js';
 import type { RGB } from '../index.js';
 
@@ -915,5 +918,44 @@ describe('barrel coverage — v1.4.8 re-exports', () => {
     const { cursor } = await import('../utils/ansi.js');
     expect(typeof cursor.scrollRegion).toBe('function');
     expect(typeof cursor.batch).toBe('function');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.13 — Phase 2 & 3 re-exports from the main barrel
+//
+//  These are re-exported by name from src/index.ts. Importing them by name
+//  from the package root (above) and exercising them here is what covers
+//  those re-export lines — using them via a submodule import does not.
+// ─────────────────────────────────────────────
+
+describe('v1.4.13 re-exports from main entry', () => {
+  afterEach(() => clearAsciiRamps());
+
+  it('mirrorStops is exported and reflects a palette', () => {
+    expect(mirrorStops(['#111', '#222', '#333'])).toEqual(['#111', '#222', '#333', '#222', '#111']);
+  });
+
+  it('the ASCII ramp registry is exported and works end-to-end', () => {
+    expect(typeof registerAsciiRamp).toBe('function');
+    expect(typeof unregisterAsciiRamp).toBe('function');
+    expect(typeof listAsciiRamps).toBe('function');
+    expect(typeof hasAsciiRamp).toBe('function');
+    expect(typeof clearAsciiRamps).toBe('function');
+
+    registerAsciiRamp('barrel-ramp', ' .oO0');
+    expect(hasAsciiRamp('barrel-ramp')).toBe(true);
+    expect(listAsciiRamps()).toContain('barrel-ramp');
+    expect(unregisterAsciiRamp('barrel-ramp')).toBe(true);
+    expect(hasAsciiRamp('barrel-ramp')).toBe(false);
+  });
+
+  it('mirror + interpolation flow through gradient from the barrel', () => {
+    setNoColor(false);
+    const mirrored = gradient('ABCDEF', ['#ff0000', '#0000ff'], { mirror: true });
+    const hsl = gradient('ABCDEF', ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+    expect(stripAnsi(mirrored)).toBe('ABCDEF');
+    expect(stripAnsi(hsl)).toBe('ABCDEF');
+    resetNoColor();
   });
 });

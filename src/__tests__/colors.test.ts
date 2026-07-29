@@ -3,6 +3,7 @@ import {
   setNoColor, isNoColor, resetNoColor,
   chain, colorLevel, stripAnsi as stripAnsiColors,
   registerPreset, listPresets, clearColorCache,
+  mirrorStops,
   __internal,
   type ColorFn,
 } from '../colors/index.js';
@@ -1756,5 +1757,91 @@ describe('presets alias (v1.2.4)', () => {
     expect(presetsKeys).toContain('ocean');
     expect(presetsKeys).toContain('fire');
     expect(presetsKeys).toContain('neon');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.4.13 — Phase 2 improvements: mirror + interpolation space
+// ─────────────────────────────────────────────
+
+describe('mirrorStops (v1.4.13)', () => {
+  it('reflects a 3-stop palette into A,B,C,B,A', () => {
+    expect(mirrorStops(['A', 'B', 'C'])).toEqual(['A', 'B', 'C', 'B', 'A']);
+  });
+
+  it('reflects a 2-stop palette into A,B,A', () => {
+    expect(mirrorStops(['A', 'B'])).toEqual(['A', 'B', 'A']);
+  });
+
+  it('leaves a single stop unchanged', () => {
+    expect(mirrorStops(['A'])).toEqual(['A']);
+  });
+
+  it('handles an empty list', () => {
+    expect(mirrorStops([])).toEqual([]);
+  });
+
+  it('does not duplicate the peak color', () => {
+    const out = mirrorStops(['A', 'B', 'C', 'D']);
+    expect(out).toEqual(['A', 'B', 'C', 'D', 'C', 'B', 'A']);
+  });
+});
+
+describe('gradient mirror option (v1.4.13)', () => {
+  it('produces a symmetric gradient with the first color at both ends', () => {
+    // With mirror, the first and last visible characters use the same
+    // (first) color. Force truecolor so escapes are present.
+    const text = 'ABCDEFGHIJ';
+    const mirrored = gradient(text, ['#ff0000', '#00ff00', '#0000ff'], { mirror: true });
+    const plain = gradient(text, ['#ff0000', '#00ff00', '#0000ff']);
+    // Different output than the non-mirrored version
+    expect(mirrored).not.toBe(plain);
+    // Text content is preserved
+    expect(stripAnsi(mirrored)).toBe(text);
+  });
+
+  it('mirror with a single stop is a no-op (still renders)', () => {
+    const out = gradient('hello', ['#ff0000'], { mirror: true });
+    expect(stripAnsi(out)).toBe('hello');
+  });
+
+  it('createGradient honors mirror at creation time', () => {
+    const g = createGradient(['#ff0000', '#0000ff'], { mirror: true });
+    const out = g('ABCDEF');
+    expect(stripAnsi(out)).toBe('ABCDEF');
+  });
+});
+
+describe('gradient interpolation space (v1.4.13)', () => {
+  it('hsl interpolation differs from rgb for a red→blue blend', () => {
+    // The midpoint hue in HSL is vivid (magenta-ish) vs muddy in RGB,
+    // so the byte output differs.
+    const text = 'MMMMMMMMMM';
+    const rgb = gradient(text, ['#ff0000', '#0000ff'], { interpolation: 'rgb' });
+    const hsl = gradient(text, ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+    expect(hsl).not.toBe(rgb);
+    expect(stripAnsi(hsl)).toBe(text);
+  });
+
+  it('oklab interpolation also produces valid output', () => {
+    const out = gradient('SAMPLE', ['#ff0000', '#00ff00'], { interpolation: 'oklab' });
+    expect(stripAnsi(out)).toBe('SAMPLE');
+  });
+
+  it('defaults to rgb when interpolation is omitted', () => {
+    const explicit = gradient('XYZ', ['#111111', '#eeeeee'], { interpolation: 'rgb' });
+    const implicit = gradient('XYZ', ['#111111', '#eeeeee']);
+    expect(explicit).toBe(implicit);
+  });
+
+  it('createGradient honors interpolation per call and by default', () => {
+    const gHsl = createGradient(['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+    const gRgb = createGradient(['#ff0000', '#0000ff']);
+    const a = gHsl('ABCDEF');
+    const b = gRgb('ABCDEF');
+    expect(a).not.toBe(b);
+    // Per-call override wins over the default
+    const c = gRgb('ABCDEF', { interpolation: 'hsl' });
+    expect(c).toBe(a);
   });
 });

@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.12-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.13-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.12'));
+console.log(components.badge('VERSION', 'v1.4.13'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1070,6 +1070,25 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.4.13 — Mejoras de Fase 2 y 3: gradientes espejo, interpolación HSL, registry de ramplas
+
+- 🔁 **Gradientes espejo** — `mirror: true` refleja la paleta (`A→B→C→B→A`) en `gradient`, `createGradient`, `gradientRect`
+- 🎨 **Espacio de interpolación** — `interpolation: 'rgb' | 'hsl' | 'oklab'` para mezclas vívidas o perceptualmente suaves
+- 🖼️ **Registry de ramplas ASCII** — `registerAsciiRamp` + 3 presets nuevos (`minimal`, `thermal`, `hearts`)
+- 🧪 **+27 tests**
+
+```js
+import { gradient, registerAsciiRamp, ascii } from 'ansimax';
+
+gradient('simétrico', ['#ff0000', '#00ff00', '#0000ff'], { mirror: true });
+gradient('vívido', ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+
+registerAsciiRamp('retro', ' .oO0');
+ascii.fromImage(pixels, { ramp: 'retro' });
+```
+
+Drop-in replacement para `1.4.12`.
 
 ### v1.4.12 — Integración de logging + mejoras de Fase 4/2
 

@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.12-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.4.13-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.12'));
+console.log(components.badge('VERSION', 'v1.4.13'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -871,6 +871,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Animated gradients** — color flow over time with `animateGradient()` (v1.2.0)
 - [x] **Gradient interpolation curves** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / custom (v1.2.0)
 - [x] **Conic gradients** — radial sweep with `style: 'conic'` (v1.2.0)
+- [x] **Mirror gradients** — symmetric `A→B→C→B→A` fill via `mirror` (v1.4.13)
+- [x] **Interpolation space** — `rgb` / `hsl` / `oklab` color-space blending (v1.4.13)
 
 ### ✅ Phase 3 — ASCII engine
 - [x] Block fonts (`big`, `small`)
@@ -886,6 +888,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Face-optimized ASCII** — histogram stretching for portraits (v1.2.5)
 - [x] **Figlet font support** — `.flf` parser + renderer (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Edge detection** — Sobel operator integrated in `fromImage` (v1.2.5, bonus)
+- [x] **ASCII ramp registry** — `registerAsciiRamp` + named presets (v1.4.13)
 
 ### ✅ Phase 4 — Terminal UI primitives
 - [x] Tables (irregular rows, multi-line cells, ANSI-aware)
@@ -1068,6 +1071,25 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.4.13 — Phase 2 & 3 improvements: mirror gradients, HSL interpolation, ramp registry
+
+- 🔁 **Mirror gradients** — `mirror: true` reflects the palette (`A→B→C→B→A`) on `gradient`, `createGradient`, `gradientRect`
+- 🎨 **Interpolation space** — `interpolation: 'rgb' | 'hsl' | 'oklab'` for vivid or perceptually-smooth blends
+- 🖼️ **ASCII ramp registry** — `registerAsciiRamp` + 3 new presets (`minimal`, `thermal`, `hearts`)
+- 🧪 **+27 tests**
+
+```js
+import { gradient, registerAsciiRamp, ascii } from 'ansimax';
+
+gradient('symmetric', ['#ff0000', '#00ff00', '#0000ff'], { mirror: true });
+gradient('vivid', ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+
+registerAsciiRamp('retro', ' .oO0');
+ascii.fromImage(pixels, { ramp: 'retro' });
+```
+
+Drop-in replacement for `1.4.12`.
 
 ### v1.4.12 — Logging integration + Phase 4/2 improvements
 

@@ -27,6 +27,8 @@ export {
   createGradient,
   // v1.2.4 — gradient utilities
   reverseGradient,
+  // v1.4.13 — Phase 2 improvements
+  mirrorStops,
 } from './colors/index.js';
 export type {
   ColorFn, PresetName, ColorChain, GradientOptions,
@@ -49,6 +51,8 @@ export {
   fromImage, figletText, parseFiglet, ASCII_RAMPS,
   // v1.4.8 — auto-layout tables
   table as asciiTable,
+  // v1.4.13 — ASCII ramp registry
+  registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps, hasAsciiRamp, clearAsciiRamps,
 } from './ascii/index.js';
 export type {
   BoxStyle, BoxOptions, BannerOptions, DividerOptions, LogoOptions,

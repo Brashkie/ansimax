@@ -1167,3 +1167,31 @@ describe('gradientRect: conic style (v1.2.0)', () => {
     expect(nan).toBe(ref);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.13 — gradientRect mirror
+// ─────────────────────────────────────────────
+
+describe('gradientRect mirror (v1.4.13)', () => {
+  it('produces different output than the non-mirrored version', () => {
+    const plain = gradientRect({ width: 20, height: 3, colors: ['#ff0000', '#0000ff'] });
+    const mirrored = gradientRect({
+      width: 20, height: 3, colors: ['#ff0000', '#0000ff'], mirror: true,
+    });
+    expect(mirrored).not.toBe(plain);
+  });
+
+  it('mirror works with radial style', () => {
+    const out = gradientRect({
+      width: 16, height: 8, colors: ['#ff0000', '#00ff00', '#0000ff'],
+      style: 'radial', mirror: true,
+    });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('mirror with a single color still renders (no-op reflection)', () => {
+    const out = gradientRect({ width: 10, height: 2, colors: ['#ff0000'], mirror: true });
+    expect(typeof out).toBe('string');
+  });
+});

@@ -19,7 +19,7 @@ import {
   stripAnsi as stripAnsiFromUtils,
   type ColorLevel,
 } from '../utils/ansi.js';
-import { hexToRgb, lerpColor, RGB, isHexColor } from '../utils/helpers.js';
+import { hexToRgb, lerpColor, RGB, isHexColor, type ColorSpace } from '../utils/helpers.js';
 
 export type ColorFn = (text: string) => string;
 export type { ColorLevel };
@@ -343,7 +343,40 @@ export interface GradientOptions {
    * `gradient(text, colors, { phase: (Date.now() / 100) % 1 })`
    */
   phase?: number;
+  /**
+   * **v1.4.13** — Mirror the gradient so it runs out and back
+   * (`A → B → C → B → A`) across the text, producing a symmetric effect
+   * with the first color at both ends. Implemented by reflecting the stop
+   * list, so it composes with `easing` and `phase` unchanged.
+   *
+   * @since 1.4.13
+   */
+  mirror?: boolean;
+  /**
+   * **v1.4.13** — Color space used to interpolate between stops:
+   * - `'rgb'` (default) — linear RGB, fast, can pass through muddy midtones
+   * - `'hsl'` — interpolates hue, giving more vivid transitions (a red→blue
+   *   blend travels through magenta rather than gray)
+   * - `'oklab'` — perceptually uniform, the smoothest option
+   *
+   * @since 1.4.13
+   */
+  interpolation?: ColorSpace;
 }
+
+/**
+ * Reflect a stop list into a symmetric palette: `[A, B, C]` → `[A, B, C, B, A]`.
+ * A list of 0 or 1 stops is returned unchanged (nothing to mirror).
+ *
+ * @since 1.4.13
+ */
+export const mirrorStops = <T>(stops: readonly T[]): T[] => {
+  if (!Array.isArray(stops) || stops.length < 2) return [...(stops ?? [])];
+  // Append the reverse of all but the last element: for [A,B,C] that is
+  // [B,A], giving [A,B,C,B,A]. The peak color (C) is not duplicated.
+  const back = stops.slice(0, -1).reverse();
+  return [...stops, ...back];
+};
 
 /**
  * Apply a multi-stop color gradient across the visible characters of `text`.
@@ -389,23 +422,27 @@ export const gradient = (
   const colors = stops.map(safeHex).filter((c): c is RGB => c !== null);
   if (colors.length === 0) return s;
 
+  // v1.4.13 — mirror expands [A,B,C] → [A,B,C,B,A] before any other work,
+  // so easing/phase operate on the reflected palette transparently.
+  const effectiveColors = opts.mirror === true ? mirrorStops(colors) : colors;
+
   // Single valid color → render the whole text in that color (consistent UX
   // with single-stop gradients in CSS — no skip).
-  if (colors.length === 1) {
-    const c = colors[0] as RGB;
+  if (effectiveColors.length === 1) {
+    const c = effectiveColors[0] as RGB;
     return adaptiveFg(c.r, c.g, c.b) + s + reset();
   }
 
-  const { preserveAnsi = false, easing, phase = 0 } = opts;
+  const { preserveAnsi = false, easing, phase = 0, interpolation = 'rgb' } = opts;
   const easingFn = resolveEasing(easing);
   // Normalize phase to [0, 1). Negative values wrap forward.
   const phaseN = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
 
   // Quick path: no ANSI in input → simple per-char loop
   if (!preserveAnsi || !s.includes('\x1b')) {
-    return _gradientPlain(s, colors, easingFn, phaseN);
+    return _gradientPlain(s, effectiveColors, easingFn, phaseN, interpolation);
   }
-  return _gradientAnsiAware(s, colors, easingFn, phaseN);
+  return _gradientAnsiAware(s, effectiveColors, easingFn, phaseN, interpolation);
 };
 
 /**
@@ -453,11 +490,14 @@ export const createGradient = (
 ): ReusableGradient => {
   // Pre-resolve hex → RGB once
   const originalStops = Array.isArray(stops) ? [...stops] : [];
-  const colors = originalStops.map(safeHex).filter((c): c is RGB => c !== null);
+  const parsedStops = originalStops.map(safeHex).filter((c): c is RGB => c !== null);
+  // v1.4.13 — apply mirror once at creation (it is a default-level option).
+  const colors = defaultOpts.mirror === true ? mirrorStops(parsedStops) : parsedStops;
 
   // Pre-resolve easing function
   const defaultEasingFn = resolveEasing(defaultOpts.easing);
   const defaultPreserveAnsi = defaultOpts.preserveAnsi ?? false;
+  const defaultSpace: ColorSpace = defaultOpts.interpolation ?? 'rgb';
 
   const fn = ((text: unknown, opts: GradientOptions = {}): string => {
     const s = coerceText(text);
@@ -473,13 +513,14 @@ export const createGradient = (
     // Per-call overrides (mainly for animation)
     const easingFn = opts.easing !== undefined ? resolveEasing(opts.easing) : defaultEasingFn;
     const preserveAnsi = opts.preserveAnsi ?? defaultPreserveAnsi;
+    const space = opts.interpolation ?? defaultSpace;
     const phase = opts.phase ?? 0;
     const phaseN = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
 
     if (!preserveAnsi || !s.includes('\x1b')) {
-      return _gradientPlain(s, colors, easingFn, phaseN);
+      return _gradientPlain(s, colors, easingFn, phaseN, space);
     }
-    return _gradientAnsiAware(s, colors, easingFn, phaseN);
+    return _gradientAnsiAware(s, colors, easingFn, phaseN, space);
   }) as ReusableGradient;
 
   // Attach metadata (read-only via Object.defineProperty for genuine immutability)
@@ -544,6 +585,7 @@ const _gradientPlain = (
   colors: RGB[],
   easingFn: EasingFn,
   phase: number,
+  space: ColorSpace = 'rgb',
 ): string => {
   const chars = [...text]; // grapheme-iteration via spread (preserves surrogates)
   const visible = chars.filter((c) => c !== ' ').length;
@@ -567,7 +609,7 @@ const _gradientPlain = (
     const scaled = t * (colorCount - 1);
     const lo = Math.floor(scaled);
     const hi = Math.min(lo + 1, colorCount - 1);
-    const { r, g, b } = lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo);
+    const { r, g, b } = lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo, space);
     colorIdx++;
     out += adaptiveFg(r, g, b) + ch + reset();
   }
@@ -581,6 +623,7 @@ const _gradientAnsiAware = (
   colors: RGB[],
   easingFn: EasingFn,
   phase: number,
+  space: ColorSpace = 'rgb',
 ): string => {
   const visible = stripAnsi(text).split('').filter((c) => c !== ' ').length;
   if (visible === 0) return text;
@@ -619,7 +662,7 @@ const _gradientAnsiAware = (
       const scaled = t * (colorCount - 1);
       const lo = Math.floor(scaled);
       const hi = Math.min(lo + 1, colorCount - 1);
-      const { r, g, b } = lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo);
+      const { r, g, b } = lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo, space);
       out += adaptiveFg(r, g, b) + ch + reset();
       colorIdx++;
     }

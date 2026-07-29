@@ -41,6 +41,11 @@ export { box, divider, logo, measure } from './shapes.js';
 // ── Image → ASCII ──
 export { fromImage, ASCII_RAMPS } from './image.js';
 export type { AsciiRamp } from './image.js';
+// v1.4.13 — ramp registry
+export {
+  registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps,
+  hasAsciiRamp, clearAsciiRamps,
+} from './image.js';
 
 // ── Figlet ──
 export { parseFiglet, figletText } from './figlet.js';
@@ -60,6 +65,11 @@ import { registerFont as _registerFont, listFonts as _listFonts, hasFont as _has
 import { big as _big, small as _small, figlet as _figlet, stageRender as _stageRender, stageAlign as _stageAlign, stageColorize as _stageColorize, banner as _banner } from './render.js';
 import { box as _box, divider as _divider, logo as _logo, measure as _measure } from './shapes.js';
 import { fromImage as _fromImage } from './image.js';
+import {
+  registerAsciiRamp as _registerRamp, unregisterAsciiRamp as _unregisterRamp,
+  listAsciiRamps as _listRamps, hasAsciiRamp as _hasRamp,
+  clearAsciiRamps as _clearRamps, ASCII_RAMPS as _ASCII_RAMPS,
+} from './image.js';
 import { parseFiglet as _parseFiglet, figletText as _figletText } from './figlet.js';
 import { stream as _stream } from './stream.js';
 import { table as _table } from './table.js';
@@ -93,6 +103,13 @@ export const ascii = {
   // v1.4.8 — auto-layout tables
   table: _table,
   boxStyles: boxStyleNames,
+  // v1.4.13 — ASCII ramp registry
+  ramps: _ASCII_RAMPS,
+  registerRamp: _registerRamp,
+  unregisterRamp: _unregisterRamp,
+  listRamps: _listRamps,
+  hasRamp: _hasRamp,
+  clearRamps: _clearRamps,
 };
 
 export default ascii;

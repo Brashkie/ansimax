@@ -2388,3 +2388,87 @@ describe('ascii.table caption (v1.4.12)', () => {
     expect(withEmpty).toBe(without);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.4.13 — ASCII ramp registry + new presets
+// ─────────────────────────────────────────────
+
+import {
+  registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps,
+  hasAsciiRamp, clearAsciiRamps,
+} from '../ascii/index.js';
+
+describe('ASCII ramp registry (v1.4.13)', () => {
+  afterEach(() => clearAsciiRamps());
+
+  it('registers and reports a custom ramp', () => {
+    registerAsciiRamp('retro', ' .oO0');
+    expect(hasAsciiRamp('retro')).toBe(true);
+    expect(listAsciiRamps()).toContain('retro');
+  });
+
+  it('normalizes the name (trim + lowercase)', () => {
+    registerAsciiRamp('  MyRamp  ', ' .:#');
+    expect(hasAsciiRamp('myramp')).toBe(true);
+    expect(hasAsciiRamp('MYRAMP')).toBe(true);
+  });
+
+  it('lists built-ins first, then registered ramps', () => {
+    registerAsciiRamp('custom', ' .#');
+    const list = listAsciiRamps();
+    expect(list[0]).toBe('standard');
+    expect(list).toContain('custom');
+  });
+
+  it('rejects an empty name', () => {
+    expect(() => registerAsciiRamp('', ' .#')).toThrow(TypeError);
+    expect(() => registerAsciiRamp('   ', ' .#')).toThrow(TypeError);
+  });
+
+  it('rejects a ramp shorter than 2 characters', () => {
+    expect(() => registerAsciiRamp('x', 'a')).toThrow(/2\+ characters/);
+  });
+
+  it('unregister removes only registered ramps', () => {
+    registerAsciiRamp('temp', ' .#');
+    expect(unregisterAsciiRamp('temp')).toBe(true);
+    expect(hasAsciiRamp('temp')).toBe(false);
+    // Built-ins survive
+    expect(hasAsciiRamp('standard')).toBe(true);
+  });
+
+  it('unregister returns false for unknown / non-string', () => {
+    expect(unregisterAsciiRamp('nope')).toBe(false);
+    expect(unregisterAsciiRamp(42 as unknown as string)).toBe(false);
+  });
+
+  it('hasAsciiRamp is false for unknown and non-string', () => {
+    expect(hasAsciiRamp('nope')).toBe(false);
+    expect(hasAsciiRamp(null as unknown as string)).toBe(false);
+  });
+
+  it('a registered ramp is usable by name in fromImage', () => {
+    registerAsciiRamp('twotone', ' #');
+    const pixels = [
+      [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }],
+      [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }],
+    ];
+    const out = ascii.fromImage(pixels, { ramp: 'twotone', width: 2 });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('exposes the new preset ramps', () => {
+    expect(ASCII_RAMPS.minimal).toBeDefined();
+    expect(ASCII_RAMPS.thermal).toBeDefined();
+    expect(ASCII_RAMPS.hearts).toBeDefined();
+  });
+
+  it('ramp registry is available on the ascii namespace', () => {
+    expect(typeof ascii.registerRamp).toBe('function');
+    expect(typeof ascii.listRamps).toBe('function');
+    ascii.registerRamp('ns-ramp', ' .#');
+    expect(ascii.hasRamp('ns-ramp')).toBe(true);
+    ascii.clearRamps();
+  });
+});

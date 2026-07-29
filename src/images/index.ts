@@ -496,6 +496,14 @@ export interface GradientRectOptions {
   startAngle?: number;
   /** Dithering algorithm. 'bayer' improves perceived smoothness. */
   dither?: 'none' | 'bayer';
+  /**
+   * **v1.4.13** — Mirror the palette so the gradient runs out and back
+   * (`A → B → C → B → A`), giving a symmetric fill with the first color at
+   * both edges. Applies to every style (including radial/conic).
+   *
+   * @since 1.4.13
+   */
+  mirror?: boolean;
   /** Render in braille mode for 2× horizontal × 4× vertical resolution. */
   braille?: boolean;
 }
@@ -588,10 +596,14 @@ export const gradientRect = (opts: GradientRectOptions = {}): string => {
   if (!Array.isArray(colors) || colors.length === 0) {
     throw new TypeError('gradientRect: colors must be a non-empty array');
   }
-  const stops = colors.map(safeHex).filter((c): c is RGB => c !== null);
-  if (stops.length === 0) {
+  const parsed = colors.map(safeHex).filter((c): c is RGB => c !== null);
+  if (parsed.length === 0) {
     throw new Error('gradientRect: no valid hex color stops provided');
   }
+  // v1.4.13 — mirror expands [A,B,C] → [A,B,C,B,A] for a symmetric fill.
+  const stops = opts.mirror === true && parsed.length >= 2
+    ? [...parsed, ...parsed.slice(0, -1).reverse()]
+    : parsed;
   // Single stop → render solid fill (consistent with `gradient()` single-stop UX)
   if (stops.length === 1) {
     const safeW = clampInt(width,  2, MAX_DIMENSION, 40);

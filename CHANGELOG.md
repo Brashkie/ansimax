@@ -3,6 +3,76 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.13] — Phase 2 & 3 improvements: mirror gradients, HSL interpolation, ramp registry
+
+Additive improvements to the gradient engine (Phase 2) and the ASCII engine
+(Phase 3). Zero breaking changes.
+
+### Added — Mirror gradients (Phase 2)
+
+A `mirror` option that reflects the palette so the gradient runs out and
+back (`A → B → C → B → A`), giving a symmetric effect with the first color
+at both ends:
+
+```js
+gradient('symmetric text', ['#ff0000', '#00ff00', '#0000ff'], { mirror: true });
+gradientRect({ colors: ['#ff0000', '#0000ff'], mirror: true, style: 'radial' });
+```
+
+- Works on `gradient()`, `createGradient()`, and `gradientRect()` (every
+  style, including radial/conic)
+- Implemented by reflecting the stop list before the pipeline, so it
+  composes with `easing` and `phase` unchanged
+- New exported helper `mirrorStops(stops)` — `[A,B,C]` → `[A,B,C,B,A]`
+  (the peak color is not duplicated)
+
+### Added — Gradient interpolation space (Phase 2)
+
+An `interpolation` option choosing the color space used between stops:
+
+```js
+gradient('vivid', ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
+```
+
+- `'rgb'` (default) — linear RGB, fast
+- `'hsl'` — interpolates hue, giving more vivid transitions (a red→blue
+  blend travels through magenta rather than a muddy gray midpoint)
+- `'oklab'` — perceptually uniform, the smoothest option
+- Honored per-call and as a `createGradient` default (with per-call override)
+
+### Added — ASCII ramp registry + new presets (Phase 3)
+
+A named ramp registry mirroring the font and markdown-theme registries:
+
+```js
+import { registerAsciiRamp, ascii } from 'ansimax';
+
+registerAsciiRamp('retro', ' .oO0');
+ascii.fromImage(pixels, { ramp: 'retro' });
+```
+
+- `registerAsciiRamp`, `unregisterAsciiRamp`, `listAsciiRamps`,
+  `hasAsciiRamp`, `clearAsciiRamps` (plus `ascii.registerRamp` etc. on the
+  namespace)
+- Registered ramps take precedence over built-ins; literal custom ramp
+  strings still work unchanged
+- Validation: a `TypeError` for an empty name or a ramp under 2 characters
+- **3 new preset ramps**: `minimal` (` .oO@`), `thermal`, `hearts`
+
+### Improved — Tests
+
+`+27` tests: `mirrorStops`, gradient mirror + interpolation (rgb/hsl/oklab),
+`gradientRect` mirror across styles, and the ramp registry (registration,
+normalization, validation, namespace, use in `fromImage`).
+
+### Notes
+
+- **Zero breaking changes** — everything is additive and defaults preserve
+  prior behavior (`mirror` off, `interpolation: 'rgb'`)
+- Brightness/contrast controls for `fromImage` already shipped in v1.2.6
+
+---
+
 ## [1.4.12] — Logging integration + Phase 4/2 improvements
 
 Closes the last Phase 4 roadmap item (logging) and adds two smaller

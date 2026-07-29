@@ -21,17 +21,101 @@ export const ASCII_RAMPS = {
   dots:     ' ⠁⠃⠇⠧⠷⡷⣷⣿',
   shades:   ' ⠁⠃⠇⠧⠷⡷⣷⣿█',
   ascii64:  ' `.\'^,_:-+=<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@',
+  // v1.4.13 — new ramps
+  minimal:  ' .oO@',
+  thermal:  ' .:coPO?@█',
+  hearts:   ' ·♡♥',
 } as const;
 
 export type AsciiRamp = keyof typeof ASCII_RAMPS | string;
 
+// v1.4.13 — Named ramp registry storage (declared before _resolveRamp,
+// which reads it). Full registry API is defined further below.
+const _rampRegistry = new Map<string, string>();
+
 const _resolveRamp = (r: AsciiRamp | undefined): string => {
   if (typeof r === 'string' && r.length > 0) {
+    // Runtime-registered ramps take precedence over built-ins so a user can
+    // shadow a built-in name if they really want to.
+    const custom = _rampRegistry.get(r.trim().toLowerCase());
+    if (custom !== undefined) return custom;
     if (r in ASCII_RAMPS) return ASCII_RAMPS[r as keyof typeof ASCII_RAMPS];
-    return r; // custom ramp string
+    return r; // literal custom ramp string (the characters themselves)
   }
   return ASCII_RAMPS.standard;
 };
+
+// ─────────────────────────────────────────────
+//  v1.4.13 — Named ramp registry
+//
+//  Mirrors the font registry (registerFont) and markdown theme registry.
+//  A ramp is a string of characters ordered dark → light; index 0 maps to
+//  the darkest luminance. Registering a name lets callers pass that name as
+//  `ramp` instead of repeating the raw character string.
+// ─────────────────────────────────────────────
+
+const BUILT_IN_RAMP_NAMES: ReadonlyArray<string> = Object.keys(ASCII_RAMPS);
+
+/**
+ * Register a named ASCII ramp (a string of characters, dark → light).
+ *
+ * @example
+ * ```js
+ * import { registerAsciiRamp, ascii } from 'ansimax';
+ *
+ * registerAsciiRamp('retro', ' .oO0');
+ * ascii.fromImage(pixels, { ramp: 'retro' });
+ * ```
+ *
+ * @param name  non-empty ramp name (trimmed + lowercased)
+ * @param chars ramp characters, at least 2, ordered dark → light
+ * @throws TypeError on an empty name or a ramp shorter than 2 characters
+ * @since 1.4.13
+ */
+export const registerAsciiRamp = (name: string, chars: string): void => {
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    throw new TypeError('registerAsciiRamp: name must be a non-empty string');
+  }
+  if (typeof chars !== 'string' || [...chars].length < 2) {
+    throw new TypeError('registerAsciiRamp: chars must be a string of 2+ characters');
+  }
+  _rampRegistry.set(name.trim().toLowerCase(), chars);
+};
+
+/**
+ * Remove a registered ramp. Built-ins cannot be removed.
+ * @returns true when a registered ramp was removed.
+ * @since 1.4.13
+ */
+export const unregisterAsciiRamp = (name: string): boolean => {
+  if (typeof name !== 'string') return false;
+  return _rampRegistry.delete(name.trim().toLowerCase());
+};
+
+/**
+ * List every available ramp name — built-ins first, then registered ones.
+ * @since 1.4.13
+ */
+export const listAsciiRamps = (): string[] => {
+  const custom = [...(_rampRegistry.keys())].filter((k) => !BUILT_IN_RAMP_NAMES.includes(k));
+  return [...BUILT_IN_RAMP_NAMES, ...custom];
+};
+
+/**
+ * True when `name` resolves to a built-in or registered ramp.
+ * @since 1.4.13
+ */
+export const hasAsciiRamp = (name: string): boolean => {
+  if (typeof name !== 'string') return false;
+  const key = name.trim().toLowerCase();
+  return _rampRegistry.has(key) || BUILT_IN_RAMP_NAMES.includes(key);
+};
+
+/**
+ * Clear every registered ramp (built-ins are untouched).
+ * @since 1.4.13
+ */
+export const clearAsciiRamps = (): void => { _rampRegistry.clear(); };
 
 /** Compute perceived luminance (BT.709) — returns [0, 255]. */
 const _luminance = (p: Pixel): number => {
