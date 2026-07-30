@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.13-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.5.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.13'));
+console.log(components.badge('VERSION', 'v1.5.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -924,10 +924,10 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Frame morph (text → text interpolation, cinematic decryption)
 - [x] `parallel()` with timeout
 - [x] Signal propagation to nested animations
-- [ ] **Easing functions library** (24 standard easings: cubic, elastic, bounce, back)
-- [ ] **Animation composition** (`parallel + sequence + delay` DSL)
-- [ ] **Spring physics** animations (`react-spring` style)
-- [ ] **Tween engine** (interpolate any value type)
+- [x] **Easing functions library** (31 standard easings: cubic, elastic, bounce, back) (v1.3.5)
+- [x] **Animation composition** (`parallel + sequence + delay` DSL) (v1.5.0)
+- [x] **Spring physics** animations (`react-spring` style) (v1.5.0)
+- [x] **Tween engine** (interpolate any value type) (v1.5.0)
 
 ### 🟡 Phase 7 — Progress ecosystem
 - [x] Spinners (11 styles) with color + AbortSignal
@@ -1071,6 +1071,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL
+
+- 🎬 **Tween engine** — `tween()` interpolates numbers, arrays, and objects over time with easing
+- 🌱 **Spring physics** — `spring()` react-spring-style (stiffness/damping/mass)
+- 🔗 **Composition DSL** — `sequence`, `parallel`, `delay`, `tweenStep`, `springStep`
+- 🧪 **+40 tests** · **Phase 6 complete**
+
+```js
+import { tween, spring, sequence, delay } from 'ansimax';
+
+await tween({ from: 0, to: 100, duration: 1000, easing: 'easeOutCubic', onUpdate: draw });
+await spring({ from: 0, to: 100, config: { stiffness: 210, damping: 20 }, onUpdate: draw });
+
+await sequence([
+  (s) => tween({ from: 0, to: 100, duration: 300, onUpdate: draw, signal: s }),
+  delay(200),
+  (s) => tween({ from: 100, to: 0, duration: 300, onUpdate: draw, signal: s }),
+]);
+```
+
+All `AbortSignal`- and `reducedMotion`-aware. Drop-in replacement for `1.4.13`.
 
 ### v1.4.13 — Phase 2 & 3 improvements: mirror gradients, HSL interpolation, ramp registry
 

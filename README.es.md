@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.4.13-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.5.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.4.13'));
+console.log(components.badge('VERSION', 'v1.5.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -921,10 +921,10 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Frame morph (interpolación texto → texto, descifrado cinematográfico)
 - [x] `parallel()` con timeout
 - [x] Propagación de signal a animaciones anidadas
-- [ ] **Librería de funciones easing** (24 easings estándar: cubic, elastic, bounce, back)
-- [ ] **Composición de animaciones** (DSL `parallel + sequence + delay`)
-- [ ] **Animaciones con física de spring** (estilo `react-spring`)
-- [ ] **Motor de tween** (interpolar cualquier tipo de valor)
+- [x] **Librería de funciones easing** (31 easings estándar: cubic, elastic, bounce, back) (v1.3.5)
+- [x] **Composición de animaciones** (DSL `parallel + sequence + delay`) (v1.5.0)
+- [x] **Animaciones con física de spring** (estilo `react-spring`) (v1.5.0)
+- [x] **Motor de tween** (interpolar cualquier tipo de valor) (v1.5.0)
 
 ### 🟡 Fase 7 — Ecosistema de progreso
 - [x] Spinners (11 estilos) con color + AbortSignal
@@ -1070,6 +1070,28 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.5.0 — Cierre de Fase 6: motor de tween, física de spring, DSL de composición
+
+- 🎬 **Motor de tween** — `tween()` interpola números, arrays y objetos en el tiempo con easing
+- 🌱 **Física de spring** — `spring()` estilo react-spring (stiffness/damping/mass)
+- 🔗 **DSL de composición** — `sequence`, `parallel`, `delay`, `tweenStep`, `springStep`
+- 🧪 **+40 tests** · **Fase 6 completa**
+
+```js
+import { tween, spring, sequence, delay } from 'ansimax';
+
+await tween({ from: 0, to: 100, duration: 1000, easing: 'easeOutCubic', onUpdate: draw });
+await spring({ from: 0, to: 100, config: { stiffness: 210, damping: 20 }, onUpdate: draw });
+
+await sequence([
+  (s) => tween({ from: 0, to: 100, duration: 300, onUpdate: draw, signal: s }),
+  delay(200),
+  (s) => tween({ from: 100, to: 0, duration: 300, onUpdate: draw, signal: s }),
+]);
+```
+
+Todo consciente de `AbortSignal` y `reducedMotion`. Drop-in replacement para `1.4.13`.
 
 ### v1.4.13 — Mejoras de Fase 2 y 3: gradientes espejo, interpolación HSL, registry de ramplas
 

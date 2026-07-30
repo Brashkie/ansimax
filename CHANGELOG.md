@@ -3,6 +3,102 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — Phase 6 closure: tween engine, spring physics, composition DSL
+
+Closes the remaining Phase 6 animation-engine items. A **minor** bump
+because it adds substantial new surface area (a whole `tween` module). Zero
+breaking changes.
+
+### Added — Tween engine
+
+Interpolate any numeric shape over time with easing:
+
+```js
+import { tween } from 'ansimax';
+
+// A number
+await tween({
+  from: 0, to: 100, duration: 1000, easing: 'easeOutCubic',
+  onUpdate: (v) => process.stdout.write(`\r${v.toFixed(0)}%`),
+});
+
+// A point (array)
+await tween({ from: [0, 0], to: [80, 24], duration: 500, onUpdate: ([x, y]) => moveCursor(x, y) });
+
+// An object
+await tween({ from: { x: 0, opacity: 0 }, to: { x: 10, opacity: 1 }, onUpdate: draw });
+```
+
+- Interpolates numbers, flat numeric arrays, and flat numeric records via
+  the exported `interpolate(from, to, t)` helper
+- Uses the full 31-easing library (`easeOutCubic`, `easeInOutElastic`, …) or
+  a custom `(t) => number` function
+- `AbortSignal`-aware (resolves immediately when aborted) and
+  `reducedMotion`-aware (jumps straight to the end)
+- Emits the `from` value on the first frame and lands exactly on `to`
+
+### Added — Spring physics
+
+A react-spring-style damped harmonic oscillator:
+
+```js
+import { spring } from 'ansimax';
+
+await spring({
+  from: 0, to: 100,
+  config: { stiffness: 210, damping: 20 },
+  onUpdate: (value, velocity) => drawBar(value),
+});
+```
+
+- `stiffness` / `damping` / `mass` / `restThreshold` config
+- Fixed-timestep integration (stable regardless of frame rate)
+- Snaps exactly to the target on settle; a `maxDuration` safety cap
+  force-settles a mis-tuned (under-damped) spring
+
+### Added — Composition DSL
+
+Compose animations with `sequence`, `parallel`, and `delay`:
+
+```js
+import { sequence, parallel, delay, tweenStep, springStep } from 'ansimax';
+
+await sequence([
+  tweenStep({ from: 0, to: 100, duration: 300, onUpdate: draw }),
+  delay(200),
+  parallel([
+    springStep({ from: 0, to: 50, onUpdate: drawA }),
+    tweenStep({ from: 1, to: 0, duration: 300, onUpdate: drawB }),
+  ]),
+]);
+```
+
+- `sequence(steps, signal?)` — run steps one after another, stopping early
+  on abort
+- `parallel(steps, signal?)` — run concurrently, resolve when all settle
+  (Promise.all semantics)
+- `delay(ms)` — a cancellable wait step
+- `tweenStep` / `springStep` — wrap a tween/spring as a composable step; the
+  composer's signal threads through
+
+### Notes
+
+- All three tools reuse ansimax's existing easing library, `sleep`
+  (AbortSignal-aware), and math helpers — no new dependencies
+- The 31-easing library itself shipped in v1.3.5; this release exposes it
+  through the tween engine and marks the roadmap item complete
+- **Zero breaking changes** — everything is additive
+- **Phase 6 is now fully closed**
+
+### Improved — Tests
+
+`+40` tests covering interpolation (all shapes + mismatch), tween
+(lifecycle, easing, abort, reducedMotion), spring (settle, velocity, abort,
+force-settle), and the composition DSL (order, abort, concurrency, step
+wrappers), plus namespace + barrel re-exports.
+
+---
+
 ## [1.4.13] — Phase 2 & 3 improvements: mirror gradients, HSL interpolation, ramp registry
 
 Additive improvements to the gradient engine (Phase 2) and the ASCII engine

@@ -220,6 +220,16 @@ export type {
 export { easings, resolveEasingByName } from './utils/easing.js';
 export type { EasingFunction, EasingLibraryName } from './utils/easing.js';
 
+// v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL
+export {
+  tween, spring, interpolate, sequence, parallel, delay,
+  tweenStep, springStep, tweenEngine,
+} from './tween/index.js';
+export type {
+  Tweenable, TweenOptions, TweenOnUpdate,
+  SpringConfig, SpringOptions, AnimationStep,
+} from './tween/index.js';
+
 // ── Default export: full API object ──
 import { color }      from './colors/index.js';
 import { animate }    from './animations/index.js';
@@ -239,6 +249,7 @@ import {
   jsonTransport as _jsonT, asConsole as _asConsole,
   pinoShim as _pinoShim, winstonTransport as _winstonT,
 } from './logger/index.js';
+import { tweenEngine as _tweenNs } from './tween/index.js';
 
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
@@ -250,6 +261,7 @@ const loggerNs = {
   winstonTransport: _winstonT,
 };
 
+// v1.5.0 — tween namespace
 const ansimax = {
   color, animate, ascii, loader, frames, components, trees, themes, images, configure,
   // v1.3.0+
@@ -259,6 +271,8 @@ const ansimax = {
   markdown: markdownNs,
   // v1.4.12
   logger: loggerNs,
+  // v1.5.0
+  tween: _tweenNs,
 };
 export default ansimax;
 
