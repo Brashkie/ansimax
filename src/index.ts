@@ -222,7 +222,7 @@ export type { EasingFunction, EasingLibraryName } from './utils/easing.js';
 
 // v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL
 export {
-  tween, spring, interpolate, sequence, parallel, delay,
+  tween, spring, interpolate, sequence, parallel, stagger, delay,
   tweenStep, springStep, tweenEngine,
 } from './tween/index.js';
 export type {

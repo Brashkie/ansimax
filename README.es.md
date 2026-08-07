@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.5.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.5.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.5.0'));
+console.log(components.badge('VERSION', 'v1.5.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1010,7 +1010,30 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [ ] **Integración DevTools** (inspector de árbol de componentes, mark de nodos cambiados)
 - [ ] **CSS-in-TS styling** (estilos con scope por componente)
 
-**Leyenda:** ✅ Completo · 🟡 Parcial · 🔴 Planeado
+### 🔵 Fase 15 — Pipeline de estilos AXSS / AXB (ecosistema)
+
+Un lenguaje de hojas de estilo dedicado para interfaces de terminal
+(**AXSS** — *Ansi eXtended Style Sheets*) que compila a un formato binario
+portable (**AXB** — *Ansi Binary*) consumido por `ansimax-native`. El diseño
+está **congelado**; la implementación espera a `ansimax-native` (todavía no
+hay motor que consuma AXB, así que deliberadamente no se apresura).
+
+- [ ] **Lenguaje AXSS** — hojas de estilo de terminal de alto nivel (`Button { color: yellow; padding: 1 2; }`) con selectores de tipo / id / multi-clase / estado
+- [ ] **Formato binario AXB** — bytecode portable, versionado, little-endian; magic + versión de formato + versión mínima de motor + CRC; secciones extensibles
+- [ ] **Modelo declarativo** — AXB describe *el estado por selector*, no instrucciones imperativas; el motor decide cuándo aplica cada estado
+- [ ] **Cascada y especificidad en compilación** — resueltas por el compilador (`id > clase > tipo`, empate → gana la última regla); el runtime recibe `StyleState`s ya aplanados
+- [ ] **Tablas de IDs estables** — `PropertyId` / `StateId` / `ColorKind` son parte de la especificación con valores explícitos, nunca reordenados ni reciclados
+- [ ] **Codificación de color** — tri-forma named / ANSI-256 / RGB con un byte discriminante
+- [ ] **`ansimax axb inspect`** — un disassembler/depurador que nace junto al compilador (con metadata de debug opcional: `background: BLUE ← heredado de Button`)
+- [ ] **Múltiples frontends** (después) — CSS / TOML / YAML / JSON / XML produciendo todos el mismo AST → el mismo AXB, haciendo de AXB el formato universal del motor
+
+> **Nota:** AXSS es el frontend legible por humanos; AXB es el binario compacto
+> que consume el motor. `.axb` es *bytecode* — de bajo nivel respecto a AXSS,
+> pero de alto nivel respecto al hardware (más cerca de WASM/SPIR-V que del
+> código máquina). Está diseñado para distribuirse junto a tu aplicación, como
+> un shader compilado.
+
+**Leyenda:** ✅ Completo · 🟡 Parcial · 🔴 Planeado · 🔵 Diseñado (esperando `ansimax-native`)
 
 ---
 
@@ -1070,6 +1093,26 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.5.1 — Mejoras de tween/spring: repeat, yoyo, callbacks, stagger
+
+- 🔁 **`repeat` + `yoyo`** — repite un tween N veces (o `Infinity`), alternando dirección
+- 📣 **`onStart` / `onComplete`** — callbacks de ciclo de vida en `tween` y `spring` (no se disparan al abortar)
+- 🎞️ **`stagger()`** — anima una lista en cascada, cada una desfasada por `gap × índice`
+- 🧪 **+22 tests**
+- 🔵 **Roadmap**: se declaró el pipeline de estilos **AXSS → AXB** con diseño congelado (Fase 15, esperando `ansimax-native`)
+
+```js
+import { tween, stagger } from 'ansimax';
+
+await tween({ from: 0, to: 1, duration: 200, repeat: Infinity, yoyo: true, onUpdate: draw, signal });
+
+await stagger(rows.map((row) => (s) =>
+  tween({ from: 0, to: 1, duration: 200, onUpdate: (v) => row.setOpacity(v), signal: s })
+), 80);
+```
+
+Drop-in replacement para `1.5.0`.
 
 ### v1.5.0 — Cierre de Fase 6: motor de tween, física de spring, DSL de composición
 

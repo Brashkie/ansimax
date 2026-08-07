@@ -3,6 +3,76 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] — Tween/spring quality-of-life: repeat, yoyo, callbacks, stagger
+
+Refinements to the Phase 6 animation engine. Also declares the AXSS/AXB
+styling pipeline as a designed (but not-yet-implemented) roadmap phase. Zero
+breaking changes.
+
+### Added — `repeat` and `yoyo` for tweens
+
+```js
+// Pulse three times
+await tween({ from: 0, to: 1, duration: 200, repeat: 2, onUpdate: draw });
+
+// Bounce back and forth forever (until aborted)
+await tween({ from: 0, to: 10, duration: 300, repeat: Infinity, yoyo: true, onUpdate: draw, signal });
+```
+
+- `repeat` — extra passes after the first (`0` = once, `Infinity` = loop)
+- `yoyo` — alternate direction each pass (`from→to`, then `to→from`, …)
+- Negative `repeat` is treated as a single pass; an infinite repeat stops
+  cleanly on abort
+
+### Added — `onStart` / `onComplete` callbacks
+
+Both `tween()` and `spring()` now accept lifecycle callbacks:
+
+```js
+await tween({
+  from: 0, to: 100, duration: 500,
+  onStart: () => showSpinner(),
+  onUpdate: draw,
+  onComplete: () => hideSpinner(),
+});
+```
+
+- `onStart` fires once before the first frame (after any `delay`)
+- `onComplete` fires once after full completion — **not** called on abort
+- `reducedMotion` still fires both (start → single settle → complete)
+
+### Added — `stagger()` for cascading list animations
+
+```js
+// Fade in rows, each 80ms after the previous
+await stagger(rows.map((row) => (s) =>
+  tween({ from: 0, to: 1, duration: 200, onUpdate: (v) => row.setOpacity(v), signal: s })
+), 80);
+```
+
+- Runs steps concurrently but offsets each by `gap × index`
+- Resolves when the last (most-delayed) step finishes; abort-aware
+
+### Added — Roadmap: AXSS / AXB styling pipeline (Phase 15, designed)
+
+Documented the frozen design for a terminal stylesheet language (**AXSS**)
+that compiles to a portable binary format (**AXB**) for a future
+`ansimax-native` engine. Implementation is intentionally deferred until the
+native engine exists. See the roadmap in the README for the full design.
+
+### Improved — Tests
+
+`+22` tests covering repeat/yoyo passes, callback ordering + abort behavior
+(tween and spring), and stagger offsets/edge cases.
+
+### Notes
+
+- **Zero breaking changes** — all new options are optional and default to
+  prior behavior (`repeat: 0`, no callbacks)
+- `stagger` is exported both as a named export and on the `tween` namespace
+
+---
+
 ## [1.5.0] — Phase 6 closure: tween engine, spring physics, composition DSL
 
 Closes the remaining Phase 6 animation-engine items. A **minor** bump

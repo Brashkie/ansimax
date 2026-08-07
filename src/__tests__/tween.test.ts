@@ -1,5 +1,5 @@
 import {
-  tween, spring, interpolate, sequence, parallel, delay,
+  tween, spring, interpolate, sequence, parallel, stagger, delay,
   tweenStep, springStep, tweenEngine,
 } from '../tween/index.js';
 
@@ -341,12 +341,217 @@ describe('tween namespace + barrel (v1.5.0)', () => {
     expect(typeof main.interpolate).toBe('function');
     expect(typeof main.sequence).toBe('function');
     expect(typeof main.parallel).toBe('function');
+    expect(typeof main.stagger).toBe('function');
     expect(typeof main.delay).toBe('function');
     expect(typeof main.tweenStep).toBe('function');
     expect(typeof main.springStep).toBe('function');
     expect(main.tween).toBe(main.tweenEngine.tween);
+    expect(main.stagger).toBe(main.tweenEngine.stagger);
     expect(typeof main.tween).toBe('function');
     // default export namespace
     expect(typeof main.default.tween.tween).toBe('function');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.5.1 — repeat / yoyo / callbacks / stagger
+// ─────────────────────────────────────────────
+
+describe('tween repeat + yoyo (v1.5.1)', () => {
+  it('repeat:0 runs a single pass', async () => {
+    let firstFrames = 0;
+    await tween({
+      from: 0, to: 10, duration: 40, repeat: 0,
+      onUpdate: () => { firstFrames++; },
+    });
+    expect(firstFrames).toBeGreaterThan(0);
+  });
+
+  it('repeat:2 runs three passes (final value is `to`)', async () => {
+    const finals: number[] = [];
+    await tween({
+      from: 0, to: 10, duration: 30, repeat: 2,
+      onUpdate: (v, p) => { if (p === 1) finals.push(v); },
+    });
+    // Each pass ends at progress 1 → three end-of-pass frames
+    expect(finals.length).toBe(3);
+    expect(finals.every((v) => v === 10)).toBe(true);
+  });
+
+  it('yoyo alternates direction so odd passes end at `from`', async () => {
+    const finals: number[] = [];
+    await tween({
+      from: 0, to: 10, duration: 30, repeat: 1, yoyo: true,
+      onUpdate: (v, p) => { if (p === 1) finals.push(v); },
+    });
+    // pass 0: 0→10 ends at 10; pass 1 (yoyo): 10→0 ends at 0
+    expect(finals).toEqual([10, 0]);
+  });
+
+  it('negative repeat is treated as a single pass', async () => {
+    const finals: number[] = [];
+    await tween({
+      from: 0, to: 5, duration: 20, repeat: -3,
+      onUpdate: (v, p) => { if (p === 1) finals.push(v); },
+    });
+    expect(finals.length).toBe(1);
+  });
+
+  it('an infinite repeat stops when aborted', async () => {
+    const ctrl = new AbortController();
+    let frames = 0;
+    const p = tween({
+      from: 0, to: 10, duration: 30, repeat: Infinity, signal: ctrl.signal,
+      onUpdate: () => { frames++; },
+    });
+    setTimeout(() => ctrl.abort(), 80);
+    await p;
+    const atAbort = frames;
+    await new Promise<void>((r) => setTimeout(() => r(), 60));
+    expect(frames).toBe(atAbort); // stopped
+    expect(frames).toBeGreaterThan(0);
+  });
+});
+
+describe('tween callbacks (v1.5.1)', () => {
+  it('calls onStart once before frames and onComplete once after', async () => {
+    const order: string[] = [];
+    await tween({
+      from: 0, to: 10, duration: 30,
+      onStart: () => order.push('start'),
+      onUpdate: () => { if (!order.includes('update')) order.push('update'); },
+      onComplete: () => order.push('complete'),
+    });
+    expect(order[0]).toBe('start');
+    expect(order[order.length - 1]).toBe('complete');
+    expect(order).toContain('update');
+  });
+
+  it('does NOT call onComplete when aborted', async () => {
+    const ctrl = new AbortController();
+    let completed = false;
+    const p = tween({
+      from: 0, to: 100, duration: 500, signal: ctrl.signal,
+      onUpdate: () => {},
+      onComplete: () => { completed = true; },
+    });
+    setTimeout(() => ctrl.abort(), 30);
+    await p;
+    expect(completed).toBe(false);
+  });
+
+  it('reducedMotion still fires onStart + onComplete', async () => {
+    const order: string[] = [];
+    await tween({
+      from: 0, to: 10, duration: 500, reducedMotion: true,
+      onStart: () => order.push('start'),
+      onUpdate: () => order.push('update'),
+      onComplete: () => order.push('complete'),
+    });
+    expect(order).toEqual(['start', 'update', 'complete']);
+  });
+});
+
+describe('spring callbacks (v1.5.1)', () => {
+  it('fires onStart and onComplete around a settle', async () => {
+    const order: string[] = [];
+    await spring({
+      from: 0, to: 100, config: { stiffness: 300, damping: 30 },
+      onStart: () => order.push('start'),
+      onUpdate: () => {},
+      onComplete: () => order.push('complete'),
+    });
+    expect(order).toEqual(['start', 'complete']);
+  });
+
+  it('does NOT call onComplete when aborted', async () => {
+    const ctrl = new AbortController();
+    let completed = false;
+    const p = spring({
+      from: 0, to: 100, config: { stiffness: 40, damping: 6 }, signal: ctrl.signal,
+      onUpdate: () => {},
+      onComplete: () => { completed = true; },
+    });
+    setTimeout(() => ctrl.abort(), 30);
+    await p;
+    expect(completed).toBe(false);
+  });
+
+  it('reducedMotion fires both callbacks', async () => {
+    const order: string[] = [];
+    await spring({
+      from: 0, to: 100, reducedMotion: true,
+      onStart: () => order.push('start'),
+      onUpdate: () => {},
+      onComplete: () => order.push('complete'),
+    });
+    expect(order).toEqual(['start', 'complete']);
+  });
+});
+
+describe('stagger (v1.5.1)', () => {
+  it('runs all steps and resolves when the last finishes', async () => {
+    const done: number[] = [];
+    await stagger([
+      async () => { done.push(0); },
+      async () => { done.push(1); },
+      async () => { done.push(2); },
+    ], 20);
+    expect(done.sort()).toEqual([0, 1, 2]);
+  });
+
+  it('offsets each step start by gap × index', async () => {
+    const starts: number[] = [];
+    const t0 = Date.now();
+    await stagger([
+      async () => { starts[0] = Date.now() - t0; },
+      async () => { starts[1] = Date.now() - t0; },
+      async () => { starts[2] = Date.now() - t0; },
+    ], 40);
+    // step 0 immediate, step 1 ~40ms, step 2 ~80ms (generous tolerance)
+    expect(starts[0]).toBeLessThan(30);
+    expect(starts[1]).toBeGreaterThanOrEqual(25);
+    expect(starts[2]).toBeGreaterThanOrEqual(60);
+  });
+
+  it('empty list resolves', async () => {
+    await expect(stagger([], 50)).resolves.toBeUndefined();
+  });
+
+  it('already-aborted signal runs nothing', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const done: number[] = [];
+    await stagger([async () => { done.push(0); }], 20, ctrl.signal);
+    expect(done).toEqual([]);
+  });
+
+  it('aborting mid-stagger skips steps still waiting on their gap', async () => {
+    // step 0 runs immediately; steps 1 & 2 are still in their staggered
+    // delay when we abort, so they hit the post-sleep abort guard and never
+    // run.
+    const ctrl = new AbortController();
+    const done: number[] = [];
+    const p = stagger([
+      async () => { done.push(0); },
+      async () => { done.push(1); },
+      async () => { done.push(2); },
+    ], 50, ctrl.signal);
+    setTimeout(() => ctrl.abort(), 30);
+    await p;
+    expect(done).toEqual([0]);
+  });
+
+  it('tolerates a non-function entry', async () => {
+    const done: string[] = [];
+    await stagger([
+      async () => { done.push('a'); },
+      undefined as never,
+    ], 10);
+    expect(done).toEqual(['a']);
+  });
+
+  it('is available on the tweenEngine namespace', () => {
+    expect(typeof tweenEngine.stagger).toBe('function');
   });
 });

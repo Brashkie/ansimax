@@ -43,6 +43,34 @@ export interface TweenOptions<T extends Tweenable> {
   reducedMotion?: boolean;
   /** Approximate frames per second. Default `60`. */
   fps?: number;
+  /**
+   * **v1.5.1** — Number of times to repeat after the first run. `0` (default)
+   * plays once; `2` plays three times total; `Infinity` loops forever (until
+   * aborted). Negative values are treated as `0`.
+   *
+   * @since 1.5.1
+   */
+  repeat?: number;
+  /**
+   * **v1.5.1** — When true, alternate direction each repeat (`from→to`, then
+   * `to→from`, …), the classic "yoyo" effect. Has no effect when `repeat` is 0.
+   *
+   * @since 1.5.1
+   */
+  yoyo?: boolean;
+  /**
+   * **v1.5.1** — Called once before the first frame (after any `delay`).
+   *
+   * @since 1.5.1
+   */
+  onStart?: () => void;
+  /**
+   * **v1.5.1** — Called once after the tween fully completes (all repeats
+   * done). Not called if the tween is aborted.
+   *
+   * @since 1.5.1
+   */
+  onComplete?: () => void;
 }
 
 /**
@@ -70,6 +98,16 @@ export interface SpringOptions {
   fps?: number;
   /** Safety cap so a mis-tuned spring can't run forever. Default `5000`. */
   maxDuration?: number;
+  /**
+   * **v1.5.1** — Called once before the first frame.
+   * @since 1.5.1
+   */
+  onStart?: () => void;
+  /**
+   * **v1.5.1** — Called once after the spring settles. Not called if aborted.
+   * @since 1.5.1
+   */
+  onComplete?: () => void;
 }
 
 /** A composable animation step: any function returning a promise. */

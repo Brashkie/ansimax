@@ -102,14 +102,20 @@ export const tween = async <T extends Tweenable>(opts: TweenOptions<T>): Promise
   const {
     from, to, duration = 300, easing, onUpdate,
     delay = 0, signal, reducedMotion = false, fps = 60,
+    repeat = 0, yoyo = false, onStart, onComplete,
   } = opts;
 
   if (typeof onUpdate !== 'function') return;
   if (signal?.aborted) return;
 
+  const totalRuns = 1 + Math.max(0, Number.isFinite(repeat) ? repeat : Infinity);
+
   // reducedMotion / non-positive duration → jump straight to the end.
+  // Repeats collapse to a single settle (there is nothing to animate).
   if (reducedMotion || duration <= 0) {
+    onStart?.();
     onUpdate(to, 1);
+    onComplete?.();
     return;
   }
 
@@ -118,22 +124,36 @@ export const tween = async <T extends Tweenable>(opts: TweenOptions<T>): Promise
     if (signal?.aborted) return;
   }
 
+  onStart?.();
+
   const easingFn = resolveEasingByName(easing);
   const frameMs = Math.max(1, Math.round(1000 / clamp(fps, 1, 240)));
-  const start = Date.now();
 
-  // Emit the initial frame immediately so t=0 is visible.
-  onUpdate(interpolate(from, to, easingFn(0)), 0);
+  // Run one pass from `a → b`. Returns false if aborted mid-pass.
+  const runPass = async (a: T, b: T): Promise<boolean> => {
+    const start = Date.now();
+    // Emit the initial frame immediately so t=0 is visible.
+    onUpdate(interpolate(a, b, easingFn(0)), 0);
+    for (;;) {
+      if (signal?.aborted) return false;
+      const elapsed = Date.now() - start;
+      const progress = clamp(elapsed / duration, 0, 1);
+      onUpdate(interpolate(a, b, easingFn(progress)), progress);
+      if (progress >= 1) return true;
+      await sleep(frameMs, { signal });
+    }
+  };
 
-  for (;;) {
-    if (signal?.aborted) return;
-    const elapsed = Date.now() - start;
-    const progress = clamp(elapsed / duration, 0, 1);
-    const eased = easingFn(progress);
-    onUpdate(interpolate(from, to, eased), progress);
-    if (progress >= 1) return;
-    await sleep(frameMs, { signal });
+  for (let run = 0; run < totalRuns; run++) {
+    // yoyo: odd passes go backwards (b → a). Without yoyo every pass is a → b.
+    const reversed = yoyo && run % 2 === 1;
+    const a = reversed ? to : from;
+    const b = reversed ? from : to;
+    const ok = await runPass(a, b);
+    if (!ok) return; // aborted — do NOT call onComplete
   }
+
+  onComplete?.();
 };
 
 // ─────────────────────────────────────────────
@@ -165,13 +185,16 @@ export const spring = async (opts: SpringOptions): Promise<void> => {
   const {
     from, to, onUpdate, config = {}, velocity = 0,
     signal, reducedMotion = false, fps = 60, maxDuration = 5000,
+    onStart, onComplete,
   } = opts;
 
   if (typeof onUpdate !== 'function') return;
   if (signal?.aborted) return;
 
   if (reducedMotion) {
+    onStart?.();
     onUpdate(to, 0);
+    onComplete?.();
     return;
   }
 
@@ -190,10 +213,11 @@ export const spring = async (opts: SpringOptions): Promise<void> => {
   const dt = 1 / 240;
   const start = Date.now();
 
+  onStart?.();
   onUpdate(position, vel);
 
   for (;;) {
-    if (signal?.aborted) return;
+    if (signal?.aborted) return; // aborted → no onComplete
 
     // Advance the simulation by one frame's worth of fixed steps.
     for (let acc = 0; acc < frameMs / 1000; acc += dt) {
@@ -208,6 +232,7 @@ export const spring = async (opts: SpringOptions): Promise<void> => {
     const settled = Math.abs(position - to) < restThreshold && Math.abs(vel) < restThreshold;
     if (settled) {
       onUpdate(to, 0); // snap exactly to target
+      onComplete?.();
       return;
     }
 
@@ -215,6 +240,7 @@ export const spring = async (opts: SpringOptions): Promise<void> => {
 
     if (Date.now() - start > maxDuration) {
       onUpdate(to, 0); // safety: force-settle a mis-tuned spring
+      onComplete?.();
       return;
     }
 
@@ -285,6 +311,43 @@ export const parallel = async (
 };
 
 /**
+ * **v1.5.1** — Run steps concurrently but offset each one's start by
+ * `gapMs × index`, the classic "stagger" used to animate a list of items
+ * so they cascade in rather than all moving at once. Resolves when the last
+ * (most-delayed) step finishes, or the signal aborts.
+ *
+ * ```js
+ * // Fade in 5 rows, each 80ms after the previous
+ * await stagger(rows.map((row) => (s) =>
+ *   tween({ from: 0, to: 1, duration: 200, onUpdate: (v) => row.setOpacity(v), signal: s })
+ * ), 80);
+ * ```
+ *
+ * @param steps  the per-item animation steps
+ * @param gapMs  delay added per index (step `i` starts at `i × gapMs`)
+ * @since 1.5.1
+ */
+export const stagger = async (
+  steps: AnimationStep[],
+  gapMs: number,
+  signal?: AbortSignal,
+): Promise<void> => {
+  if (!Array.isArray(steps) || steps.length === 0) return;
+  if (signal?.aborted) return;
+  const gap = Math.max(0, gapMs);
+  await Promise.all(
+    steps.map(async (step, i) => {
+      if (typeof step !== 'function') return;
+      if (gap > 0 && i > 0) {
+        await sleep(gap * i, { signal });
+      }
+      if (signal?.aborted) return;
+      await step(signal);
+    }),
+  );
+};
+
+/**
  * Wrap a tween as a composable `AnimationStep` for use in `sequence()` /
  * `parallel()`. The step's own signal (from the composer) overrides any
  * signal in `opts`.
@@ -315,6 +378,7 @@ export const tweenEngine = {
   interpolate,
   sequence,
   parallel,
+  stagger,
   delay,
   tweenStep,
   springStep,

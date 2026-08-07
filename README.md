@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.5.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.5.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.5.0'));
+console.log(components.badge('VERSION', 'v1.5.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1013,7 +1013,29 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [ ] **DevTools integration** (inspect component tree, mark changed nodes)
 - [ ] **CSS-in-TS styling** (scoped styles per component)
 
-**Legend:** ✅ Complete · 🟡 Partial · 🔴 Planned
+### 🔵 Phase 15 — AXSS / AXB styling pipeline (ecosystem)
+
+A dedicated stylesheet language for terminal UIs (**AXSS** — *Ansi eXtended
+Style Sheets*) that compiles to a portable binary format (**AXB** — *Ansi
+Binary*) consumed by `ansimax-native`. The design is **frozen**;
+implementation waits on `ansimax-native` (there is no engine to consume AXB
+yet, so this is deliberately not rushed).
+
+- [ ] **AXSS language** — high-level terminal stylesheets (`Button { color: yellow; padding: 1 2; }`) with type / id / multi-class / state selectors
+- [ ] **AXB binary format** — portable, versioned, little-endian bytecode; magic + format version + minimum engine version + CRC; extensible sections
+- [ ] **Declarative model** — AXB describes *state per selector*, not imperative instructions; the engine decides when each state applies
+- [ ] **Compile-time cascade & specificity** — resolved by the compiler (`id > class > type`, ties → last rule wins); the runtime receives flattened `StyleState`s
+- [ ] **Stable ID tables** — `PropertyId` / `StateId` / `ColorKind` are part of the spec with explicit values, never reordered or recycled
+- [ ] **Color encoding** — named / ANSI-256 / RGB tri-form with a discriminant byte
+- [ ] **`ansimax axb inspect`** — a disassembler/debugger born alongside the compiler (with optional debug metadata: `background: BLUE ← inherited from Button`)
+- [ ] **Multiple frontends** (later) — CSS / TOML / YAML / JSON / XML all producing the same AST → the same AXB, making AXB the engine's universal format
+
+> **Note:** AXSS is the human-readable frontend; AXB is the compact binary
+> the engine consumes. `.axb` is *bytecode* — low-level relative to AXSS, but
+> high-level relative to the hardware (closer to WASM/SPIR-V than to machine
+> code). It is designed to be shipped with your app, like a compiled shader.
+
+**Legend:** ✅ Complete · 🟡 Partial · 🔴 Planned · 🔵 Designed (awaiting `ansimax-native`)
 
 ---
 
@@ -1071,6 +1093,26 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.5.1 — Tween/spring quality-of-life: repeat, yoyo, callbacks, stagger
+
+- 🔁 **`repeat` + `yoyo`** — loop a tween N times (or `Infinity`), alternating direction
+- 📣 **`onStart` / `onComplete`** — lifecycle callbacks on `tween` and `spring` (not fired on abort)
+- 🎞️ **`stagger()`** — cascade a list of animations, each offset by `gap × index`
+- 🧪 **+22 tests**
+- 🔵 **Roadmap**: declared the frozen **AXSS → AXB** styling pipeline (Phase 15, awaiting `ansimax-native`)
+
+```js
+import { tween, stagger } from 'ansimax';
+
+await tween({ from: 0, to: 1, duration: 200, repeat: Infinity, yoyo: true, onUpdate: draw, signal });
+
+await stagger(rows.map((row) => (s) =>
+  tween({ from: 0, to: 1, duration: 200, onUpdate: (v) => row.setOpacity(v), signal: s })
+), 80);
+```
+
+Drop-in replacement for `1.5.0`.
 
 ### v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL
 
