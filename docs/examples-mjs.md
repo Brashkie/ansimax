@@ -596,7 +596,8 @@ const pink   = { r: 255, g: 105, b: 180 };
 
 canvas.drawRect(2, 2, 12, 6, cyan, true);
 canvas.drawCircle(25, 8, 4, orange, true);
-canvas.drawLine(0, 19, 39, 0, pink);
+// Draw a diagonal by setting individual pixels
+for (let i = 0; i < 20; i++) canvas.set(i * 2, 19 - i, pink);
 
 canvas.print();
 ```

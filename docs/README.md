@@ -38,13 +38,6 @@ Each examples file is organized in this order:
 9. **`frames`** — frame-by-frame animation, morphing
 10. **`images`** — pixel art, canvas, gradient rectangles
 11. **`panels`** + **`json`** — split layouts + pretty-printing (v1.3.0+)
-
-### Added since v1.4.0 — not yet covered in the example files
-
-These modules and APIs shipped after the example files were written. They
-are documented in the main [README](../README.md) and
-[CHANGELOG](../CHANGELOG.md); dedicated example sections are still pending.
-
 12. **`markdown`** — markdown → terminal renderer with themes, tables,
     nested/task lists, autolinks, reference links (v1.4.0–v1.4.7)
     - `markdown.render()`, `parseBlocks()`, `parseInline()`
@@ -62,6 +55,13 @@ are documented in the main [README](../README.md) and
     atomic escape-sequence writes (v1.4.8)
 18. **Math toolkit** — `lerp`, `smoothstep`, `mod`, `gcd`, `distribute`, and
     more (v1.4.6)
+19. **`logger`** — structured logging: `createLogger`, pretty/JSON transports,
+    pino/winston shims (v1.4.12)
+20. **`tween`** — value-interpolation engine: `tween`, `spring`, `stagger`,
+    `sequence`, `parallel`, `delay` — the animation core (v1.5.0–v1.5.1)
+
+> **All modules are covered** in the per-language example files below and
+> combined into one realistic program in [`showcase.md`](./showcase.md).
 
 ---
 

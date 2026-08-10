@@ -122,14 +122,13 @@ const ctrl = animateGradient(
   '╔═══ Loading data... ═══╗',
   ['#ff79c6', '#bd93f9', '#8be9fd', '#50fa7b'],
   {
-    interval: 80,
     cycles: 3,        // play 3 full color cycles
     duration: 800,    // ms per cycle
     infinite: false,
   },
 );
 
-await ctrl.promise;
+await ctrl.done;
 console.log('\n✓ Done');
 ```
 
@@ -463,9 +462,9 @@ themes.use('dracula');   // no log this time
 ### 8.1 — Simple file tree
 
 ```ts
-import { trees, type TreeNode } from 'ansimax';
+import { trees, type TreeData } from 'ansimax';
 
-const projectTree: TreeNode = {
+const projectTree: TreeData = {
   label: 'my-app/',
   children: [
     {
@@ -488,15 +487,15 @@ const projectTree: TreeNode = {
   ],
 };
 
-console.log(trees.tree(projectTree, { style: 'unicode' }));
+console.log(trees.render(projectTree, { style: 'rounded' }));
 ```
 
 ### 8.2 — Limit depth for large trees
 
 ```ts
-import { trees, type TreeNode } from 'ansimax';
+import { trees, type TreeData } from 'ansimax';
 
-const deep: TreeNode = {
+const deep: TreeData = {
   label: 'root',
   children: [
     { label: 'level-1', children: [
@@ -510,22 +509,22 @@ const deep: TreeNode = {
 };
 
 // Only show 2 levels deep, collapse rest with "..."
-console.log(trees.tree(deep, { maxDepth: 2 }));
+console.log(trees.render(deep, { maxDepth: 2 }));
 ```
 
 ### 8.3 — Cycle-safe rendering (no infinite recursion)
 
 ```ts
-import { trees, type TreeNode } from 'ansimax';
+import { trees, type TreeData } from 'ansimax';
 
 // Two nodes referencing each other → cycle
-const a: TreeNode = { label: 'Node A', children: [] };
-const b: TreeNode = { label: 'Node B', children: [] };
+const a: TreeData = { label: 'Node A', children: [] };
+const b: TreeData = { label: 'Node B', children: [] };
 a.children = [b];
 b.children = [a];     // ← cycle!
 
 // trees.tree() detects the cycle and shows [Circular] instead of crashing
-console.log(trees.tree(a, { maxDepth: 5 }));
+console.log(trees.render(a, { maxDepth: 5 }));
 ```
 
 ---
@@ -541,11 +540,11 @@ const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', 
 
 const ctrl = frames.play(
   spinner.map((f) => `${f}  Loading...`),
-  { interval: 80, loop: true },
+  { interval: 80, repeat: 0 },  // repeat: 0 = infinite
 );
 
 setTimeout(() => ctrl.stop(), 3000);
-await ctrl.promise;
+await ctrl.done;
 console.log('Done!');
 ```
 
@@ -561,7 +560,7 @@ const pulse: string[] = frames.generate(20, (i: number, total: number) => {
   return '●'.repeat(size).padEnd(7);
 });
 
-await frames.play(pulse, { interval: 80, loop: true, signal: AbortSignal.timeout(2000) }).promise;
+await frames.play(pulse, { interval: 80, repeat: 0, signal: AbortSignal.timeout(2000) }).done;
 ```
 
 ### 9.3 — Morph one text into another
@@ -571,7 +570,7 @@ import { frames } from 'ansimax';
 
 // Decryption-style morph effect
 const morphed: string[] = frames.morph('HELLO', 'WORLD', 15, '░▒▓█▓▒░');
-await frames.play(morphed, { interval: 80, loop: false }).promise;
+await frames.play(morphed, { interval: 80, repeat: 1 }).done;
 
 console.log('\n✓ Morph complete');
 ```
@@ -626,7 +625,8 @@ const pink: Pixel = { r: 255, g: 105, b: 180 };
 
 canvas.drawRect(2, 2, 12, 6, cyan, true);
 canvas.drawCircle(25, 8, 4, orange, true);
-canvas.drawLine(0, 19, 39, 0, pink);
+// Draw a diagonal by setting individual pixels
+for (let i = 0; i < 20; i++) canvas.set(i * 2, 19 - i, pink);
 
 canvas.print();
 ```

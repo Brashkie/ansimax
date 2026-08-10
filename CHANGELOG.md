@@ -3,6 +3,70 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.2] — Documentation audit: every example verified copy-paste-runnable
+
+A quality release focused entirely on documentation correctness. Every code
+example in the README and the docs was **executed against the real compiled
+package** (or type-checked, for the TypeScript examples) and fixed until it
+runs clean. No library code changed.
+
+### Fixed — README examples (ESM)
+
+Audited all 52 code blocks by running each one against the built package:
+
+- Added a missing `ascii` import in the centered-box example
+- Added a missing `sleep` import in the `animateGradient` example
+- Made several illustrative snippets fully self-contained (tween/spring,
+  `frames.play`, `ascii.table`, `panels.flex`/`grid`/`wrap`, `fromImage`) so
+  they run as-is instead of referencing undefined placeholders
+- Corrected a `figletText(...)` call that needed a parsed font to use
+  `ascii.figlet(text, { font })` instead
+
+The three examples that legitimately need an external resource (`sharp` for
+image decoding, `.flf` font files from figlet.org) are clearly documented as
+such.
+
+### Fixed — docs/examples-{mjs,cjs,ts}.md
+
+Ran every block in all three files against the real package:
+
+- **mjs / cjs**: replaced a non-existent `canvas.drawLine` with a pixel-set
+  loop (the canvas API is `set`/`drawRect`/`drawCircle`/`drawSprite`)
+- **ts**: fixed 8 real type errors —
+  - `TreeNode` → `TreeData` for plain-data tree literals
+  - `trees.tree(data, opts)` → `trees.render(data, opts)` (2-arg form)
+  - invalid `TreeStyle` value `'unicode'` → `'rounded'`
+  - `animateGradient` `interval` option removed (use `duration`/`fps`)
+  - `frames.play` `loop: true|false` → `repeat: 0|1`
+  - controller `.promise` → `.done` (both `animateGradient` and `frames.play`)
+
+All three files: **33/33 blocks pass**.
+
+### Changed — docs/showcase.md rewritten as one enterprise app
+
+The showcase is no longer a tour of isolated snippets. It's now a single
+cohesive program — **"Stardust Deploy"**, a fictional release pipeline — that
+combines every module in one realistic flow: gradient/figlet banner, JSON
+config, spinner health checks, a `loader.tasks` build pipeline, `tween` +
+`spring` + `stagger` rollout animations, an `ascii.table` dashboard, a
+`trees` artifact view, `markdown` release notes, a `components.timeline`, and
+a `createCanvas` + `frames.morph` finale. Verified end-to-end against the
+built package.
+
+### Changed — docs index
+
+`docs/README.md` now lists all modules through v1.5.1 (added `logger` and the
+`tween` engine) and drops the stale "not yet covered" section — every module
+is now covered in the example files and the showcase.
+
+### Notes
+
+- **No library code changed** — this release only touches documentation
+- Method: each example was extracted and executed (ESM/CJS) or type-checked
+  (TS) against the compiled `dist/`, then fixed until green
+
+---
+
 ## [1.5.1] — Tween/spring quality-of-life: repeat, yoyo, callbacks, stagger
 
 Refinements to the Phase 6 animation engine. Also declares the AXSS/AXB

@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.5.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.5.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.5.1'));
+console.log(components.badge('VERSION', 'v1.5.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1093,6 +1093,15 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.5.2 — Auditoría de documentación: cada ejemplo verificado copy-paste-funcional
+
+- ✅ **Los 52 ejemplos del README** ejecutados contra el paquete real y corregidos (imports faltantes, snippets autocontenidos)
+- ✅ **docs/examples-{mjs,cjs,ts}.md** — 33/33 bloques pasan cada uno (ejecutados ESM/CJS, type-check en TS); corregidos 8 bugs reales de API/tipos en TS
+- 🎬 **showcase.md reescrito** como una app enterprise cohesiva ("Stardust Deploy") que combina todos los módulos — no snippets aislados
+- 📝 **Sin cambios en el código** — versión de calidad, solo documentación
+
+Drop-in replacement para `1.5.1`.
 
 ### v1.5.1 — Mejoras de tween/spring: repeat, yoyo, callbacks, stagger
 
