@@ -3,6 +3,80 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — Phase 7 progress meters + more gradient presets
+
+Advances Phase 7 (progress ecosystem) with three composable measurement
+tools, and expands Phase 2 with eight new curated gradient presets. A minor
+bump — new API surface, zero breaking changes.
+
+### Added — ETA estimator (Phase 7)
+
+A rolling-average time-remaining estimator:
+
+```js
+import { createETA } from 'ansimax';
+
+const eta = createETA({ total: 1000 });
+// on each tick:
+eta.update(downloadedSoFar);
+process.stdout.write(`\rETA: ${eta.eta()} (${(eta.progress() * 100).toFixed(0)}%)`);
+```
+
+- Averages the rate over the last `window` samples (robust to spikes)
+- `remainingMs()`, `eta()` (human string), `rate()`, `progress()`, `reset()`
+- Reports `Infinity` / `"—"` until it has enough samples; reaches 0 at
+  completion; never divides by zero
+
+### Added — Throughput meter (Phase 7)
+
+Auto-scaling rate display for bytes or operations:
+
+```js
+import { createThroughput } from 'ansimax';
+
+const tp = createThroughput({ unit: 'bytes' });
+tp.update(totalBytesReceived);   // on each chunk
+console.log(tp.format());        // e.g. "1.5 MB/s"
+
+const ops = createThroughput({ unit: 'ops', opsLabel: 'req' });
+// ops.format() → "2.0K req/s"
+```
+
+### Added — Live region diff renderer (Phase 7)
+
+A flicker-free multi-line region that redraws **only the lines that
+changed**, instead of clearing and rewriting the whole block each frame:
+
+```js
+import { createLiveRegion } from 'ansimax';
+
+const region = createLiveRegion();
+region.render(['task A: 10%', 'task B: 0%']);
+region.render(['task A: 100%', 'task B: 0%']); // only line A is rewritten
+region.done();
+```
+
+### Added — Formatting helpers
+
+`formatBytes` (1024-based, `"1.5 KB"`), `formatCount` (SI, `"1.5K"`), and
+`formatDuration` (`"1m 5s"`) — exported standalone and used by the meters.
+
+### Added — 8 new gradient presets (Phase 2)
+
+`viridis`, `plasma`, `pastel`, `cyberpunk`, `mono`, `mint`, `dusk`, and
+`cotton` join the built-in preset palette (now 16 total), usable via
+`presets.viridis(text)` or `gradient(text, [...])`.
+
+### Notes
+
+- The meters are timer-free and pure: they compute strings and expose small
+  control surfaces; the caller drives them (easy to test, easy to embed)
+- All new API is exported both standalone and on the `loader` namespace
+  (`loader.eta`, `loader.throughput`, `loader.liveRegion`)
+- `+35` tests. **Zero breaking changes.**
+
+---
+
 ## [1.5.2] — Documentation audit: every example verified copy-paste-runnable
 
 A quality release focused entirely on documentation correctness. Every code

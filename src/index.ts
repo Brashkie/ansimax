@@ -74,6 +74,15 @@ export type {
   StopFn,
 } from './loaders/index.js';
 export { SPINNERS } from './loaders/index.js';
+// v1.6.0 — Phase 7 meters
+export {
+  createETA, createThroughput, createLiveRegion,
+  formatBytes, formatCount, formatDuration,
+} from './loaders/index.js';
+export type {
+  ETA, ETAOptions, Throughput, ThroughputOptions,
+  LiveRegion, LiveRegionOptions,
+} from './loaders/index.js';
 
 export { frames, resetFramesCursorCount } from './frames/index.js';
 export type {

@@ -25,6 +25,21 @@ import {
   createOutputBuffer,
 } from '../utils/ansi.js';
 import { color, isNoColor } from '../colors/index.js';
+// v1.6.0 — Phase 7 meters (ETA, throughput, live region)
+import {
+  createETA as _createETA,
+  createThroughput as _createThroughput,
+  createLiveRegion as _createLiveRegion,
+} from './meters.js';
+// Re-export the meter API + formatters from the loaders barrel
+export {
+  createETA, createThroughput, createLiveRegion,
+  formatBytes, formatCount, formatDuration,
+} from './meters.js';
+export type {
+  ETA, ETAOptions, Throughput, ThroughputOptions,
+  LiveRegion, LiveRegionOptions,
+} from './meters.js';
 import {
   hexToRgb, visibleLen, stripAnsi,
   // v1.3.7 — consolidated helpers (formerly inlined here)
@@ -1052,6 +1067,10 @@ export const loader = {
   multi,
   /** Alias for SPINNERS — the built-in spinner frame definitions. */
   spinners: SPINNERS,
+  // v1.6.0 — Phase 7 meters
+  eta: _createETA,
+  throughput: _createThroughput,
+  liveRegion: _createLiveRegion,
 };
 
 export default loader;

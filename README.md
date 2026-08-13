@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.5.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.5.2'));
+console.log(components.badge('VERSION', 'v1.6.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -873,6 +873,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Conic gradients** — radial sweep with `style: 'conic'` (v1.2.0)
 - [x] **Mirror gradients** — symmetric `A→B→C→B→A` fill via `mirror` (v1.4.13)
 - [x] **Interpolation space** — `rgb` / `hsl` / `oklab` color-space blending (v1.4.13)
+- [x] **16 named gradient presets** — `viridis`, `plasma`, `pastel`, `cyberpunk`, and more (v1.6.0)
 
 ### ✅ Phase 3 — ASCII engine
 - [x] Block fonts (`big`, `small`)
@@ -936,10 +937,10 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Countdown timers
 - [x] Multi-spinner manager (stacked concurrent spinners)
 - [x] Hierarchical tasks (parent + subtasks rollup)
-- [ ] **Live ETA estimation** (rolling average + Kalman filter projection)
-- [ ] **Live refresh diff renderer** (no flicker, only redraw changed lines)
+- [x] **Live ETA estimation** (rolling average) (v1.6.0)
+- [x] **Live refresh diff renderer** (no flicker, only redraw changed lines) (v1.6.0)
 - [ ] **Progress groups** (named groups with shared theme)
-- [ ] **Throughput meters** (bytes/sec, ops/sec with auto-scaling units)
+- [x] **Throughput meters** (bytes/sec, ops/sec with auto-scaling units) (v1.6.0)
 
 ### 🟡 Phase 8 — Capability detection
 - [x] TTY detection (auto-disable in pipes/CI)
@@ -1093,6 +1094,32 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.6.0 — Phase 7 progress meters + more gradient presets
+
+- ⏱️ **`createETA`** — rolling-average time-remaining estimator (`eta()`, `rate()`, `progress()`)
+- 📊 **`createThroughput`** — bytes/sec or ops/sec with auto-scaling units (`"1.5 MB/s"`)
+- 🖥️ **`createLiveRegion`** — flicker-free multi-line region: redraws only changed lines
+- 🎨 **8 new gradient presets** — `viridis`, `plasma`, `pastel`, `cyberpunk`, `mono`, `mint`, `dusk`, `cotton` (16 total)
+- 🧪 **+35 tests**
+
+```js
+import { createETA, createThroughput, createLiveRegion } from 'ansimax';
+
+const eta = createETA({ total: 1000 });
+eta.update(downloaded);
+console.log(eta.eta());              // "3.2s"
+
+const tp = createThroughput({ unit: 'bytes' });
+tp.update(bytesSoFar);
+console.log(tp.format());            // "1.5 MB/s"
+
+const region = createLiveRegion();
+region.render(['A: 10%', 'B: 0%']);
+region.render(['A: 100%', 'B: 0%']); // only line A rewritten
+```
+
+Drop-in replacement for `1.5.2`.
 
 ### v1.5.2 — Documentation audit: every example verified copy-paste-runnable
 

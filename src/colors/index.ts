@@ -857,6 +857,15 @@ const PRESET_DEFS = {
   aurora: ['#00c6ff', '#0072ff', '#7e57c2'],
   candy:  ['#fd79a8', '#a29bfe', '#74b9ff'],
   gold:   ['#f7971e', '#ffd200'],
+  // v1.6.0 — new curated presets
+  viridis:  ['#440154', '#3b528b', '#21908c', '#5dc863', '#fde725'],
+  plasma:   ['#0d0887', '#7e03a8', '#cc4778', '#f89540', '#f0f921'],
+  pastel:   ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5'],
+  cyberpunk: ['#f92aad', '#7038ff', '#2de2e6'],
+  mono:     ['#232526', '#414345'],
+  mint:     ['#00b09b', '#96c93d'],
+  dusk:     ['#2c3e50', '#fd746c'],
+  cotton:   ['#ffdde1', '#ee9ca7'],
 } as const;
 
 export type PresetName = keyof typeof PRESET_DEFS;

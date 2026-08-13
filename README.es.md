@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.5.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.5.2'));
+console.log(components.badge('VERSION', 'v1.6.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -933,10 +933,10 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Cuentas regresivas
 - [x] Manager multi-spinner (spinners concurrentes apilados)
 - [x] Tareas jerárquicas (rollup padre + subtareas)
-- [ ] **Estimación live de ETA** (rolling average + proyección con filtro de Kalman)
-- [ ] **Refresh live con diff renderer** (sin flicker, solo redibujar líneas cambiadas)
+- [x] **Estimación live de ETA** (rolling average) (v1.6.0)
+- [x] **Refresh live con diff renderer** (sin flicker, solo redibujar líneas cambiadas) (v1.6.0)
 - [ ] **Grupos de progreso** (grupos con nombre y tema compartido)
-- [ ] **Medidores de throughput** (bytes/s, ops/s con unidades auto-escaladas)
+- [x] **Medidores de throughput** (bytes/s, ops/s con unidades auto-escaladas) (v1.6.0)
 
 ### 🟡 Fase 8 — Detección de capacidades
 - [x] Detección de TTY (auto-desactivar en pipes/CI)
@@ -1093,6 +1093,32 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.0 — Medidores de progreso de Fase 7 + más presets de gradiente
+
+- ⏱️ **`createETA`** — estimador de tiempo restante por promedio móvil (`eta()`, `rate()`, `progress()`)
+- 📊 **`createThroughput`** — bytes/seg u ops/seg con unidades auto-escaladas (`"1.5 MB/s"`)
+- 🖥️ **`createLiveRegion`** — región multi-línea sin parpadeo: redibuja solo las líneas que cambiaron
+- 🎨 **8 presets de gradiente nuevos** — `viridis`, `plasma`, `pastel`, `cyberpunk`, `mono`, `mint`, `dusk`, `cotton` (16 en total)
+- 🧪 **+35 tests**
+
+```js
+import { createETA, createThroughput, createLiveRegion } from 'ansimax';
+
+const eta = createETA({ total: 1000 });
+eta.update(downloaded);
+console.log(eta.eta());              // "3.2s"
+
+const tp = createThroughput({ unit: 'bytes' });
+tp.update(bytesSoFar);
+console.log(tp.format());            // "1.5 MB/s"
+
+const region = createLiveRegion();
+region.render(['A: 10%', 'B: 0%']);
+region.render(['A: 100%', 'B: 0%']); // solo se reescribe la línea A
+```
+
+Drop-in replacement para `1.5.2`.
 
 ### v1.5.2 — Auditoría de documentación: cada ejemplo verificado copy-paste-funcional
 

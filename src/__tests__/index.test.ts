@@ -959,3 +959,47 @@ describe('v1.4.13 re-exports from main entry', () => {
     resetNoColor();
   });
 });
+
+describe('barrel coverage — v1.6.0 re-exports', () => {
+  it('exposes the Phase 7 meters + formatters from the main entry', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.createETA).toBe('function');
+    expect(typeof main.createThroughput).toBe('function');
+    expect(typeof main.createLiveRegion).toBe('function');
+    expect(typeof main.formatBytes).toBe('function');
+    expect(typeof main.formatCount).toBe('function');
+    expect(typeof main.formatDuration).toBe('function');
+
+    // Exercise them so the re-export lines are covered at runtime.
+    expect(main.formatBytes(1536)).toBe('1.5 KB');
+    expect(main.formatCount(1500)).toBe('1.5K');
+    expect(main.formatDuration(1500)).toBe('1.5s');
+
+    const eta = main.createETA({ total: 10 });
+    eta.update(5);
+    expect(eta.progress()).toBe(0.5);
+
+    const tp = main.createThroughput({ unit: 'ops' });
+    tp.update(0);
+    expect(typeof tp.format()).toBe('string');
+
+    const region = main.createLiveRegion({ out: () => {} });
+    region.render(['x']);
+    region.done();
+  });
+
+  it('exposes the meters on the loader namespace', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.loader.eta).toBe('function');
+    expect(typeof main.loader.throughput).toBe('function');
+    expect(typeof main.loader.liveRegion).toBe('function');
+    expect(main.loader.eta).toBe(main.createETA);
+  });
+
+  it('exposes the new v1.6.0 gradient presets', async () => {
+    const main = await import('../index.js');
+    for (const name of ['viridis', 'plasma', 'pastel', 'cyberpunk', 'mono', 'mint', 'dusk', 'cotton']) {
+      expect(typeof main.presets[name]).toBe('function');
+    }
+  });
+});
