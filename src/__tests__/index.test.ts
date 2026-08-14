@@ -1003,3 +1003,28 @@ describe('barrel coverage — v1.6.0 re-exports', () => {
     }
   });
 });
+
+describe('barrel coverage — v1.6.1 re-exports', () => {
+  it('exposes progress groups + preset utilities from the main entry', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.createProgressGroup).toBe('function');
+    expect(typeof main.presetStops).toBe('function');
+    expect(typeof main.hasPreset).toBe('function');
+
+    // Exercise them so the re-export lines are covered.
+    expect(main.hasPreset('viridis')).toBe(true);
+    expect(Array.isArray(main.presetStops('plasma'))).toBe(true);
+
+    const out: string[] = [];
+    const g = main.createProgressGroup({ out: (s: string) => out.push(s) });
+    g.add('x', 'X').update('x', 0.5);
+    g.render();
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('exposes the progress group on the loader namespace', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.loader.group).toBe('function');
+    expect(main.loader.group).toBe(main.createProgressGroup);
+  });
+});

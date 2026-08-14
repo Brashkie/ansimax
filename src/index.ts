@@ -20,6 +20,8 @@ export {
   compose, chain, colorLevel,
   setNoColor, isNoColor, resetNoColor,
   registerPreset, listPresets, clearColorCache,
+  // v1.6.1 — preset utilities
+  presetStops, hasPreset,
   stripAnsi as stripAnsiColors,
   // v1.2.0 — Phase 2 completion
   animateGradient,
@@ -78,10 +80,14 @@ export { SPINNERS } from './loaders/index.js';
 export {
   createETA, createThroughput, createLiveRegion,
   formatBytes, formatCount, formatDuration,
+  // v1.6.1 — Phase 7 progress groups
+  createProgressGroup,
 } from './loaders/index.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,
   LiveRegion, LiveRegionOptions,
+  // v1.6.1
+  ProgressGroup, ProgressGroupOptions, ProgressGroupItemOptions,
 } from './loaders/index.js';
 
 export { frames, resetFramesCursorCount } from './frames/index.js';

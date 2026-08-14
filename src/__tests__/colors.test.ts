@@ -3,7 +3,7 @@ import {
   setNoColor, isNoColor, resetNoColor,
   chain, colorLevel, stripAnsi as stripAnsiColors,
   registerPreset, listPresets, clearColorCache,
-  mirrorStops,
+  mirrorStops, presetStops, hasPreset,
   __internal,
   type ColorFn,
 } from '../colors/index.js';
@@ -1843,5 +1843,39 @@ describe('gradient interpolation space (v1.4.13)', () => {
     // Per-call override wins over the default
     const c = gRgb('ABCDEF', { interpolation: 'hsl' });
     expect(c).toBe(a);
+  });
+});
+
+describe('presetStops + hasPreset (v1.6.1)', () => {
+  it('returns a fresh copy of a built-in preset stops', () => {
+    const stops = presetStops('viridis');
+    expect(Array.isArray(stops)).toBe(true);
+    expect(stops!.length).toBeGreaterThanOrEqual(2);
+    expect(stops![0]).toMatch(/^#/);
+  });
+
+  it('returns a copy, not the internal array', () => {
+    const a = presetStops('sunset');
+    const b = presetStops('sunset');
+    expect(a).not.toBe(b); // different array instances
+    a!.push('#000000');
+    expect(presetStops('sunset')!.length).toBe(b!.length); // mutation did not leak
+  });
+
+  it('returns undefined for an unknown preset', () => {
+    expect(presetStops('does-not-exist')).toBeUndefined();
+    expect(presetStops(42 as unknown as string)).toBeUndefined();
+  });
+
+  it('hasPreset is true for built-ins, false otherwise', () => {
+    expect(hasPreset('plasma')).toBe(true);
+    expect(hasPreset('nope')).toBe(false);
+    expect(hasPreset(null as unknown as string)).toBe(false);
+  });
+
+  it('reflects a newly registered preset', () => {
+    registerPreset('mytheme', ['#111111', '#222222']);
+    expect(hasPreset('mytheme')).toBe(true);
+    expect(presetStops('mytheme')).toEqual(['#111111', '#222222']);
   });
 });

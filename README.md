@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.0'));
+console.log(components.badge('VERSION', 'v1.6.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -874,6 +874,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Mirror gradients** — symmetric `A→B→C→B→A` fill via `mirror` (v1.4.13)
 - [x] **Interpolation space** — `rgb` / `hsl` / `oklab` color-space blending (v1.4.13)
 - [x] **16 named gradient presets** — `viridis`, `plasma`, `pastel`, `cyberpunk`, and more (v1.6.0)
+- [x] **`presetStops()` + `gradientRect({ preset })`** — reuse named preset colors anywhere (v1.6.1)
 
 ### ✅ Phase 3 — ASCII engine
 - [x] Block fonts (`big`, `small`)
@@ -930,7 +931,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Spring physics** animations (`react-spring` style) (v1.5.0)
 - [x] **Tween engine** (interpolate any value type) (v1.5.0)
 
-### 🟡 Phase 7 — Progress ecosystem
+### ✅ Phase 7 — Progress ecosystem
 - [x] Spinners (11 styles) with color + AbortSignal
 - [x] Animated progress bars
 - [x] Multi-task runners (sequential + parallel)
@@ -939,7 +940,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Hierarchical tasks (parent + subtasks rollup)
 - [x] **Live ETA estimation** (rolling average) (v1.6.0)
 - [x] **Live refresh diff renderer** (no flicker, only redraw changed lines) (v1.6.0)
-- [ ] **Progress groups** (named groups with shared theme)
+- [x] **Progress groups** (named groups with shared theme) (v1.6.1)
 - [x] **Throughput meters** (bytes/sec, ops/sec with auto-scaling units) (v1.6.0)
 
 ### 🟡 Phase 8 — Capability detection
@@ -1094,6 +1095,28 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.6.1 — Phase 7 complete (progress groups) + gradient preset reuse
+
+- 📊 **`createProgressGroup`** — several named bars under one title/theme, flicker-free (completes **Phase 7**)
+- 🎨 **`presetStops(name)`** + **`hasPreset(name)`** — reuse a preset's colors anywhere
+- 🖼️ **`gradientRect({ preset })`** — fill a rectangle from a named preset
+- 🧪 **+45 tests**
+
+```js
+import { createProgressGroup, presetStops, gradientRect } from 'ansimax';
+
+const group = createProgressGroup({ title: 'Deploying' });
+group.add('api', 'API').add('web', 'Web');
+group.update('api', 0.4, '12 MB/s');
+group.complete('web');
+group.render();
+
+gradient('text', presetStops('viridis'), { mirror: true });
+gradientRect({ width: 40, height: 10, preset: 'plasma' });
+```
+
+Drop-in replacement for `1.6.0`.
 
 ### v1.6.0 — Phase 7 progress meters + more gradient presets
 

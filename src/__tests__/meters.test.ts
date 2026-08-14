@@ -1,5 +1,5 @@
 import {
-  createETA, createThroughput, createLiveRegion,
+  createETA, createThroughput, createLiveRegion, createProgressGroup,
   formatBytes, formatCount, formatDuration,
 } from '../loaders/meters.js';
 
@@ -276,5 +276,127 @@ describe('createLiveRegion (v1.6.0)', () => {
       process.stdout.write = orig;
     }
     expect(writes.join('')).toContain('line-1');
+  });
+});
+
+describe('createProgressGroup (v1.6.1)', () => {
+  it('renders a title line plus one line per item', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ title: 'Deploy', width: 10, out: (s) => out.push(s) });
+    g.add('a', 'API').add('b', 'Web');
+    g.render();
+    const frame = out.join('');
+    expect(frame).toContain('Deploy');
+    expect(frame).toContain('API');
+    expect(frame).toContain('Web');
+  });
+
+  it('add() is chainable and returns the group', () => {
+    const g = createProgressGroup({ out: () => {} });
+    expect(g.add('a', 'A')).toBe(g);
+  });
+
+  it('update() sets an item value and clamps to [0,1]', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'A');
+    g.update('a', 1.5); // clamps to 1
+    g.render();
+    expect(out.join('')).toContain('100%');
+  });
+
+  it('update() on an unknown id is a no-op', () => {
+    const g = createProgressGroup({ out: () => {} });
+    g.add('a', 'A');
+    expect(() => g.update('missing', 0.5)).not.toThrow();
+  });
+
+  it('complete() sets an item to 100%', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'A');
+    g.complete('a');
+    g.render();
+    expect(out.join('')).toContain('100%');
+  });
+
+  it('isComplete() is true only when every item is at 1', () => {
+    const g = createProgressGroup({ out: () => {} });
+    g.add('a', 'A').add('b', 'B');
+    g.update('a', 1);
+    expect(g.isComplete()).toBe(false); // b still 0
+    g.update('b', 1);
+    expect(g.isComplete()).toBe(true);
+  });
+
+  it('isComplete() is false for an empty group', () => {
+    const g = createProgressGroup({ out: () => {} });
+    expect(g.isComplete()).toBe(false);
+  });
+
+  it('re-adding an existing id updates its label and value', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'First', { value: 0.2 });
+    g.add('a', 'Second', { value: 0.8 }); // same id → update in place
+    g.render();
+    const frame = out.join('');
+    expect(frame).toContain('Second');
+    expect(frame).not.toContain('First');
+  });
+
+  it('shows a suffix when provided', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'DL', { value: 0.5, suffix: '10 MB/s' });
+    g.render();
+    expect(out.join('')).toContain('10 MB/s');
+  });
+
+  it('update() can set a suffix on the fly', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'DL');
+    g.update('a', 0.6, '25 MB/s'); // suffix passed through update()
+    g.render();
+    expect(out.join('')).toContain('25 MB/s');
+  });
+
+  it('update() without a suffix leaves the existing one intact', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'DL', { suffix: 'keep-me' });
+    g.update('a', 0.9); // no suffix arg → existing suffix preserved
+    g.render();
+    expect(out.join('')).toContain('keep-me');
+  });
+
+  it('applies a theme function to each line', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({
+      width: 10,
+      theme: (line) => `[${line}]`,
+      out: (s) => out.push(s),
+    });
+    g.add('a', 'A');
+    g.render();
+    expect(out.join('')).toContain('[');
+  });
+
+  it('done() renders then emits a trailing newline', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'A');
+    g.done();
+    expect(out.join('')).toContain('\n');
+  });
+
+  it('renders without a title when none is given', () => {
+    const out: string[] = [];
+    const g = createProgressGroup({ width: 10, out: (s) => out.push(s) });
+    g.add('a', 'OnlyItem');
+    g.render();
+    const frame = out.join('');
+    expect(frame).toContain('OnlyItem');
   });
 });

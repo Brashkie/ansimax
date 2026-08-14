@@ -30,15 +30,17 @@ import {
   createETA as _createETA,
   createThroughput as _createThroughput,
   createLiveRegion as _createLiveRegion,
+  createProgressGroup as _createProgressGroup,
 } from './meters.js';
 // Re-export the meter API + formatters from the loaders barrel
 export {
-  createETA, createThroughput, createLiveRegion,
+  createETA, createThroughput, createLiveRegion, createProgressGroup,
   formatBytes, formatCount, formatDuration,
 } from './meters.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,
   LiveRegion, LiveRegionOptions,
+  ProgressGroup, ProgressGroupOptions, ProgressGroupItemOptions,
 } from './meters.js';
 import {
   hexToRgb, visibleLen, stripAnsi,
@@ -1071,6 +1073,8 @@ export const loader = {
   eta: _createETA,
   throughput: _createThroughput,
   liveRegion: _createLiveRegion,
+  // v1.6.1 — Phase 7 progress groups
+  group: _createProgressGroup,
 };
 
 export default loader;

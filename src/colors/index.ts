@@ -923,6 +923,34 @@ export const registerPreset = (name: string, stops: string[]): void => {
 /** List all registered presets (built-in + custom). */
 export const listPresets = (): string[] => [..._presetRegistry.keys()];
 
+/**
+ * **v1.6.1** — Return the raw hex color stops for a named preset, as a fresh
+ * array you can pass to `gradient()`, `gradientRect()`, or edit freely.
+ * Returns `undefined` for an unknown preset name.
+ *
+ * @example
+ * ```js
+ * import { presetStops, gradient } from 'ansimax';
+ *
+ * const stops = presetStops('viridis');          // ['#440154', ..., '#fde725']
+ * gradient('text', stops, { mirror: true });      // reuse them anywhere
+ * ```
+ *
+ * @since 1.6.1
+ */
+export const presetStops = (name: string): string[] | undefined => {
+  if (typeof name !== 'string') return undefined;
+  const stops = _presetRegistry.get(name);
+  return stops ? [...stops] : undefined;
+};
+
+/**
+ * **v1.6.1** — True when `name` resolves to a built-in or registered preset.
+ * @since 1.6.1
+ */
+export const hasPreset = (name: string): boolean =>
+  typeof name === 'string' && _presetRegistry.has(name);
+
 export const presets: Record<string, ColorFn> = Object.fromEntries(
   Object.entries(PRESET_DEFS).map(
     ([name, stops]) => [name, (t: string) => gradient(t, [...stops])],

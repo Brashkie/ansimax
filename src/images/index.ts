@@ -19,6 +19,8 @@
 // ─────────────────────────────────────────────
 
 import { fgRgb, bgRgb as bgRgbCode, reset, write } from '../utils/ansi.js';
+// v1.6.1 — resolve named gradient presets for gradientRect
+import { presetStops as resolvePresetStops } from '../colors/index.js';
 import {
   hexToRgb, clamp, lerpColor, RGB,
   // v1.3.7 — consolidated helpers (formerly inlined here)
@@ -485,6 +487,14 @@ export interface GradientRectOptions {
   width?: number;
   height?: number;
   colors?: string[];
+  /**
+   * **v1.6.1** — Use a named gradient preset (`'viridis'`, `'plasma'`,
+   * `'sunset'`, …) instead of passing `colors`. When both are given,
+   * `colors` wins. An unknown preset name falls back to the default colors.
+   *
+   * @since 1.6.1
+   */
+  preset?: string;
   /** Built-in style. Use `angle` for arbitrary directions. */
   style?: 'horizontal' | 'vertical' | 'diagonal' | 'radial' | 'conic';
   /** Custom angle in degrees (0=right, 90=down). Overrides `style`. */
@@ -584,13 +594,17 @@ export const gradientRect = (opts: GradientRectOptions = {}): string => {
   const {
     width  = 40,
     height = 10,
-    colors = ['#ff0000', '#0000ff'],
     style  = 'horizontal',
     angle,
     startAngle = 0,
     dither = 'none',
     braille = false,
   } = opts;
+
+  // v1.6.1 — resolve a named preset into color stops. Explicit `colors`
+  // always wins; an unknown preset name falls back to the default gradient.
+  const resolvedPreset = opts.preset !== undefined ? resolvePresetStops(opts.preset) : undefined;
+  const colors = opts.colors ?? resolvedPreset ?? ['#ff0000', '#0000ff'];
 
   // Filter & validate stops
   if (!Array.isArray(colors) || colors.length === 0) {

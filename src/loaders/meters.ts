@@ -336,3 +336,145 @@ export const createLiveRegion = (opts: LiveRegionOptions = {}): LiveRegion => {
     },
   };
 };
+
+// ─────────────────────────────────────────────
+//  Progress groups — named bars under a shared theme (v1.6.1)
+//
+//  A container that tracks several named progress items and renders them
+//  together as a flicker-free block (built on createLiveRegion). Each item
+//  has its own label + [0,1] value; the group draws one line per item plus
+//  an optional title. This is the culmination of the Phase 7 tools: the
+//  live region handles the redraw, this adds the multi-item model on top.
+// ─────────────────────────────────────────────
+
+export interface ProgressGroupItemOptions {
+  /** Initial value in [0,1]. Default 0. */
+  value?: number;
+  /** Extra text shown after the bar (e.g. an ETA or throughput string). */
+  suffix?: string;
+}
+
+export interface ProgressGroupOptions {
+  /** Optional title line shown above the items. */
+  title?: string;
+  /** Bar width in characters. Default 24. */
+  width?: number;
+  /** Character for the filled portion. Default '█'. */
+  fillChar?: string;
+  /** Character for the empty portion. Default '░'. */
+  emptyChar?: string;
+  /** Colorize a line — receives the composed line, returns a styled line. */
+  theme?: (line: string, item: { id: string; value: number }) => string;
+  /** Output sink (mainly for testing). Defaults to stdout via live region. */
+  out?: (s: string) => void;
+}
+
+export interface ProgressGroup {
+  /** Add (or reset) a named item. Returns the group for chaining. */
+  add(id: string, label: string, opts?: ProgressGroupItemOptions): ProgressGroup;
+  /** Update an item's value in [0,1] (and optionally its suffix). */
+  update(id: string, value: number, suffix?: string): void;
+  /** Mark an item complete (value = 1). */
+  complete(id: string): void;
+  /** Redraw the whole group (only changed lines are rewritten). */
+  render(): void;
+  /** True when every item is at value >= 1. */
+  isComplete(): boolean;
+  /** Finish: final render + release the region. */
+  done(): void;
+}
+
+interface GroupItem {
+  id: string;
+  label: string;
+  value: number;
+  suffix: string;
+}
+
+/**
+ * Create a progress group: several named bars rendered together under one
+ * title and theme, redrawn without flicker via a live region.
+ *
+ * @example
+ * ```js
+ * import { createProgressGroup } from 'ansimax';
+ *
+ * const group = createProgressGroup({ title: 'Deploying' });
+ * group.add('api', 'API server').add('web', 'Web bundle');
+ *
+ * group.update('api', 0.4, '12 MB/s');
+ * group.update('web', 1.0);
+ * group.render();
+ * // ...later
+ * group.done();
+ * ```
+ *
+ * @since 1.6.1
+ */
+export const createProgressGroup = (opts: ProgressGroupOptions = {}): ProgressGroup => {
+  const width = Math.max(1, Math.floor(opts.width ?? 24));
+  const fillChar = opts.fillChar ?? '█';
+  const emptyChar = opts.emptyChar ?? '░';
+  const theme = opts.theme;
+  const items: GroupItem[] = [];
+  const index = new Map<string, GroupItem>();
+  const region = createLiveRegion(opts.out ? { out: opts.out } : {});
+
+  const clamp01 = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
+
+  const composeLine = (item: GroupItem): string => {
+    const filled = Math.round(item.value * width);
+    const track = fillChar.repeat(filled) + emptyChar.repeat(Math.max(0, width - filled));
+    const pct = `${Math.round(item.value * 100)}%`.padStart(4);
+    const suffix = item.suffix ? `  ${item.suffix}` : '';
+    const line = `${item.label}  ${track} ${pct}${suffix}`;
+    return theme ? theme(line, { id: item.id, value: item.value }) : line;
+  };
+
+  const buildLines = (): string[] => {
+    const lines = items.map(composeLine);
+    return opts.title !== undefined ? [opts.title, ...lines] : lines;
+  };
+
+  const api: ProgressGroup = {
+    add(id, label, itemOpts = {}) {
+      const existing = index.get(id);
+      if (existing) {
+        existing.label = label;
+        existing.value = clamp01(itemOpts.value ?? 0);
+        existing.suffix = itemOpts.suffix ?? '';
+      } else {
+        const item: GroupItem = {
+          id, label,
+          value: clamp01(itemOpts.value ?? 0),
+          suffix: itemOpts.suffix ?? '',
+        };
+        items.push(item);
+        index.set(id, item);
+      }
+      return api;
+    },
+    update(id, value, suffix) {
+      const item = index.get(id);
+      if (!item) return;
+      item.value = clamp01(value);
+      if (suffix !== undefined) item.suffix = suffix;
+    },
+    complete(id) {
+      const item = index.get(id);
+      if (item) item.value = 1;
+    },
+    render() {
+      region.render(buildLines());
+    },
+    isComplete() {
+      return items.length > 0 && items.every((it) => it.value >= 1);
+    },
+    done() {
+      region.render(buildLines());
+      region.done();
+    },
+  };
+
+  return api;
+};

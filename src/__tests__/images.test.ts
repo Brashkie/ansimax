@@ -1195,3 +1195,25 @@ describe('gradientRect mirror (v1.4.13)', () => {
     expect(typeof out).toBe('string');
   });
 });
+
+describe('gradientRect preset option (v1.6.1)', () => {
+  it('renders using a named preset', () => {
+    const out = gradientRect({ width: 20, height: 3, preset: 'viridis' });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('explicit colors win over preset', () => {
+    const withPreset = gradientRect({ width: 20, height: 2, preset: 'sunset' });
+    const withColors = gradientRect({
+      width: 20, height: 2, preset: 'sunset', colors: ['#000000', '#ffffff'],
+    });
+    expect(withPreset).not.toBe(withColors);
+  });
+
+  it('an unknown preset falls back to default colors', () => {
+    const out = gradientRect({ width: 20, height: 2, preset: 'no-such-preset' });
+    const def = gradientRect({ width: 20, height: 2 });
+    expect(out).toBe(def);
+  });
+});

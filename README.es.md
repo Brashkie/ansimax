@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.0'));
+console.log(components.badge('VERSION', 'v1.6.1'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -926,7 +926,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Animaciones con física de spring** (estilo `react-spring`) (v1.5.0)
 - [x] **Motor de tween** (interpolar cualquier tipo de valor) (v1.5.0)
 
-### 🟡 Fase 7 — Ecosistema de progreso
+### ✅ Fase 7 — Ecosistema de progreso
 - [x] Spinners (11 estilos) con color + AbortSignal
 - [x] Barras de progreso animadas
 - [x] Runners multi-tarea (secuencial + paralelo)
@@ -935,7 +935,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Tareas jerárquicas (rollup padre + subtareas)
 - [x] **Estimación live de ETA** (rolling average) (v1.6.0)
 - [x] **Refresh live con diff renderer** (sin flicker, solo redibujar líneas cambiadas) (v1.6.0)
-- [ ] **Grupos de progreso** (grupos con nombre y tema compartido)
+- [x] **Grupos de progreso** (grupos con nombre y tema compartido) (v1.6.1)
 - [x] **Medidores de throughput** (bytes/s, ops/s con unidades auto-escaladas) (v1.6.0)
 
 ### 🟡 Fase 8 — Detección de capacidades
@@ -1093,6 +1093,28 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.1 — Fase 7 completa (grupos de progreso) + reuso de presets de gradiente
+
+- 📊 **`createProgressGroup`** — varias barras con nombre bajo un título/tema, sin parpadeo (completa la **Fase 7**)
+- 🎨 **`presetStops(name)`** + **`hasPreset(name)`** — reutiliza los colores de un preset en cualquier parte
+- 🖼️ **`gradientRect({ preset })`** — rellena un rectángulo desde un preset con nombre
+- 🧪 **+45 tests**
+
+```js
+import { createProgressGroup, presetStops, gradientRect } from 'ansimax';
+
+const group = createProgressGroup({ title: 'Deploying' });
+group.add('api', 'API').add('web', 'Web');
+group.update('api', 0.4, '12 MB/s');
+group.complete('web');
+group.render();
+
+gradient('text', presetStops('viridis'), { mirror: true });
+gradientRect({ width: 40, height: 10, preset: 'plasma' });
+```
+
+Drop-in replacement para `1.6.0`.
 
 ### v1.6.0 — Medidores de progreso de Fase 7 + más presets de gradiente
 

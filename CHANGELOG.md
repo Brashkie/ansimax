@@ -3,6 +3,63 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] — Phase 7 complete (progress groups) + gradient preset reuse
+
+Closes Phase 7 with progress groups, and adds two Phase 2 conveniences for
+reusing named gradient presets. Zero breaking changes.
+
+### Added — Progress groups (Phase 7, completes the phase)
+
+Several named progress bars rendered together under one title and theme,
+redrawn without flicker (built on the v1.6.0 live region):
+
+```js
+import { createProgressGroup, createThroughput } from 'ansimax';
+
+const group = createProgressGroup({ title: 'Deploying' });
+group.add('api', 'API server').add('web', 'Web bundle');
+
+group.update('api', 0.4, '12 MB/s');   // value + optional suffix
+group.complete('web');                  // → 100%
+group.render();                         // only changed lines redraw
+if (group.isComplete()) group.done();
+```
+
+- `add(id, label, { value, suffix })` — chainable; re-adding an id updates it
+- `update(id, value, suffix?)` — clamps value to `[0,1]`; unknown id is a no-op
+- `complete(id)`, `isComplete()`, `render()`, `done()`
+- Optional `theme(line, item)` to colorize each row; custom `fillChar` /
+  `emptyChar` / `width`
+- Available standalone and as `loader.group(...)`
+- **Phase 7 is now fully complete.**
+
+### Added — Gradient preset reuse (Phase 2)
+
+- **`presetStops(name)`** — return a named preset's hex stops as a fresh
+  array to pass to `gradient()`, edit, or reuse anywhere; `undefined` for an
+  unknown name
+- **`hasPreset(name)`** — check whether a preset name resolves
+- **`gradientRect({ preset })`** — fill a rectangle from a named preset
+  instead of passing `colors` (explicit `colors` wins; unknown preset falls
+  back to the default gradient)
+
+```js
+import { presetStops, gradient, gradientRect } from 'ansimax';
+
+const stops = presetStops('viridis');
+gradient('text', stops, { mirror: true });
+gradientRect({ width: 40, height: 10, preset: 'plasma' });
+```
+
+### Notes
+
+- `presetStops` is a distinct API from the existing `gradientStops(start,
+  end, count)` helper (which interpolates N stops between two colors) — named
+  to avoid the collision
+- `+45` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.0] — Phase 7 progress meters + more gradient presets
 
 Advances Phase 7 (progress ecosystem) with three composable measurement
