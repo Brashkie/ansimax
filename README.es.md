@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.1'));
+console.log(components.badge('VERSION', 'v1.6.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -883,6 +883,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Conversor Imagen → ASCII** — `ascii.fromImage()` con mapeo de luminancia (v1.2.5)
 - [x] **Renderizado ASCII en color** — preserva colores de imagen con `color: true` (v1.2.5)
 - [x] **Dithering de imágenes** — error diffusion Floyd-Steinberg (v1.2.5)
+- [x] **4 algoritmos de dithering** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2)
 - [x] **ASCII optimizado para rostros** — histogram stretching para retratos (v1.2.5)
 - [x] **Soporte de fuentes figlet** — parser + renderer `.flf` (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Detección de bordes** — operador Sobel integrado en `fromImage` (v1.2.5, bonus)
@@ -1093,6 +1094,26 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.2 — Algoritmos avanzados: dithering, wrap balanceado, estadística
+
+- 🖼️ **4 algoritmos de dithering** — `floyd-steinberg`, `atkinson`, `jjn`, `sierra` (kernels de difusión de error)
+- 📐 **Wrap balanceado en tablas** — word wrap de mínima irregularidad (`balancedWrap: true`) para líneas parejas
+- 🧮 **7 helpers matemáticos** — `median`, `variance`, `stddev`, `percentile`, `quantize`, `catmullRom`, `gaussian`
+- 🧪 **+45 tests**
+
+```js
+import { ascii, balancedWrap, catmullRom, percentile } from 'ansimax';
+
+ascii.fromImage(pixels, { dither: 'atkinson' });          // nítido, alto contraste
+ascii.table(rows, { wrap: true, balancedWrap: true });    // líneas parejas
+
+balancedWrap('I am a very long sentence here', 11);       // mínima irregularidad
+catmullRom(0, 10, 20, 30, 0.5);                            // → 15 (spline suave)
+percentile([1, 2, 3, 4, 5], 50);                          // → 3
+```
+
+Drop-in replacement para `1.6.1`.
 
 ### v1.6.1 — Fase 7 completa (grupos de progreso) + reuso de presets de gradiente
 

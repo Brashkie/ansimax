@@ -51,6 +51,8 @@ export {
   ascii, registerFont, listFonts, hasFont, clearRenderCache, getRenderCacheSize,
   // v1.2.5 — Phase 3 closure
   fromImage, figletText, parseFiglet, ASCII_RAMPS,
+  // v1.6.2 — dithering algorithm names
+  DITHER_ALGORITHMS,
   // v1.4.8 — auto-layout tables
   table as asciiTable,
   // v1.4.13 — ASCII ramp registry
@@ -194,6 +196,8 @@ export {
   charWidth, graphemes,
   // ANSI-safe slicing + wrapping
   sliceAnsi, wrapAnsi,
+  // v1.6.2 — balanced (minimum-raggedness) word wrap
+  balancedWrap,
   // Multi-stop gradient
   gradientColor,
   // Resize listener
@@ -223,6 +227,8 @@ export {
   inverseLerp, remap, clamp as clampRange, clamp01,
   smoothstep, smootherstep, roundTo, mod, wrap as wrapRange,
   gcd, lcm, sum, mean, distribute,
+  // v1.6.2 — statistics + advanced interpolation
+  median, variance, stddev, percentile, quantize, catmullRom, gaussian,
 } from './utils/math.js';
 export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,

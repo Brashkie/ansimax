@@ -3,6 +3,58 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.2] — Advanced algorithms: dithering, balanced wrap, statistics
+
+Algorithmic quality refinements across Phase 3 (ASCII), Phase 4 (tables), and
+the math toolkit. Everything is additive — zero breaking changes.
+
+### Added — More dithering algorithms (Phase 3)
+
+The image-to-ASCII dithering step was refactored into a generic
+error-diffusion engine driven by kernels, adding three classic algorithms
+next to Floyd–Steinberg:
+
+```js
+ascii.fromImage(pixels, { dither: 'atkinson' });  // higher contrast
+ascii.fromImage(pixels, { dither: 'jjn' });       // smoothest gradients
+ascii.fromImage(pixels, { dither: 'sierra' });    // balanced
+```
+
+- `floyd-steinberg` (classic), `atkinson` (6/8 diffusion → crisp, high
+  contrast), `jjn` (Jarvis–Judice–Ninke, widest kernel → smoothest),
+  `sierra` (a balance of the two)
+- Exported `DITHER_ALGORITHMS` name list (also `ascii.ditherAlgorithms`)
+- Each algorithm is just a different diffusion kernel over one shared,
+  well-tested implementation
+
+### Added — Balanced table wrap (Phase 4)
+
+`ascii.table({ wrap: true, balancedWrap: true })` wraps cells with a
+**minimum-raggedness** algorithm (simplified Knuth–Plass) instead of greedy
+fill, so wrapped cells have even line lengths with no lonely last word — same
+line count as greedy, never taller. Also exported standalone as
+`balancedWrap(text, width)`. It minimizes the sum of squared trailing slack
+via O(n²) dynamic programming, is ANSI-aware, and hard-splits over-long words.
+
+### Added — Statistics + advanced interpolation (math toolkit)
+
+Seven new pure functions:
+
+- `median(values)`, `variance(values, sample?)`, `stddev(values, sample?)`
+- `percentile(values, p)` — linear-interpolation method; `p=50` is the median
+- `quantize(value, step)` — snap to the nearest grid multiple
+- `catmullRom(p0, p1, p2, p3, t)` — smooth spline through waypoints
+- `gaussian(x, center?, sigma?)` — bell-curve falloff, peaks at 1.0
+
+### Notes
+
+- The dithering refactor keeps Floyd–Steinberg's output identical; the other
+  three kernels conserve error (Atkinson intentionally diffuses 6/8 for
+  contrast)
+- `+45` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.1] — Phase 7 complete (progress groups) + gradient preset reuse
 
 Closes Phase 7 with progress groups, and adds two Phase 2 conveniences for

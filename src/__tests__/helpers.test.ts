@@ -7,6 +7,8 @@ import {
   stripAnsi, visibleLen, padEnd, padStart, center, wordWrap,
   // New utilities
   once, escapeRegex, safeJson, padBoth, nextTick,
+  // v1.6.2
+  balancedWrap,
 } from '../utils/helpers.js';
 
 describe('clamp', () => {
@@ -1835,5 +1837,52 @@ describe('v1.4.2 — barrel re-exports', () => {
     expect(main.ensureString(null)).toBe('');
     expect(main.clampNonNeg(-1)).toBe(0);
     expect(main.clampPositiveInt(0)).toBe(1);
+  });
+});
+
+describe('balancedWrap (v1.6.2)', () => {
+  it('wraps within the width limit', () => {
+    const lines = balancedWrap('the quick brown fox jumps', 10);
+    for (const l of lines) expect(visibleLen(l)).toBeLessThanOrEqual(10);
+  });
+
+  it('produces more even lines than greedy on a lonely-last-word case', () => {
+    const text = 'I am a very long sentence here';
+    const width = 11;
+    const greedy = wordWrap(text, width);
+    const balanced = balancedWrap(text, width);
+    // Same number of lines (never taller)
+    expect(balanced.length).toBe(greedy.length);
+    // Raggedness = sum of squared trailing slack, excluding the last line
+    const ragged = (lines: string[]) =>
+      lines.slice(0, -1).reduce((s, l) => s + (width - visibleLen(l)) ** 2, 0);
+    expect(ragged(balanced)).toBeLessThan(ragged(greedy));
+  });
+
+  it('preserves all words (no loss, correct order)', () => {
+    const text = 'one two three four five six';
+    const joined = balancedWrap(text, 9).join(' ');
+    expect(joined).toBe(text);
+  });
+
+  it('hard-splits a word wider than the width', () => {
+    const lines = balancedWrap('supercalifragilistic', 6);
+    expect(lines.length).toBeGreaterThan(1);
+    for (const l of lines) expect(visibleLen(l)).toBeLessThanOrEqual(6);
+  });
+
+  it('preserves explicit line breaks as separate paragraphs', () => {
+    const lines = balancedWrap('line one\nline two', 20);
+    expect(lines).toEqual(['line one', 'line two']);
+  });
+
+  it('returns [text] for width <= 0 and [] for empty', () => {
+    expect(balancedWrap('hello', 0)).toEqual(['hello']);
+    expect(balancedWrap('', 10)).toEqual([]);
+  });
+
+  it('keeps blank lines from double breaks', () => {
+    const lines = balancedWrap('a\n\nb', 10);
+    expect(lines).toEqual(['a', '', 'b']);
   });
 });

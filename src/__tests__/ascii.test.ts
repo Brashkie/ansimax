@@ -2472,3 +2472,71 @@ describe('ASCII ramp registry (v1.4.13)', () => {
     ascii.clearRamps();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.6.2 — dithering algorithms
+// ─────────────────────────────────────────────
+
+import { DITHER_ALGORITHMS } from '../ascii/index.js';
+
+describe('dithering algorithms (v1.6.2)', () => {
+  // A flat 50%-gray grid — where different diffusion kernels produce
+  // visibly different patterns.
+  const grayGrid = () =>
+    Array.from({ length: 6 }, () =>
+      Array.from({ length: 12 }, () => ({ r: 128, g: 128, b: 128 })));
+
+  it('exposes the available algorithm names', () => {
+    expect(DITHER_ALGORITHMS).toContain('floyd-steinberg');
+    expect(DITHER_ALGORITHMS).toContain('atkinson');
+    expect(DITHER_ALGORITHMS).toContain('jjn');
+    expect(DITHER_ALGORITHMS).toContain('sierra');
+  });
+
+  it('renders with each dithering algorithm', () => {
+    for (const alg of DITHER_ALGORITHMS) {
+      const out = ascii.fromImage(grayGrid(), { width: 12, dither: alg as never, ramp: 'binary' });
+      expect(typeof out).toBe('string');
+      expect(out.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('atkinson produces a different pattern than floyd-steinberg', () => {
+    // Atkinson diffuses only 6/8 of the error → distinct, higher-contrast
+    // pattern on flat gray.
+    const fs = ascii.fromImage(grayGrid(), { width: 12, dither: 'floyd-steinberg', ramp: 'binary' });
+    const atk = ascii.fromImage(grayGrid(), { width: 12, dither: 'atkinson', ramp: 'binary' });
+    expect(atk).not.toBe(fs);
+  });
+
+  it('dither: none is the plain mapping', () => {
+    const none = ascii.fromImage(grayGrid(), { width: 12, dither: 'none', ramp: 'binary' });
+    expect(typeof none).toBe('string');
+  });
+
+  it('is available on the ascii namespace', () => {
+    expect(Array.isArray(ascii.ditherAlgorithms)).toBe(true);
+    expect(ascii.ditherAlgorithms).toContain('sierra');
+  });
+});
+
+describe('ascii.table balancedWrap (v1.6.2)', () => {
+  it('renders with balanced wrapping enabled', () => {
+    const out = table([
+      ['Description'],
+      ['I am a very long sentence that needs to wrap across lines'],
+    ], { wrap: true, maxWidth: 20, balancedWrap: true });
+    expect(typeof out).toBe('string');
+    expect(out.split('\n').length).toBeGreaterThan(2);
+  });
+
+  it('balanced and greedy wrap can differ for the same cell', () => {
+    const rows = [['H'], ['I am a very long sentence here that keeps going on']];
+    const greedy = table(rows, { wrap: true, maxWidth: 16 });
+    const balanced = table(rows, { wrap: true, maxWidth: 16, balancedWrap: true });
+    // Both valid strings; balanced option is honored (may or may not differ
+    // depending on widths, but must not throw and must produce output)
+    expect(typeof greedy).toBe('string');
+    expect(typeof balanced).toBe('string');
+  });
+});

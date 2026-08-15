@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.1-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.1'));
+console.log(components.badge('VERSION', 'v1.6.2'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -887,6 +887,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Image → ASCII** converter — `ascii.fromImage()` with luminance mapping (v1.2.5)
 - [x] **Color ASCII** rendering — preserve image colors via `color: true` (v1.2.5)
 - [x] **Image dithering** — Floyd-Steinberg error diffusion (v1.2.5)
+- [x] **4 dithering algorithms** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2)
 - [x] **Face-optimized ASCII** — histogram stretching for portraits (v1.2.5)
 - [x] **Figlet font support** — `.flf` parser + renderer (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Edge detection** — Sobel operator integrated in `fromImage` (v1.2.5, bonus)
@@ -902,6 +903,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Sections (gradient headers with auto-width)
 - [x] Trees (collapsible, max-depth, cycle-safe)
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
+- [x] **Balanced table wrap** — minimum-raggedness word wrap for even cell lines (v1.6.2)
 - [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
 - [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
 - [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks, reference links, footnotes, HTML blocks (v1.4.0–v1.4.11)
@@ -1095,6 +1097,26 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.6.2 — Advanced algorithms: dithering, balanced wrap, statistics
+
+- 🖼️ **4 dithering algorithms** — `floyd-steinberg`, `atkinson`, `jjn`, `sierra` (error-diffusion kernels)
+- 📐 **Balanced table wrap** — minimum-raggedness word wrap (`balancedWrap: true`) for even cell lines
+- 🧮 **7 math helpers** — `median`, `variance`, `stddev`, `percentile`, `quantize`, `catmullRom`, `gaussian`
+- 🧪 **+45 tests**
+
+```js
+import { ascii, balancedWrap, catmullRom, percentile } from 'ansimax';
+
+ascii.fromImage(pixels, { dither: 'atkinson' });          // crisp, high contrast
+ascii.table(rows, { wrap: true, balancedWrap: true });    // even wrapped lines
+
+balancedWrap('I am a very long sentence here', 11);       // minimum raggedness
+catmullRom(0, 10, 20, 30, 0.5);                            // → 15 (smooth spline)
+percentile([1, 2, 3, 4, 5], 50);                          // → 3
+```
+
+Drop-in replacement for `1.6.1`.
 
 ### v1.6.1 — Phase 7 complete (progress groups) + gradient preset reuse
 

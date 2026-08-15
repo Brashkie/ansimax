@@ -222,3 +222,116 @@ export const distribute = (total: number, parts: number): number[] => {
   }
   return out;
 };
+
+// ─────────────────────────────────────────────
+//  v1.6.2 — Statistics + advanced interpolation
+// ─────────────────────────────────────────────
+
+/**
+ * The median of a list of numbers. Returns `NaN` for an empty list. Does not
+ * mutate the input (works on a sorted copy). For an even count, returns the
+ * average of the two middle values.
+ *
+ * @since 1.6.2
+ */
+export const median = (values: number[]): number => {
+  if (!Array.isArray(values) || values.length === 0) return NaN;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2
+    : (sorted[mid] as number);
+};
+
+/**
+ * Population variance (mean of squared deviations). Returns `NaN` for an
+ * empty list. Pass `sample = true` for the sample variance (divides by
+ * `n - 1`, Bessel's correction).
+ *
+ * @since 1.6.2
+ */
+export const variance = (values: number[], sample = false): number => {
+  if (!Array.isArray(values) || values.length === 0) return NaN;
+  const n = values.length;
+  if (sample && n < 2) return NaN;
+  const m = mean(values);
+  const ss = values.reduce((acc, v) => acc + (v - m) * (v - m), 0);
+  return ss / (sample ? n - 1 : n);
+};
+
+/**
+ * Standard deviation — the square root of the variance. Pass `sample = true`
+ * for the sample standard deviation.
+ *
+ * @since 1.6.2
+ */
+export const stddev = (values: number[], sample = false): number =>
+  Math.sqrt(variance(values, sample));
+
+/**
+ * Linearly-interpolated percentile (0–100) of a numeric list, matching the
+ * common "linear interpolation between closest ranks" method. `p = 50` is
+ * the median. Returns `NaN` for an empty list; clamps `p` to `[0, 100]`.
+ *
+ * @since 1.6.2
+ */
+export const percentile = (values: number[], p: number): number => {
+  if (!Array.isArray(values) || values.length === 0) return NaN;
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length === 1) return sorted[0] as number;
+  const pc = Math.max(0, Math.min(100, p));
+  const rank = (pc / 100) * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  const frac = rank - lo;
+  return (sorted[lo] as number) + ((sorted[hi] as number) - (sorted[lo] as number)) * frac;
+};
+
+/**
+ * Snap a value to the nearest multiple of `step` (grid quantization).
+ * `quantize(7, 5)` → `5`, `quantize(8, 5)` → `10`. A `step <= 0` returns the
+ * value unchanged.
+ *
+ * @since 1.6.2
+ */
+export const quantize = (value: number, step: number): number => {
+  if (!Number.isFinite(step) || step <= 0) return value;
+  return Math.round(value / step) * step;
+};
+
+/**
+ * Catmull–Rom spline interpolation through four control points. Returns the
+ * point on the smooth curve between `p1` and `p2` at parameter `t ∈ [0,1]`.
+ * Unlike a Bézier, the curve passes *through* `p1` and `p2`, using `p0` and
+ * `p3` only to shape the tangents — ideal for smooth motion through a series
+ * of waypoints.
+ *
+ * @since 1.6.2
+ */
+export const catmullRom = (
+  p0: number, p1: number, p2: number, p3: number, t: number,
+): number => {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  // Standard Catmull–Rom basis (tension = 0.5).
+  return 0.5 * (
+    2 * p1
+    + (-p0 + p2) * t
+    + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+    + (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+  );
+};
+
+/**
+ * Evaluate an unnormalized Gaussian (bell curve) at `x`, centered at `mean`
+ * with standard deviation `sigma`. Peaks at `1.0` when `x === mean`. Useful
+ * for smooth falloff, feathering, and weighting. A `sigma <= 0` returns `1`
+ * at the center and `0` elsewhere.
+ *
+ * @since 1.6.2
+ */
+export const gaussian = (x: number, center = 0, sigma = 1): number => {
+  if (!Number.isFinite(sigma) || sigma <= 0) return x === center ? 1 : 0;
+  const d = x - center;
+  return Math.exp(-(d * d) / (2 * sigma * sigma));
+};

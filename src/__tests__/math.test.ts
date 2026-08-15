@@ -7,6 +7,7 @@ import {
   lerp, inverseLerp, remap, clamp, clamp01,
   smoothstep, smootherstep, roundTo, mod, wrap,
   gcd, lcm, sum, mean, distribute,
+  median, variance, stddev, percentile, quantize, catmullRom, gaussian,
 } from '../utils/math.js';
 
 describe('lerp / inverseLerp / remap (v1.4.6)', () => {
@@ -199,5 +200,98 @@ describe('v1.4.6 — math barrel re-exports', () => {
     const main = await import('../index.js');
     expect(main.clampRange(15, 0, 10)).toBe(10);
     expect(main.wrapRange(370, 0, 360)).toBe(10);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  v1.6.2 — statistics + advanced interpolation
+// ─────────────────────────────────────────────
+
+describe('median (v1.6.2)', () => {
+  it('returns the middle value for odd-length lists', () => {
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([5])).toBe(5);
+  });
+  it('averages the two middle values for even-length lists', () => {
+    expect(median([1, 2, 3, 4])).toBe(2.5);
+  });
+  it('does not mutate the input', () => {
+    const input = [3, 1, 2];
+    median(input);
+    expect(input).toEqual([3, 1, 2]);
+  });
+  it('returns NaN for an empty list', () => {
+    expect(median([])).toBeNaN();
+  });
+});
+
+describe('variance + stddev (v1.6.2)', () => {
+  it('computes population variance (canonical example)', () => {
+    // Classic textbook set with population variance 4, stddev 2.
+    expect(variance([2, 4, 4, 4, 5, 5, 7, 9])).toBe(4);
+    expect(stddev([2, 4, 4, 4, 5, 5, 7, 9])).toBe(2);
+  });
+  it('computes sample variance with Bessel correction', () => {
+    // Sample variance divides by n-1.
+    expect(variance([2, 4], true)).toBe(2); // ((2-3)²+(4-3)²)/(2-1) = 2
+  });
+  it('returns NaN for empty, and sample variance needs 2+ values', () => {
+    expect(variance([])).toBeNaN();
+    expect(variance([5], true)).toBeNaN();
+  });
+});
+
+describe('percentile (v1.6.2)', () => {
+  it('p50 equals the median', () => {
+    expect(percentile([1, 2, 3, 4, 5], 50)).toBe(3);
+  });
+  it('p0 and p100 are min and max', () => {
+    expect(percentile([1, 2, 3, 4, 5], 0)).toBe(1);
+    expect(percentile([1, 2, 3, 4, 5], 100)).toBe(5);
+  });
+  it('interpolates between ranks', () => {
+    // 25th percentile of [1,2,3,4,5]: rank = 0.25*4 = 1 → exactly value 2
+    expect(percentile([1, 2, 3, 4, 5], 25)).toBe(2);
+  });
+  it('clamps p to [0,100] and handles single/empty', () => {
+    expect(percentile([7], 50)).toBe(7);
+    expect(percentile([1, 2], 150)).toBe(2);
+    expect(percentile([], 50)).toBeNaN();
+  });
+});
+
+describe('quantize (v1.6.2)', () => {
+  it('snaps to the nearest multiple of step', () => {
+    expect(quantize(7, 5)).toBe(5);
+    expect(quantize(8, 5)).toBe(10);
+    expect(quantize(12.4, 0.5)).toBe(12.5);
+  });
+  it('returns the value unchanged for a non-positive step', () => {
+    expect(quantize(7, 0)).toBe(7);
+    expect(quantize(7, -1)).toBe(7);
+  });
+});
+
+describe('catmullRom (v1.6.2)', () => {
+  it('passes through the inner control points at t=0 and t=1', () => {
+    expect(catmullRom(0, 10, 20, 30, 0)).toBe(10); // p1
+    expect(catmullRom(0, 10, 20, 30, 1)).toBe(20); // p2
+  });
+  it('produces a smooth midpoint', () => {
+    expect(catmullRom(0, 10, 20, 30, 0.5)).toBe(15);
+  });
+});
+
+describe('gaussian (v1.6.2)', () => {
+  it('peaks at 1.0 at the center', () => {
+    expect(gaussian(0, 0, 1)).toBe(1);
+    expect(gaussian(5, 5, 2)).toBe(1);
+  });
+  it('falls to e^-0.5 at one sigma', () => {
+    expect(gaussian(1, 0, 1)).toBeCloseTo(0.6065, 4);
+  });
+  it('with sigma <= 0 is 1 at center, 0 elsewhere', () => {
+    expect(gaussian(0, 0, 0)).toBe(1);
+    expect(gaussian(1, 0, 0)).toBe(0);
   });
 });

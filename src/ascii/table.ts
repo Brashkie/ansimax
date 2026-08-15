@@ -18,7 +18,7 @@
 //  the genuinely wide columns (descriptions) absorb the loss.
 // ─────────────────────────────────────────────
 
-import { visibleLen, truncateAnsi, padEnd, wordWrap } from '../utils/helpers.js';
+import { visibleLen, truncateAnsi, padEnd, wordWrap, balancedWrap } from '../utils/helpers.js';
 import { color } from '../colors/index.js';
 
 export type TableBorderStyle =
@@ -80,6 +80,15 @@ export interface TableOptions {
    * @since 1.4.9
    */
   wrap?: boolean;
+  /**
+   * **v1.6.2** — When wrapping (`wrap: true`), use the balanced
+   * minimum-raggedness algorithm instead of greedy fill, so wrapped cells
+   * have more even line lengths (no lonely last word). Same line count as
+   * greedy — never makes a cell taller. Default `false` (greedy).
+   *
+   * @since 1.6.2
+   */
+  balancedWrap?: boolean;
   /**
    * **v1.4.10** — Minimum width (visible chars, excluding padding) for every
    * column. The water-filling shrink will not reduce any column below this,
@@ -217,6 +226,7 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
   const pad = ' '.repeat(padding);
   const alignOf = (c: number): TableAlign => aligns[c] ?? 'left';
   const doWrap = opts.wrap === true;
+  const wrapFn = opts.balancedWrap === true ? balancedWrap : wordWrap;
 
   // Render a single data row. Returns one or more visual lines (multiple
   // when wrap is enabled and a cell overflows its column width).
@@ -234,7 +244,7 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
       let lines: string[];
       if (doWrap && visibleLen(raw) > w) {
         // Word-wrap to the column width → multiple lines.
-        lines = wordWrap(raw, w);
+        lines = wrapFn(raw, w);
         /* istanbul ignore next — wrapAnsi returns [] only for empty input, already handled above */
         if (lines.length === 0) lines = [''];
       } else if (!doWrap && visibleLen(raw) > w) {

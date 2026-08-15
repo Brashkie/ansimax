@@ -137,9 +137,12 @@ export interface FromImageOptions {
   /**
    * Apply dithering for better tonal range.
    * - `'none'` (default) — direct mapping
-   * - `'floyd-steinberg'` — error diffusion, better for photos
+   * - `'floyd-steinberg'` — error diffusion, classic, good for photos
+   * - `'atkinson'` — higher contrast, cleaner highlights (v1.6.2)
+   * - `'jjn'` — Jarvis–Judice–Ninke, smoothest gradients, widest kernel (v1.6.2)
+   * - `'sierra'` — balance of smoothness and speed (v1.6.2)
    */
-  dither?: 'none' | 'floyd-steinberg';
+  dither?: 'none' | 'floyd-steinberg' | 'atkinson' | 'jjn' | 'sierra';
   /**
    * Edge detection mode. Renders edges as the brightest chars.
    * - `'none'` (default)

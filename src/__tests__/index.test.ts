@@ -1028,3 +1028,31 @@ describe('barrel coverage — v1.6.1 re-exports', () => {
     expect(main.loader.group).toBe(main.createProgressGroup);
   });
 });
+
+describe('barrel coverage — v1.6.2 re-exports', () => {
+  it('exposes dithering, balanced wrap, and math helpers from the main entry', async () => {
+    const main = await import('../index.js');
+    // Fase 3
+    expect(Array.isArray(main.DITHER_ALGORITHMS)).toBe(true);
+    expect(main.DITHER_ALGORITHMS).toContain('atkinson');
+    // Fase 4
+    expect(typeof main.balancedWrap).toBe('function');
+    expect(main.balancedWrap('one two three four', 8).length).toBeGreaterThan(1);
+    // Math helpers
+    expect(typeof main.median).toBe('function');
+    expect(typeof main.variance).toBe('function');
+    expect(typeof main.stddev).toBe('function');
+    expect(typeof main.percentile).toBe('function');
+    expect(typeof main.quantize).toBe('function');
+    expect(typeof main.catmullRom).toBe('function');
+    expect(typeof main.gaussian).toBe('function');
+    // Exercise them so the re-export lines are covered
+    expect(main.median([1, 2, 3])).toBe(2);
+    expect(main.variance([2, 4, 4, 4, 5, 5, 7, 9])).toBe(4);
+    expect(main.stddev([2, 4, 4, 4, 5, 5, 7, 9])).toBe(2);
+    expect(main.percentile([1, 2, 3, 4, 5], 50)).toBe(3);
+    expect(main.quantize(7, 5)).toBe(5);
+    expect(main.catmullRom(0, 10, 20, 30, 0)).toBe(10);
+    expect(main.gaussian(0, 0, 1)).toBe(1);
+  });
+});

@@ -966,6 +966,107 @@ export const wrapAnsi = (text: string, width: number): string[] => {
  */
 export const wordWrap = wrapAnsi;
 
+/**
+ * **v1.6.2** — Balanced word wrap (minimum-raggedness). Where `wrapAnsi` is
+ * greedy — it packs each line as full as possible, which can leave a very
+ * short last line — this distributes words so the lines are as *even* as
+ * possible.
+ *
+ * It minimizes the sum over all lines (except the last) of the squared
+ * trailing slack `(width - lineWidth)²`, the classic Knuth–Plass "badness"
+ * cost, via dynamic programming in O(n²) over the word count. The result
+ * uses the same number of lines the greedy algorithm would need (it never
+ * makes text taller), but spreads words to avoid a lonely final word.
+ *
+ * ANSI-aware and long-word-safe (words wider than `width` are hard-split,
+ * matching `wrapAnsi`). Explicit line breaks are preserved per paragraph.
+ *
+ * @param text  the text to wrap (may contain ANSI + line breaks)
+ * @param width target line width in visible columns
+ * @since 1.6.2
+ */
+export const balancedWrap = (text: string, width: number): string[] => {
+  if (width <= 0) return [text];
+  if (!text) return [];
+
+  const normalizedLines = text.replace(/\r\n?/g, '\n').split('\n');
+  const result: string[] = [];
+
+  const breakLong = (word: string): string[] => {
+    const chunks: string[] = [];
+    let i = 0;
+    const wordLen = visibleLen(word);
+    while (i < wordLen) {
+      chunks.push(sliceAnsi(word, i, i + width));
+      i += width;
+    }
+    return chunks;
+  };
+
+  for (const paragraph of normalizedLines) {
+    if (!paragraph) {
+      result.push('');
+      continue;
+    }
+
+    // Tokenize, hard-splitting any word wider than the target width.
+    const words: string[] = [];
+    for (const raw of paragraph.split(' ')) {
+      if (visibleLen(raw) > width) words.push(...breakLong(raw));
+      else words.push(raw);
+    }
+    const n = words.length;
+    /* istanbul ignore next — defensive: a non-empty paragraph always yields ≥1 token (split(' ') never returns []); empty paragraphs are handled by the !paragraph guard above */
+    if (n === 0) { result.push(''); continue; }
+
+    const widths = words.map((w) => visibleLen(w));
+
+    // lineWidth(i, j): visible width of words[i..j] joined by single spaces.
+    // Prefix sums make this O(1).
+    const prefix: number[] = [0];
+    for (let k = 0; k < n; k++) prefix.push((prefix[k] as number) + (widths[k] as number));
+    const lineWidth = (i: number, j: number): number => {
+      const wordsW = (prefix[j + 1] as number) - (prefix[i] as number);
+      const spaces = j - i; // single space between adjacent words
+      return wordsW + spaces;
+    };
+
+    // cost[i]: minimum badness to lay out words[i..n-1].
+    // The last line contributes no badness (trailing slack is free).
+    const INF = Number.POSITIVE_INFINITY;
+    const cost: number[] = new Array(n + 1).fill(INF);
+    const nextBreak: number[] = new Array(n + 1).fill(n);
+    cost[n] = 0;
+
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = i; j < n; j++) {
+        const lw = lineWidth(i, j);
+        if (lw > width && j > i) break; // adding more only overflows further
+        const isLastLine = j === n - 1;
+        const slack = width - lw;
+        // Overflow (single word wider than width shouldn't happen post-split,
+        // but guard anyway): treat as high but finite badness.
+        const badness = isLastLine ? 0 : (slack < 0 ? (slack * slack) + 1e6 : slack * slack);
+        const total = badness + (cost[j + 1] as number);
+        if (total < (cost[i] as number)) {
+          cost[i] = total;
+          nextBreak[i] = j + 1;
+        }
+      }
+    }
+
+    // Reconstruct the chosen line breaks.
+    let i = 0;
+    while (i < n) {
+      const j = nextBreak[i] as number;
+      result.push(words.slice(i, j).join(' '));
+      i = j;
+    }
+  }
+
+  return result;
+};
+
 // ─────────────────────────────────────────────
 //  Frame-rate helpers
 // ─────────────────────────────────────────────

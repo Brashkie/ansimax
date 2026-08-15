@@ -162,11 +162,79 @@ const _sobelEdges = (pixels: PixelGrid): number[][] => {
 };
 
 /**
- * Floyd-Steinberg error diffusion applied to a luminance grid.
- * Mutates a copy of the input and returns it. Produces a quantized
- * grid suitable for ramp-based ASCII rendering.
+ * An error-diffusion kernel: a list of `[dx, dy, weight]` taps plus a shared
+ * `divisor`. The quantization error at each pixel is spread to forward
+ * neighbors (dy ≥ 0; dy = 0 only for dx > 0) scaled by `weight / divisor`.
+ * Different classic dithering algorithms are simply different kernels.
+ *
+ * @since 1.6.2
  */
-const _floydSteinberg = (lum: number[][], levels: number): number[][] => {
+interface DiffusionKernel {
+  divisor: number;
+  taps: ReadonlyArray<readonly [number, number, number]>; // [dx, dy, weight]
+}
+
+// Classic error-diffusion kernels. Each spreads the quantization error to
+// not-yet-processed neighbors; larger kernels distribute more smoothly at a
+// higher cost.
+const DIFFUSION_KERNELS: Record<string, DiffusionKernel> = {
+  // Floyd–Steinberg (1976) — the classic 4-tap kernel.
+  'floyd-steinberg': {
+    divisor: 16,
+    taps: [
+      [1, 0, 7],
+      [-1, 1, 3], [0, 1, 5], [1, 1, 1],
+    ],
+  },
+  // Atkinson (Apple, 1980s) — diffuses only 6/8 of the error, giving higher
+  // contrast and cleaner highlights (loses some detail, looks "crisp").
+  atkinson: {
+    divisor: 8,
+    taps: [
+      [1, 0, 1], [2, 0, 1],
+      [-1, 1, 1], [0, 1, 1], [1, 1, 1],
+      [0, 2, 1],
+    ],
+  },
+  // Jarvis–Judice–Ninke (1976) — a wide 12-tap kernel; very smooth gradients,
+  // the most expensive of these.
+  jjn: {
+    divisor: 48,
+    taps: [
+      [1, 0, 7], [2, 0, 5],
+      [-2, 1, 3], [-1, 1, 5], [0, 1, 7], [1, 1, 5], [2, 1, 3],
+      [-2, 2, 1], [-1, 2, 3], [0, 2, 5], [1, 2, 3], [2, 2, 1],
+    ],
+  },
+  // Sierra (1989) — a balance between JJN's smoothness and FS's speed.
+  sierra: {
+    divisor: 32,
+    taps: [
+      [1, 0, 5], [2, 0, 3],
+      [-2, 1, 2], [-1, 1, 4], [0, 1, 5], [1, 1, 4], [2, 1, 2],
+      [-1, 2, 2], [0, 2, 3], [1, 2, 2],
+    ],
+  },
+};
+
+/** Names of the available error-diffusion dithering algorithms. @since 1.6.2 */
+export const DITHER_ALGORITHMS = Object.keys(DIFFUSION_KERNELS) as ReadonlyArray<string>;
+
+/**
+ * Generic error-diffusion dithering on a luminance grid. Works for any
+ * `DiffusionKernel`, so Floyd–Steinberg, Atkinson, JJN, and Sierra all share
+ * one implementation. Mutates a copy of the input and returns the quantized
+ * grid.
+ *
+ * @param lum    luminance grid (row-major, values in [0,255])
+ * @param levels number of output quantization levels (≥ 2)
+ * @param kernel the diffusion kernel to use
+ */
+const _errorDiffuse = (
+  lum: number[][],
+  levels: number,
+  kernel: DiffusionKernel,
+): number[][] => {
   const h = lum.length;
   /* istanbul ignore if — defensive: callers (fromImage) validate non-empty grids upstream */
   if (h === 0) return lum;
@@ -177,6 +245,7 @@ const _floydSteinberg = (lum: number[][], levels: number): number[][] => {
   // Work on a copy so we don't mutate the caller's data
   const out = lum.map((row) => [...row]);
   const step = 255 / Math.max(1, levels - 1);
+  const { divisor, taps } = kernel;
 
   for (let y = 0; y < h; y++) {
     const row = out[y] as number[];
@@ -186,16 +255,15 @@ const _floydSteinberg = (lum: number[][], levels: number): number[][] => {
       const newPixel = quantLevel * step;
       row[x] = newPixel;
       const err = oldPixel - newPixel;
+      if (err === 0) continue;
 
-      // Distribute the error to neighbors (right, bottom-left, bottom, bottom-right)
-      if (x + 1 < w) {
-        row[x + 1] = (row[x + 1] as number) + err * 7 / 16;
-      }
-      if (y + 1 < h) {
-        const next = out[y + 1] as number[];
-        if (x > 0)     next[x - 1] = (next[x - 1] as number) + err * 3 / 16;
-                       next[x]     = (next[x]     as number) + err * 5 / 16;
-        if (x + 1 < w) next[x + 1] = (next[x + 1] as number) + err * 1 / 16;
+      // Spread the error across the kernel's taps.
+      for (const [dx, dy, weight] of taps) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+        const target = out[ny] as number[];
+        target[nx] = (target[nx] as number) + (err * weight) / divisor;
       }
     }
   }
@@ -398,8 +466,9 @@ export const fromImage = (
   const rampLen = rampStr.length;
 
   // 6. Optional dithering (only when not in edge mode — they don't combine well)
-  if (dither === 'floyd-steinberg' && !edgeGrid) {
-    lum = _floydSteinberg(lum, rampLen);
+  if (dither !== 'none' && !edgeGrid) {
+    const kernel = DIFFUSION_KERNELS[dither];
+    if (kernel) lum = _errorDiffuse(lum, rampLen, kernel);
   }
 
   // 7. Render output

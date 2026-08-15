@@ -41,6 +41,8 @@ export { box, divider, logo, measure } from './shapes.js';
 // ── Image → ASCII ──
 export { fromImage, ASCII_RAMPS } from './image.js';
 export type { AsciiRamp } from './image.js';
+// v1.6.2 — dithering algorithm names
+export { DITHER_ALGORITHMS } from './image.js';
 // v1.4.13 — ramp registry
 export {
   registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps,
@@ -69,6 +71,7 @@ import {
   registerAsciiRamp as _registerRamp, unregisterAsciiRamp as _unregisterRamp,
   listAsciiRamps as _listRamps, hasAsciiRamp as _hasRamp,
   clearAsciiRamps as _clearRamps, ASCII_RAMPS as _ASCII_RAMPS,
+  DITHER_ALGORITHMS as _DITHER_ALGORITHMS,
 } from './image.js';
 import { parseFiglet as _parseFiglet, figletText as _figletText } from './figlet.js';
 import { stream as _stream } from './stream.js';
@@ -105,6 +108,7 @@ export const ascii = {
   boxStyles: boxStyleNames,
   // v1.4.13 — ASCII ramp registry
   ramps: _ASCII_RAMPS,
+  ditherAlgorithms: _DITHER_ALGORITHMS,
   registerRamp: _registerRamp,
   unregisterRamp: _unregisterRamp,
   listRamps: _listRamps,
