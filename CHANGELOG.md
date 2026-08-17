@@ -3,6 +3,66 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.3] — Refactor: split animations + contrast/a11y + gradient scale
+
+A cleanup release. The animations module — which had grown past 1,100 lines —
+was split into focused files, and Phase 1/2 gained small, additive helpers.
+**No behavior changed**: the public API is byte-for-byte identical (verified
+against an export snapshot).
+
+### Changed — animations split into focused modules (internal)
+
+The former monolithic `animations/index.ts` (~1,114 lines) is now:
+
+- `animations/internal.ts` — private helpers (guards, cursor ref-counting,
+  crash handlers, math, safe writes, hooks)
+- `animations/types.ts` — the public option interfaces
+- `animations/effects.ts` — the effect implementations (typewriter, fade,
+  slide, pulse, wave, glitch, reveal, shake, countUp)
+- `animations/composition.ts` — sequence / parallel / chain / delay
+- `animations/index.ts` — a thin barrel that re-exports the same public API
+
+The `animate` namespace, `canAnimate`, `resetCursorRefCount`, and all option
+types export exactly as before. This is purely internal organization —
+nothing external needs to change.
+
+### Added — WCAG contrast + accessibility (Phase 1)
+
+```js
+import { contrastRatio, readableTextColor, meetsContrast } from 'ansimax';
+
+contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }); // 21 (max)
+readableTextColor({ r: 255, g: 235, b: 59 });                    // black (on yellow)
+meetsContrast(fg, bg, 4.5);                                       // WCAG AA?
+```
+
+- `relativeLuminance(rgb)` — WCAG relative luminance in `[0,1]`
+- `contrastRatio(a, b)` — `1`–`21`, order-independent
+- `readableTextColor(bg)` — black or white, whichever contrasts better
+- `meetsContrast(a, b, threshold=4.5)` — WCAG AA/AAA check
+
+### Added — Sampled gradient palette (Phase 2)
+
+```js
+import { gradientScale, presetStops } from 'ansimax';
+
+gradientScale(['#ff0000', '#0000ff'], 3);        // ['#ff0000','#800080','#0000ff']
+gradientScale(presetStops('viridis'), 5, 'oklab');
+```
+
+`gradientScale(colors, steps, space?)` samples a gradient into N discrete hex
+colors — handy for chart series, category colors, or heatmap legends. The
+endpoints match the input stops exactly; interpolation runs in the chosen
+color space.
+
+### Notes
+
+- Animations API verified identical before/after via an export snapshot diff
+- `+30` tests (contrast, gradientScale, animations API preservation)
+- **Zero breaking changes.**
+
+---
+
 ## [1.6.2] — Advanced algorithms: dithering, balanced wrap, statistics
 
 Algorithmic quality refinements across Phase 3 (ASCII), Phase 4 (tables), and

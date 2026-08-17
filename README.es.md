@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.2-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.2'));
+console.log(components.badge('VERSION', 'v1.6.3'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1094,6 +1094,23 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.3 — Refactor: separar animations + contraste/a11y + escala de gradiente
+
+- 🧹 **Animations separado** — el módulo de ~1.100 líneas ahora son 5 archivos enfocados; API pública idéntica byte a byte
+- ♿ **Helpers de contraste WCAG** — `relativeLuminance`, `contrastRatio`, `readableTextColor`, `meetsContrast`
+- 🎨 **`gradientScale()`** — muestrea un gradiente en N colores de paleta discretos
+- 🧪 **+30 tests**
+
+```js
+import { contrastRatio, readableTextColor, gradientScale } from 'ansimax';
+
+contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }); // 21 (máx)
+readableTextColor({ r: 255, g: 235, b: 59 });                    // negro sobre amarillo
+gradientScale(['#ff0000', '#0000ff'], 3);      // ['#ff0000','#800080','#0000ff']
+```
+
+Drop-in replacement para `1.6.2`.
 
 ### v1.6.2 — Algoritmos avanzados: dithering, wrap balanceado, estadística
 

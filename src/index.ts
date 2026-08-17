@@ -22,6 +22,8 @@ export {
   registerPreset, listPresets, clearColorCache,
   // v1.6.1 — preset utilities
   presetStops, hasPreset,
+  // v1.6.3 — sampled gradient palette
+  gradientScale,
   stripAnsi as stripAnsiColors,
   // v1.2.0 — Phase 2 completion
   animateGradient,
@@ -216,6 +218,8 @@ export {
   // v1.3.5 — color science + numeric helpers
   isFiniteNumber, safeInt, clampByte,
   rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
+  // v1.6.3 — contrast + accessibility
+  relativeLuminance, contrastRatio, readableTextColor, meetsContrast,
   mixColors, quantizeColor,
   // v1.3.7 — consolidated clamp helpers
   clampPercent, clampInt,

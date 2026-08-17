@@ -3,7 +3,7 @@ import {
   setNoColor, isNoColor, resetNoColor,
   chain, colorLevel, stripAnsi as stripAnsiColors,
   registerPreset, listPresets, clearColorCache,
-  mirrorStops, presetStops, hasPreset,
+  mirrorStops, presetStops, hasPreset, gradientScale,
   __internal,
   type ColorFn,
 } from '../colors/index.js';
@@ -1877,5 +1877,39 @@ describe('presetStops + hasPreset (v1.6.1)', () => {
     registerPreset('mytheme', ['#111111', '#222222']);
     expect(hasPreset('mytheme')).toBe(true);
     expect(presetStops('mytheme')).toEqual(['#111111', '#222222']);
+  });
+});
+
+describe('gradientScale (v1.6.3)', () => {
+  it('returns exactly `steps` colors', () => {
+    expect(gradientScale(['#ff0000', '#0000ff'], 3)).toHaveLength(3);
+    expect(gradientScale(['#ff0000', '#0000ff'], 5)).toHaveLength(5);
+  });
+
+  it('first and last equal the endpoint stops', () => {
+    const scale = gradientScale(['#ff0000', '#0000ff'], 3);
+    expect(scale[0]).toBe('#ff0000');
+    expect(scale[2]).toBe('#0000ff');
+  });
+
+  it('interpolates the midpoint', () => {
+    const scale = gradientScale(['#ff0000', '#0000ff'], 3);
+    expect(scale[1]).toBe('#800080'); // purple midpoint
+  });
+
+  it('steps <= 1 returns just the first color', () => {
+    expect(gradientScale(['#ff0000', '#0000ff'], 1)).toEqual(['#ff0000']);
+    expect(gradientScale(['#ff0000', '#0000ff'], 0)).toEqual(['#ff0000']);
+  });
+
+  it('works with a preset stop array', () => {
+    const stops = presetStops('viridis');
+    const scale = gradientScale(stops as string[], 5);
+    expect(scale).toHaveLength(5);
+    expect(scale[0]).toMatch(/^#/);
+  });
+
+  it('throws on an empty color array', () => {
+    expect(() => gradientScale([], 3)).toThrow();
   });
 });

@@ -1380,6 +1380,8 @@ import {
   isFiniteNumber as _isFiniteNumber, safeInt, clampByte as _clampByte,
   rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
   mixColors, quantizeColor,
+  // v1.6.3 — contrast + a11y
+  relativeLuminance, contrastRatio, readableTextColor, meetsContrast,
 } from '../utils/helpers.js';
 
 describe('isFiniteNumber (v1.3.5)', () => {
@@ -1884,5 +1886,35 @@ describe('balancedWrap (v1.6.2)', () => {
   it('keeps blank lines from double breaks', () => {
     const lines = balancedWrap('a\n\nb', 10);
     expect(lines).toEqual(['a', '', 'b']);
+  });
+});
+
+describe('color contrast + a11y (v1.6.3)', () => {
+  const black = { r: 0, g: 0, b: 0 };
+  const white = { r: 255, g: 255, b: 255 };
+
+  it('relativeLuminance is 0 for black and 1 for white', () => {
+    expect(relativeLuminance(black)).toBe(0);
+    expect(relativeLuminance(white)).toBeCloseTo(1, 5);
+  });
+
+  it('contrastRatio is 21 for black vs white (max) and 1 for identical', () => {
+    expect(contrastRatio(black, white)).toBeCloseTo(21, 1);
+    expect(contrastRatio(white, white)).toBeCloseTo(1, 5);
+  });
+
+  it('contrastRatio is order-independent', () => {
+    expect(contrastRatio(black, white)).toBeCloseTo(contrastRatio(white, black), 5);
+  });
+
+  it('readableTextColor picks black on light and white on dark', () => {
+    expect(readableTextColor({ r: 255, g: 235, b: 59 })).toEqual(black); // yellow
+    expect(readableTextColor({ r: 26, g: 35, b: 126 })).toEqual(white);  // dark blue
+  });
+
+  it('meetsContrast honors the WCAG AA threshold', () => {
+    expect(meetsContrast(black, white)).toBe(true);         // 21:1
+    expect(meetsContrast(white, white)).toBe(false);        // 1:1
+    expect(meetsContrast({ r: 119, g: 119, b: 119 }, white, 3)).toBe(true); // ~4.48 ≥ 3
   });
 });

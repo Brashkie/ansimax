@@ -19,7 +19,7 @@ import {
   stripAnsi as stripAnsiFromUtils,
   type ColorLevel,
 } from '../utils/ansi.js';
-import { hexToRgb, lerpColor, RGB, isHexColor, type ColorSpace } from '../utils/helpers.js';
+import { hexToRgb, lerpColor, RGB, isHexColor, gradientColor, rgbToHex, type ColorSpace } from '../utils/helpers.js';
 
 export type ColorFn = (text: string) => string;
 export type { ColorLevel };
@@ -950,6 +950,46 @@ export const presetStops = (name: string): string[] | undefined => {
  */
 export const hasPreset = (name: string): boolean =>
   typeof name === 'string' && _presetRegistry.has(name);
+
+/**
+ * **v1.6.3** — Sample a gradient into `steps` discrete hex colors, evenly
+ * spaced from the first stop to the last. Useful for building a fixed
+ * palette from a gradient — chart series, category colors, heatmap legends.
+ *
+ * Accepts hex-string stops (or a preset name via `presetStops`). `steps <= 1`
+ * returns just the first color; interpolation happens in the given color
+ * space (`'rgb'` default, or `'hsl'` / `'oklab'` for perceptually smoother
+ * ramps).
+ *
+ * @example
+ * ```js
+ * import { gradientScale, presetStops } from 'ansimax';
+ *
+ * gradientScale(['#ff0000', '#0000ff'], 3);   // ['#ff0000', '#7f007f', '#0000ff']
+ * gradientScale(presetStops('viridis'), 5, 'oklab');
+ * ```
+ *
+ * @since 1.6.3
+ */
+export const gradientScale = (
+  colors: string[],
+  steps: number,
+  space: ColorSpace = 'rgb',
+): string[] => {
+  if (!Array.isArray(colors) || colors.length === 0) {
+    throw new Error('gradientScale requires at least one color stop');
+  }
+  const stops = colors.map((c) => hexToRgb(c));
+  const n = Math.max(1, Math.floor(steps));
+  const toHex = (c: RGB): string => rgbToHex(c.r, c.g, c.b);
+  if (n === 1) return [toHex(stops[0] as RGB)];
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    out.push(toHex(gradientColor(stops, t, space)));
+  }
+  return out;
+};
 
 export const presets: Record<string, ColorFn> = Object.fromEntries(
   Object.entries(PRESET_DEFS).map(

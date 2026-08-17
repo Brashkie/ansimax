@@ -1461,3 +1461,62 @@ export const measureBlock = (block: string): { width: number; height: number } =
   }
   return { width, height: lines.length };
 };
+
+// ─────────────────────────────────────────────
+//  v1.6.3 — Color contrast + accessibility (Phase 1)
+// ─────────────────────────────────────────────
+
+/**
+ * WCAG relative luminance of an sRGB color, in `[0, 1]`. Uses the standard
+ * linearization (gamma expansion) and Rec. 709 coefficients. `0` is black,
+ * `1` is white. This is the basis for contrast-ratio math.
+ *
+ * @since 1.6.3
+ */
+export const relativeLuminance = (rgb: RGB): number => {
+  const chan = (v: number): number => {
+    const s = Math.max(0, Math.min(255, v)) / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * chan(rgb.r) + 0.7152 * chan(rgb.g) + 0.0722 * chan(rgb.b);
+};
+
+/**
+ * WCAG contrast ratio between two colors, from `1` (identical) to `21`
+ * (black vs white). The order of arguments does not matter.
+ *
+ * WCAG thresholds: `4.5` for normal text (AA), `7` for AAA, `3` for large
+ * text or UI components.
+ *
+ * @since 1.6.3
+ */
+export const contrastRatio = (a: RGB, b: RGB): number => {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+/**
+ * Pick the more readable of black or white text for a given background,
+ * whichever yields the higher WCAG contrast ratio. Returns an `RGB`.
+ *
+ * @since 1.6.3
+ */
+export const readableTextColor = (background: RGB): RGB => {
+  const black: RGB = { r: 0, g: 0, b: 0 };
+  const white: RGB = { r: 255, g: 255, b: 255 };
+  return contrastRatio(background, black) >= contrastRatio(background, white)
+    ? black
+    : white;
+};
+
+/**
+ * True when two colors meet a WCAG contrast threshold. Defaults to `4.5`
+ * (AA normal text); pass `3` for large text / UI, or `7` for AAA.
+ *
+ * @since 1.6.3
+ */
+export const meetsContrast = (a: RGB, b: RGB, threshold = 4.5): boolean =>
+  contrastRatio(a, b) >= threshold;

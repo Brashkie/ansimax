@@ -1056,3 +1056,36 @@ describe('barrel coverage — v1.6.2 re-exports', () => {
     expect(main.gaussian(0, 0, 1)).toBe(1);
   });
 });
+
+describe('barrel coverage — v1.6.3 re-exports', () => {
+  it('exposes contrast/a11y helpers and gradientScale from the main entry', async () => {
+    const main = await import('../index.js');
+    // Fase 1 — contrast
+    expect(typeof main.relativeLuminance).toBe('function');
+    expect(typeof main.contrastRatio).toBe('function');
+    expect(typeof main.readableTextColor).toBe('function');
+    expect(typeof main.meetsContrast).toBe('function');
+    // Fase 2 — gradientScale
+    expect(typeof main.gradientScale).toBe('function');
+    // Exercise them so the re-export lines are covered
+    expect(main.contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 })).toBeCloseTo(21, 1);
+    expect(main.gradientScale(['#ff0000', '#0000ff'], 3)).toHaveLength(3);
+  });
+
+  it('animations refactor preserves the public API (v1.6.3 split)', async () => {
+    const anim = await import('../animations/index.js');
+    // Public exports unchanged after the internal/types/effects/composition split
+    expect(typeof anim.canAnimate).toBe('function');
+    expect(typeof anim.resetCursorRefCount).toBe('function');
+    expect(typeof anim.animate).toBe('object');
+    expect(typeof anim.default).toBe('object');
+    // The 14 namespace methods still present
+    const methods = [
+      'typewriter', 'fadeIn', 'fadeOut', 'slide', 'pulse', 'wave', 'glitch',
+      'reveal', 'sequence', 'chain', 'parallel', 'delay', 'shake', 'countUp',
+    ];
+    for (const m of methods) {
+      expect(typeof (anim.animate as Record<string, unknown>)[m]).toBe('function');
+    }
+  });
+});
