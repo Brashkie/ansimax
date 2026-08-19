@@ -1089,3 +1089,33 @@ describe('barrel coverage — v1.6.3 re-exports', () => {
     }
   });
 });
+
+describe('barrel coverage — v1.6.4 re-exports', () => {
+  it('exposes createTimer and image protocol detection from the main entry', async () => {
+    const main = await import('../index.js');
+    // Fase 7 — timer
+    expect(typeof main.createTimer).toBe('function');
+    const t = main.createTimer();
+    expect(t.elapsed()).toBe(0);
+    expect(typeof main.loader.timer).toBe('function');
+    expect(main.loader.timer).toBe(main.createTimer);
+    // Fase 8 — image protocol
+    expect(typeof main.detectImageProtocol).toBe('function');
+    expect(typeof main.supportsInlineImages).toBe('function');
+    expect(typeof main.supportsKittyGraphics).toBe('function');
+    expect(typeof main.supportsITermImages).toBe('function');
+    expect(typeof main.supportsSixel).toBe('function');
+    // Exercise so the re-export lines are covered
+    expect(typeof main.detectImageProtocol()).toBe('string');
+    expect(typeof main.supportsInlineImages()).toBe('boolean');
+  });
+
+  it('colors refactor preserves the public API (v1.6.4 internal split)', async () => {
+    const colors = await import('../colors/index.js');
+    // The suppression/level/cache API still comes through after moving the
+    // shared core into ./internal
+    for (const name of ['setNoColor', 'resetNoColor', 'isNoColor', 'colorLevel', 'clearColorCache', 'color', 'gradient', 'rainbow', 'presets', 'chain', 'compose', 'createGradient', 'animateGradient', 'gradientScale']) {
+      expect((colors as Record<string, unknown>)[name]).toBeDefined();
+    }
+  });
+});

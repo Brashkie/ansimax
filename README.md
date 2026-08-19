@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.3'));
+console.log(components.badge('VERSION', 'v1.6.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -954,7 +954,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Terminal program detection (iTerm, vscode, WezTerm, Hyper, Apple_Terminal)
 - [x] Windows Terminal detection (`WT_SESSION`)
 - [ ] **Unicode width detection** (CJK halfwidth/fullwidth, emoji clusters, ZWJ sequences)
-- [ ] **Image protocol detection** (Sixel, iTerm inline images, Kitty graphics protocol)
+- [x] **Image protocol detection** (Sixel, iTerm inline images, Kitty graphics protocol) (v1.6.4)
 - [ ] **Terminal capability database** (full xterm capability flags + version probes)
 - [ ] **Font metrics detection** (cell width/height for pixel-accurate layouts)
 
@@ -1098,6 +1098,26 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.6.4 — Image protocol detection + elapsed timer + colors refactor
+
+- 🖼️ **Image protocol detection** — `detectImageProtocol()` → `'kitty'` / `'iterm'` / `'sixel'` / `'none'`
+- ⏱️ **`createTimer`** — elapsed-time stopwatch (start/stop/reset, pause-aware)
+- 🧹 **Colors refactor** — shared core moved to `colors/internal.ts`; public API byte-for-byte identical
+- 🧪 **+40 tests**
+
+```js
+import { detectImageProtocol, supportsInlineImages, createTimer } from 'ansimax';
+
+detectImageProtocol();     // 'kitty' | 'iterm' | 'sixel' | 'none'
+supportsInlineImages();    // boolean
+
+const t = createTimer();
+t.start(); /* ...work... */ t.stop();
+t.formatted();             // "1.5s"
+```
+
+Drop-in replacement for `1.6.3`.
 
 ### v1.6.3 — Refactor: split animations + contrast/a11y + gradient scale
 

@@ -3,6 +3,64 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.4] — Image protocol detection + elapsed timer + colors refactor
+
+Advances Phase 8 (capability detection) with inline-image protocol detection,
+adds an elapsed-time timer to Phase 7, and splits the shared core out of the
+colors module. No behavior changed — colors' public API is byte-for-byte
+identical (verified against an export snapshot).
+
+### Added — Image protocol detection (Phase 8)
+
+Synchronous, env-var-based detection of which inline-image protocol the
+terminal supports — the approach mature tools use (no stdout/stdin probing
+that would hang in pipes or CI):
+
+```js
+import { detectImageProtocol, supportsInlineImages } from 'ansimax';
+
+detectImageProtocol();     // 'kitty' | 'iterm' | 'sixel' | 'none'
+supportsInlineImages();    // boolean
+```
+
+- `detectImageProtocol()` — best protocol in preference order (Kitty → iTerm → SIXEL → none)
+- `supportsInlineImages()` — quick boolean
+- `supportsKittyGraphics()`, `supportsITermImages()`, `supportsSixel()` — individual checks
+- Detects Kitty (`KITTY_WINDOW_ID`, `TERM`), iTerm (`TERM_PROGRAM`, `ITERM_SESSION_ID`),
+  SIXEL (`mlterm`, `foot`, `contour`, …), and Kitty-compatible terminals (Ghostty, WezTerm)
+
+### Added — Elapsed-time timer (Phase 7)
+
+```js
+import { createTimer } from 'ansimax';
+
+const t = createTimer();
+t.start();
+// ...work...
+t.stop();
+t.formatted();   // "1.5s"
+```
+
+A stopwatch with `start`/`stop`/`reset`/`elapsed`/`formatted`/`isRunning`.
+Timer-free (reads the clock on demand); stop/start pairs behave like
+pause/resume, summing only the running spans. Available as `loader.timer`.
+
+### Changed — colors shared core extracted (internal)
+
+The former ~1,180-line `colors/index.ts` had its shared primitives —
+suppression state, color-level resolution, numeric clamps, the fail-soft hex
+parser, level-downgrade math, the adaptive escape cache, and `wrap()` — moved
+into `colors/internal.ts`. The barrel re-exports `setNoColor`, `resetNoColor`,
+`isNoColor`, `colorLevel`, and `clearColorCache` exactly as before. Purely
+internal organization; nothing external changed.
+
+### Notes
+
+- colors API verified identical before/after via export snapshot diff (24 exports)
+- `+40` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.3] — Refactor: split animations + contrast/a11y + gradient scale
 
 A cleanup release. The animations module — which had grown past 1,100 lines —

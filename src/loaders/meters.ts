@@ -478,3 +478,80 @@ export const createProgressGroup = (opts: ProgressGroupOptions = {}): ProgressGr
 
   return api;
 };
+
+// ─────────────────────────────────────────────
+//  Elapsed-time timer (v1.6.4)
+//
+//  A tiny stopwatch: start/stop/reset with an elapsed() read and a
+//  formatted() helper. Timer-free like the other meters — it reads the
+//  clock on demand rather than owning an interval. Pauses accumulate, so
+//  stop()/start() cycles sum only the running spans.
+// ─────────────────────────────────────────────
+
+export interface Timer {
+  /** Start (or resume) timing. No-op if already running. */
+  start(): void;
+  /** Pause timing, accumulating the elapsed span. No-op if not running. */
+  stop(): void;
+  /** Reset to zero and stop. */
+  reset(): void;
+  /** Total elapsed milliseconds across all running spans. */
+  elapsed(): number;
+  /** Elapsed time as a human string via `formatDuration`. */
+  formatted(): string;
+  /** True while the timer is actively running. */
+  isRunning(): boolean;
+}
+
+/**
+ * Create an elapsed-time timer (stopwatch). Accumulates only the spans
+ * during which it was running, so stop/start pairs behave like pause/resume.
+ *
+ * @example
+ * ```js
+ * import { createTimer } from 'ansimax';
+ *
+ * const t = createTimer();
+ * t.start();
+ * // ...work...
+ * t.stop();
+ * console.log(t.formatted());   // e.g. "1.5s"
+ * ```
+ *
+ * @param autoStart start immediately on creation (default `false`)
+ * @since 1.6.4
+ */
+export const createTimer = (autoStart = false): Timer => {
+  let accumulated = 0;      // ms banked from completed spans
+  let startedAt: number | null = null; // timestamp of the current running span
+
+  const now = (): number => Date.now();
+
+  const api: Timer = {
+    start(): void {
+      if (startedAt !== null) return; // already running
+      startedAt = now();
+    },
+    stop(): void {
+      if (startedAt === null) return; // not running
+      accumulated += now() - startedAt;
+      startedAt = null;
+    },
+    reset(): void {
+      accumulated = 0;
+      startedAt = null;
+    },
+    elapsed(): number {
+      return startedAt === null ? accumulated : accumulated + (now() - startedAt);
+    },
+    formatted(): string {
+      return formatDuration(api.elapsed());
+    },
+    isRunning(): boolean {
+      return startedAt !== null;
+    },
+  };
+
+  if (autoStart) api.start();
+  return api;
+};

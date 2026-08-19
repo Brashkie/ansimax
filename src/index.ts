@@ -86,12 +86,15 @@ export {
   formatBytes, formatCount, formatDuration,
   // v1.6.1 — Phase 7 progress groups
   createProgressGroup,
+  // v1.6.4 — elapsed-time timer
+  createTimer,
 } from './loaders/index.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,
   LiveRegion, LiveRegionOptions,
   // v1.6.1
   ProgressGroup, ProgressGroupOptions, ProgressGroupItemOptions,
+  Timer,
 } from './loaders/index.js';
 
 export { frames, resetFramesCursorCount } from './frames/index.js';
@@ -191,6 +194,12 @@ export type {
   ColorSupport, ColorLevel, AnsiCode, EraseMode, SleepOptions,
   OutputBuffer, WriteAsyncOptions,
 } from './utils/ansi.js';
+// v1.6.4 — Phase 8: image protocol detection
+export {
+  detectImageProtocol, supportsInlineImages,
+  supportsKittyGraphics, supportsITermImages, supportsSixel,
+} from './utils/capabilities.js';
+export type { ImageProtocol } from './utils/capabilities.js';
 export {
   termSize, hexToRgb, rgbToHex, stripAnsi, visibleLen, clamp, lerpColor,
   isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, padBoth, center, wordWrap, lerp, rgbTo256,

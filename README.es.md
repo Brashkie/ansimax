@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.3-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.3'));
+console.log(components.badge('VERSION', 'v1.6.4'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -947,7 +947,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Detección de programa de terminal (iTerm, vscode, WezTerm, Hyper, Apple_Terminal)
 - [x] Detección de Windows Terminal (`WT_SESSION`)
 - [ ] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ)
-- [ ] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty)
+- [x] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty) (v1.6.4)
 - [ ] **Base de datos de capacidades de terminal** (flags xterm completos + probes de versión)
 - [ ] **Detección de métricas de fuente** (ancho/alto de celda para layouts pixel-accurate)
 
@@ -1094,6 +1094,26 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.4 — Detección de protocolo de imagen + timer + refactor de colors
+
+- 🖼️ **Detección de protocolo de imagen** — `detectImageProtocol()` → `'kitty'` / `'iterm'` / `'sixel'` / `'none'`
+- ⏱️ **`createTimer`** — cronómetro de tiempo transcurrido (start/stop/reset, con pausa)
+- 🧹 **Refactor de colors** — núcleo compartido movido a `colors/internal.ts`; API pública idéntica byte a byte
+- 🧪 **+40 tests**
+
+```js
+import { detectImageProtocol, supportsInlineImages, createTimer } from 'ansimax';
+
+detectImageProtocol();     // 'kitty' | 'iterm' | 'sixel' | 'none'
+supportsInlineImages();    // boolean
+
+const t = createTimer();
+t.start(); /* ...trabajo... */ t.stop();
+t.formatted();             // "1.5s"
+```
+
+Drop-in replacement para `1.6.3`.
 
 ### v1.6.3 — Refactor: separar animations + contraste/a11y + escala de gradiente
 

@@ -1,5 +1,6 @@
 import {
   createETA, createThroughput, createLiveRegion, createProgressGroup,
+  createTimer,
   formatBytes, formatCount, formatDuration,
 } from '../loaders/meters.js';
 
@@ -398,5 +399,75 @@ describe('createProgressGroup (v1.6.1)', () => {
     g.render();
     const frame = out.join('');
     expect(frame).toContain('OnlyItem');
+  });
+});
+
+describe('createTimer (v1.6.4)', () => {
+  const wait = (ms: number) => new Promise<void>((r) => setTimeout(() => r(), ms));
+
+  it('starts stopped at zero', () => {
+    const t = createTimer();
+    expect(t.elapsed()).toBe(0);
+    expect(t.isRunning()).toBe(false);
+  });
+
+  it('autoStart begins running immediately', () => {
+    const t = createTimer(true);
+    expect(t.isRunning()).toBe(true);
+  });
+
+  it('accumulates elapsed time while running', async () => {
+    const t = createTimer();
+    t.start();
+    expect(t.isRunning()).toBe(true);
+    await wait(40);
+    t.stop();
+    expect(t.elapsed()).toBeGreaterThanOrEqual(30);
+    expect(t.isRunning()).toBe(false);
+  });
+
+  it('does not advance while paused (stop/resume sums only running spans)', async () => {
+    const t = createTimer();
+    t.start();
+    await wait(40);
+    t.stop();
+    const afterFirst = t.elapsed();
+    await wait(40); // paused — should not count
+    expect(t.elapsed()).toBe(afterFirst);
+    t.start();
+    await wait(40);
+    t.stop();
+    expect(t.elapsed()).toBeGreaterThan(afterFirst); // resumed span added
+  });
+
+  it('start() is a no-op while already running', () => {
+    const t = createTimer();
+    t.start();
+    t.start(); // should not reset the span
+    expect(t.isRunning()).toBe(true);
+  });
+
+  it('stop() is a no-op when not running', () => {
+    const t = createTimer();
+    expect(() => t.stop()).not.toThrow();
+    expect(t.elapsed()).toBe(0);
+  });
+
+  it('reset returns to zero and stops', async () => {
+    const t = createTimer();
+    t.start();
+    await wait(20);
+    t.reset();
+    expect(t.elapsed()).toBe(0);
+    expect(t.isRunning()).toBe(false);
+  });
+
+  it('formatted() returns a human string', async () => {
+    const t = createTimer();
+    t.start();
+    await wait(20);
+    t.stop();
+    expect(typeof t.formatted()).toBe('string');
+    expect(t.formatted().length).toBeGreaterThan(0);
   });
 });
