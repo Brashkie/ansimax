@@ -84,6 +84,7 @@ export { SPINNERS } from './loaders/index.js';
 export {
   createETA, createThroughput, createLiveRegion,
   formatBytes, formatCount, formatDuration,
+  formatPercent, formatRate,
   // v1.6.1 — Phase 7 progress groups
   createProgressGroup,
   // v1.6.4 — elapsed-time timer
@@ -205,6 +206,8 @@ export {
   isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, padBoth, center, wordWrap, lerp, rgbTo256,
   // Unicode-aware width
   charWidth, graphemes,
+  // v1.6.5 — public Unicode width detection (Phase 8)
+  stringWidth, isFullWidth, isCombining, isEmoji,
   // ANSI-safe slicing + wrapping
   sliceAnsi, wrapAnsi,
   // v1.6.2 — balanced (minimum-raggedness) word wrap

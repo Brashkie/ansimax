@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.4-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.4'));
+console.log(components.badge('VERSION', 'v1.6.5'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -946,7 +946,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Detección de proveedor CI (GitHub Actions, CircleCI, GitLab, Buildkite, Drone, Travis)
 - [x] Detección de programa de terminal (iTerm, vscode, WezTerm, Hyper, Apple_Terminal)
 - [x] Detección de Windows Terminal (`WT_SESSION`)
-- [ ] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ)
+- [x] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ) (v1.6.5)
 - [x] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty) (v1.6.4)
 - [ ] **Base de datos de capacidades de terminal** (flags xterm completos + probes de versión)
 - [ ] **Detección de métricas de fuente** (ancho/alto de celda para layouts pixel-accurate)
@@ -1094,6 +1094,25 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.5 — Detección de ancho Unicode + suavizado de ETA + alineación numérica
+
+- 📏 **Detección de ancho Unicode** — `stringWidth`, `isFullWidth`, `isEmoji`, `isCombining`
+- 📊 **Formatters de tasa** — `formatPercent`, `formatRate` (`"1.5 MB/s"`, `"1.2K req/s"`)
+- 📈 **Suavizado EMA en ETA** — `createETA({ smoothing: 'ema' })` reacciona más rápido a cambios de velocidad
+- 🔢 **Columnas numéricas auto-alineadas** — `ascii.table({ autoAlignNumbers: true })`
+- 🧪 **+40 tests**
+
+```js
+import { stringWidth, formatRate, createETA, ascii } from 'ansimax';
+
+stringWidth('中文');                                  // 4
+formatRate(1572864);                                 // "1.5 MB/s"
+createETA({ total: 1000, smoothing: 'ema' });        // reacción más rápida
+ascii.table(rows, { autoAlignNumbers: true });       // números a la derecha
+```
+
+Drop-in replacement para `1.6.4`.
 
 ### v1.6.4 — Detección de protocolo de imagen + timer + refactor de colors
 

@@ -18,7 +18,7 @@
 //  the genuinely wide columns (descriptions) absorb the loss.
 // ─────────────────────────────────────────────
 
-import { visibleLen, truncateAnsi, padEnd, wordWrap, balancedWrap } from '../utils/helpers.js';
+import { visibleLen, truncateAnsi, padEnd, wordWrap, balancedWrap, stripAnsi } from '../utils/helpers.js';
 import { color } from '../colors/index.js';
 
 export type TableBorderStyle =
@@ -106,7 +106,34 @@ export interface TableOptions {
    * @since 1.4.12
    */
   caption?: string;
+  /**
+   * **v1.6.5** — When `true`, columns whose body cells are *all* numeric are
+   * right-aligned automatically (numbers read better aligned by their units).
+   * An explicit `align[c]` always wins over auto-detection. The header row is
+   * excluded from the "is this column numeric?" check. Default `false`.
+   *
+   * Recognizes integers, decimals, thousands separators, leading sign, and a
+   * trailing/leading currency or `%` symbol (e.g. `-1,234.50`, `$99`, `12%`).
+   *
+   * @since 1.6.5
+   */
+  autoAlignNumbers?: boolean;
 }
+
+/**
+ * True when a cell's visible text is a number (optionally signed, with
+ * thousands separators, a decimal part, and a single leading/trailing
+ * currency or percent symbol). Empty cells count as numeric so a sparse
+ * numeric column still auto-aligns.
+ * @since 1.6.5
+ */
+const _isNumericCell = (raw: string): boolean => {
+  const s = stripAnsi(String(raw)).trim();
+  if (s === '') return true; // don't let blanks veto a numeric column
+  // Strip one leading/trailing currency or percent symbol, then validate.
+  const core = s.replace(/^[$€£¥]/, '').replace(/[%]$/, '').trim();
+  return /^[+-]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(core);
+};
 
 const _alignCell = (text: string, width: number, align: TableAlign): string => {
   const w = visibleLen(text);
@@ -224,7 +251,29 @@ export const table = (data: unknown[][], opts: TableOptions = {}): string => {
   const widths = _computeColumnWidths(rows, cols, padding, bordered, budget, minCol);
 
   const pad = ' '.repeat(padding);
-  const alignOf = (c: number): TableAlign => aligns[c] ?? 'left';
+
+  // v1.6.5 — detect all-numeric columns for auto right-alignment. The header
+  // row (if any) is excluded from the check; explicit align[c] still wins.
+  const numericCols: boolean[] = [];
+  if (opts.autoAlignNumbers === true) {
+    const bodyStart = hasHeader && rows.length > 1 ? 1 : 0;
+    for (let c = 0; c < cols; c++) {
+      let anyValue = false;
+      let allNumeric = true;
+      for (let r = bodyStart; r < rows.length; r++) {
+        const cell = rows[r]?.[c] ?? '';
+        if (stripAnsi(cell).trim() !== '') anyValue = true;
+        if (!_isNumericCell(cell)) { allNumeric = false; break; }
+      }
+      numericCols[c] = anyValue && allNumeric;
+    }
+  }
+
+  const alignOf = (c: number): TableAlign => {
+    if (aligns[c] !== undefined) return aligns[c] as TableAlign; // explicit wins
+    if (numericCols[c]) return 'right';
+    return 'left';
+  };
   const doWrap = opts.wrap === true;
   const wrapFn = opts.balancedWrap === true ? balancedWrap : wordWrap;
 

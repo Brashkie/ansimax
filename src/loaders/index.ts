@@ -38,6 +38,7 @@ export {
   createETA, createThroughput, createLiveRegion, createProgressGroup,
   createTimer,
   formatBytes, formatCount, formatDuration,
+  formatPercent, formatRate,
 } from './meters.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,

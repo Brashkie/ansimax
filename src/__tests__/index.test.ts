@@ -1119,3 +1119,30 @@ describe('barrel coverage — v1.6.4 re-exports', () => {
     }
   });
 });
+
+describe('barrel coverage — v1.6.5 re-exports', () => {
+  it('exposes new formatters and width detection from the main entry', async () => {
+    const main = await import('../index.js');
+    // Fase 7 — formatters
+    expect(typeof main.formatPercent).toBe('function');
+    expect(typeof main.formatRate).toBe('function');
+    expect(main.formatPercent(0.5)).toBe('50%');
+    expect(main.formatRate(1024 * 1024)).toBe('1.0 MB/s');
+    // Fase 8 — width detection
+    expect(typeof main.stringWidth).toBe('function');
+    expect(typeof main.isFullWidth).toBe('function');
+    expect(typeof main.isCombining).toBe('function');
+    expect(typeof main.isEmoji).toBe('function');
+    expect(main.stringWidth('中')).toBe(2);
+    expect(main.isFullWidth('中')).toBe(true);
+    expect(main.isEmoji('😀')).toBe(true);
+    expect(main.isCombining('\u200D')).toBe(true);
+  });
+
+  it('exposes EMA smoothing on createETA', async () => {
+    const main = await import('../index.js');
+    const eta = main.createETA({ total: 100, smoothing: 'ema' });
+    expect(typeof eta.rate).toBe('function');
+    expect(eta.progress()).toBe(0);
+  });
+});

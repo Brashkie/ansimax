@@ -68,6 +68,34 @@ export const formatDuration = (ms: number): string => {
   return `${h}h ${m % 60}m`;
 };
 
+/**
+ * Format a `[0,1]` fraction as a percentage string. `0.5` → `"50%"`,
+ * `0.1234` → `"12.3%"` at `decimals = 1`. Values are clamped to `[0,1]`;
+ * non-finite input returns `"—"`.
+ *
+ * @since 1.6.5
+ */
+export const formatPercent = (fraction: number, decimals = 0): string => {
+  if (!Number.isFinite(fraction)) return '—';
+  const clamped = Math.max(0, Math.min(1, fraction));
+  return `${(clamped * 100).toFixed(decimals)}%`;
+};
+
+/**
+ * Format a per-second rate with an auto-scaled unit and a `/s` suffix.
+ * `unit: 'bytes'` (default) → `"1.5 MB/s"`; `unit: 'count'` → `"1.5K/s"`;
+ * a custom `unit` string is appended verbatim → `formatRate(1200, 'req')`
+ * → `"1.2K req/s"`. Non-finite or negative input returns `"—"`.
+ *
+ * @since 1.6.5
+ */
+export const formatRate = (perSecond: number, unit: 'bytes' | 'count' | string = 'bytes'): string => {
+  if (!Number.isFinite(perSecond) || perSecond < 0) return '—';
+  if (unit === 'bytes') return `${formatBytes(perSecond)}/s`;
+  if (unit === 'count') return `${formatCount(perSecond)}/s`;
+  return `${formatCount(perSecond)} ${unit}/s`;
+};
+
 // ─────────────────────────────────────────────
 //  ETA estimator — rolling average of recent rate
 // ─────────────────────────────────────────────
@@ -77,9 +105,28 @@ export interface ETAOptions {
   total: number;
   /**
    * How many recent samples to average over. Larger = smoother but slower
-   * to react to speed changes. Default `10`.
+   * to react to speed changes. Default `10`. (Used by the `'window'`
+   * smoothing mode.)
    */
   window?: number;
+  /**
+   * Rate-smoothing strategy:
+   * - `'window'` (default) — simple rolling average over `window` samples;
+   *   robust to short spikes but slow to react to sustained speed changes.
+   * - `'ema'` — exponential moving average of the instantaneous rate;
+   *   reacts faster to real speed changes while still filtering jitter.
+   *
+   * @since 1.6.5
+   */
+  smoothing?: 'window' | 'ema';
+  /**
+   * EMA smoothing factor in `(0,1]`, used when `smoothing: 'ema'`. Higher =
+   * more responsive (weights recent samples more); lower = smoother. Default
+   * `0.3`.
+   *
+   * @since 1.6.5
+   */
+  alpha?: number;
 }
 
 export interface ETA {
@@ -117,11 +164,19 @@ export interface ETA {
 export const createETA = (opts: ETAOptions): ETA => {
   const total = Math.max(0, opts.total);
   const window = Math.max(2, Math.floor(opts.window ?? 10));
+  const mode = opts.smoothing ?? 'window';
+  // Clamp alpha into (0,1]; default 0.3 is a good responsiveness/smoothness balance.
+  const alpha = Math.max(0.01, Math.min(1, opts.alpha ?? 0.3));
   // Ring buffer of { t: ms timestamp, value: absolute completed }.
   let samples: Array<{ t: number; value: number }> = [];
   let current = 0;
+  // EMA state — the smoothed rate, and the previous sample for instantaneous rate.
+  let emaRate = 0;
+  let emaStarted = false;
+  let prev: { t: number; value: number } | null = null;
 
-  const rate = (): number => {
+  // Simple rolling-average rate over the sample window.
+  const windowRate = (): number => {
     if (samples.length < 2) return 0;
     const first = samples[0]!;
     const last = samples[samples.length - 1]!;
@@ -131,11 +186,27 @@ export const createETA = (opts: ETAOptions): ETA => {
     return dv / dt;
   };
 
+  const rate = (): number => (mode === 'ema' ? emaRate : windowRate());
+
   return {
     update(value: number): void {
       current = value;
-      samples.push({ t: Date.now(), value });
+      const now = Date.now();
+      samples.push({ t: now, value });
       if (samples.length > window) samples = samples.slice(-window);
+
+      // EMA: fold the instantaneous rate since the previous sample into the
+      // smoothed estimate. Skip non-positive intervals/deltas (no progress).
+      if (mode === 'ema' && prev) {
+        const dt = (now - prev.t) / 1000;
+        const dv = value - prev.value;
+        if (dt > 0 && dv >= 0) {
+          const instant = dv / dt;
+          if (!emaStarted) { emaRate = instant; emaStarted = true; }
+          else emaRate = alpha * instant + (1 - alpha) * emaRate;
+        }
+      }
+      prev = { t: now, value };
     },
     remainingMs(): number {
       const r = rate();
@@ -155,6 +226,9 @@ export const createETA = (opts: ETAOptions): ETA => {
     reset(): void {
       samples = [];
       current = 0;
+      emaRate = 0;
+      emaStarted = false;
+      prev = null;
     },
   };
 };

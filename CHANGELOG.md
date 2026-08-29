@@ -3,6 +3,61 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.5] — Unicode width detection + ETA smoothing + numeric table alignment
+
+Advances Phase 8 (Unicode width detection), improves Phase 7 (rate formatters +
+an EMA ETA mode), and refines Phase 4 (auto-aligned numeric columns). All
+additive — zero breaking changes.
+
+### Added — Public Unicode width detection (Phase 8)
+
+Exposes the width machinery `charWidth`/`visibleLen` already use internally,
+plus per-character classifiers (same tables, nothing duplicated):
+
+```js
+import { stringWidth, isFullWidth, isEmoji, isCombining } from 'ansimax';
+
+stringWidth('中文');     // 4 (wide chars = 2 cells each, ANSI ignored)
+isFullWidth('가');       // true  (CJK / Hangul / fullwidth)
+isEmoji('😀');           // true
+isCombining('\u200D');   // true  (ZWJ, combining marks, VS16)
+```
+
+### Added — Rate formatters (Phase 7)
+
+- `formatPercent(fraction, decimals=0)` — `0.5` → `"50%"`; clamps to `[0,1]`
+- `formatRate(perSecond, unit='bytes')` — `"1.5 MB/s"`, `"1.5K/s"`, or a
+  custom unit like `"1.2K req/s"`
+
+### Added — EMA smoothing for ETA (Phase 7)
+
+`createETA` gains a `smoothing` option. The default `'window'` (simple rolling
+average) is unchanged; the new `'ema'` mode uses an exponential moving average
+of the instantaneous rate, which reacts faster to sustained speed changes
+while still filtering jitter:
+
+```js
+createETA({ total: 1000, smoothing: 'ema', alpha: 0.3 });
+```
+
+`alpha` (default `0.3`, clamped to `(0,1]`) tunes responsiveness — higher
+weights recent samples more.
+
+### Added — Auto-aligned numeric table columns (Phase 4)
+
+`ascii.table({ autoAlignNumbers: true })` right-aligns columns whose body
+cells are all numeric, so figures line up by their units. Recognizes signed,
+decimal, thousands-separated, currency, and percent values. Explicit
+`align[c]` always wins; the header row is excluded from the check.
+
+### Notes
+
+- Width detection reuses the existing width tables — no duplication
+- Default ETA behavior unchanged (opt into `'ema'`); table alignment is opt-in
+- `+40` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.4] — Image protocol detection + elapsed timer + colors refactor
 
 Advances Phase 8 (capability detection) with inline-image protocol detection,

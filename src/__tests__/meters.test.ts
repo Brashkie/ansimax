@@ -1,7 +1,7 @@
 import {
   createETA, createThroughput, createLiveRegion, createProgressGroup,
   createTimer,
-  formatBytes, formatCount, formatDuration,
+  formatBytes, formatCount, formatDuration, formatPercent, formatRate,
 } from '../loaders/meters.js';
 
 // Small helper: advance real time a little between samples.
@@ -469,5 +469,85 @@ describe('createTimer (v1.6.4)', () => {
     t.stop();
     expect(typeof t.formatted()).toBe('string');
     expect(t.formatted().length).toBeGreaterThan(0);
+  });
+});
+
+describe('formatPercent (v1.6.5)', () => {
+  it('formats a [0,1] fraction as a percentage', () => {
+    expect(formatPercent(0.5)).toBe('50%');
+    expect(formatPercent(0)).toBe('0%');
+    expect(formatPercent(1)).toBe('100%');
+  });
+  it('honors decimals', () => {
+    expect(formatPercent(0.1234, 1)).toBe('12.3%');
+  });
+  it('clamps out-of-range input', () => {
+    expect(formatPercent(1.5)).toBe('100%');
+    expect(formatPercent(-0.2)).toBe('0%');
+  });
+  it('returns em dash for non-finite input', () => {
+    expect(formatPercent(NaN)).toBe('—');
+    expect(formatPercent(Infinity)).toBe('—');
+  });
+});
+
+describe('formatRate (v1.6.5)', () => {
+  it('formats a byte rate by default', () => {
+    expect(formatRate(1024 * 1024)).toBe('1.0 MB/s');
+  });
+  it('formats a count rate', () => {
+    expect(formatRate(1500, 'count')).toBe('1.5K/s');
+  });
+  it('formats a custom-unit rate', () => {
+    expect(formatRate(1200, 'req')).toBe('1.2K req/s');
+  });
+  it('returns em dash for negative or non-finite input', () => {
+    expect(formatRate(-5)).toBe('—');
+    expect(formatRate(NaN)).toBe('—');
+  });
+});
+
+describe('createETA EMA smoothing (v1.6.5)', () => {
+  const wait = (ms: number) => new Promise<void>((r) => setTimeout(() => r(), ms));
+
+  it('EMA mode produces a positive rate and finite ETA', async () => {
+    const eta = createETA({ total: 1000, smoothing: 'ema', alpha: 0.5 });
+    eta.update(0);
+    await wait(30);
+    eta.update(100);
+    await wait(30);
+    eta.update(200);
+    expect(eta.rate()).toBeGreaterThan(0);
+    expect(Number.isFinite(eta.remainingMs())).toBe(true);
+  });
+
+  it('EMA reacts faster than window average to a speed increase', async () => {
+    // Feed a slow phase, then a fast phase; EMA should track closer to the
+    // new (faster) rate than the window average, which is dragged by old
+    // slow samples.
+    const win = createETA({ total: 100000, smoothing: 'window', window: 10 });
+    const ema = createETA({ total: 100000, smoothing: 'ema', alpha: 0.6 });
+    let v = 0;
+    for (let i = 0; i < 5; i++) { v += 10; win.update(v); ema.update(v); await wait(20); }
+    for (let i = 0; i < 5; i++) { v += 40; win.update(v); ema.update(v); await wait(20); }
+    // Both positive; EMA's rate should be >= the window's after acceleration.
+    expect(ema.rate()).toBeGreaterThanOrEqual(win.rate());
+  });
+
+  it('reset clears EMA state', async () => {
+    const eta = createETA({ total: 100, smoothing: 'ema' });
+    eta.update(0);
+    await wait(20);
+    eta.update(50);
+    eta.reset();
+    expect(eta.rate()).toBe(0);
+    expect(eta.progress()).toBe(0);
+  });
+
+  it('defaults to window smoothing when unspecified', () => {
+    const eta = createETA({ total: 100 });
+    eta.update(10);
+    // With one sample the window rate is 0 (needs 2); exercises the default path.
+    expect(eta.rate()).toBe(0);
   });
 });

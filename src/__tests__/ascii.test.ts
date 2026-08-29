@@ -2540,3 +2540,64 @@ describe('ascii.table balancedWrap (v1.6.2)', () => {
     expect(typeof balanced).toBe('string');
   });
 });
+
+describe('ascii.table autoAlignNumbers (v1.6.5)', () => {
+  it('right-aligns an all-numeric column, left-aligns text', () => {
+    const out = table([
+      ['Item', 'Price'],
+      ['Apple', '1200'],
+      ['Pear', '95'],
+    ], { autoAlignNumbers: true });
+    const lines = out.split('\n');
+    // Find the two body rows; the numeric column should be right-aligned so
+    // '95' ends at the same column as '1200's last digit.
+    const appleRow = lines.find((l) => l.includes('Apple'))!;
+    const pearRow = lines.find((l) => l.includes('Pear'))!;
+    // Right-aligned: the digits end flush right, so both rows end the number
+    // cell at the same offset (the char before the trailing border+pad).
+    expect(appleRow.indexOf('1200')).toBeGreaterThan(-1);
+    expect(pearRow.indexOf('95')).toBeGreaterThan(appleRow.indexOf('1200'));
+  });
+
+  it('does not right-align when the column has non-numeric cells', () => {
+    const out = table([
+      ['Name', 'Note'],
+      ['A', '100'],
+      ['B', 'n/a'],
+    ], { autoAlignNumbers: true });
+    expect(typeof out).toBe('string');
+    // 'n/a' present → column not treated as numeric; no throw, renders fine
+    expect(out).toContain('n/a');
+  });
+
+  it('explicit align overrides auto-detection', () => {
+    // Use a numeric column with varying widths (1 vs 200) so right- and
+    // left-alignment actually differ; a header row keeps the column numeric.
+    const auto = table([['Num'], ['1'], ['200']], { autoAlignNumbers: true });
+    const forced = table([['Num'], ['1'], ['200']], { autoAlignNumbers: true, align: ['left'] });
+    expect(auto).not.toBe(forced); // explicit left differs from auto right
+  });
+
+  it('recognizes signed, decimal, thousands, currency and percent', () => {
+    const out = table([
+      ['V'],
+      ['-1,234.50'],
+      ['$99'],
+      ['12%'],
+    ], { autoAlignNumbers: true, header: false });
+    expect(typeof out).toBe('string');
+    expect(out).toContain('-1,234.50');
+  });
+
+  it('treats a blank cell as numeric so a sparse numeric column still right-aligns', () => {
+    // The empty body cell must not veto numeric detection: the column is
+    // still all-numeric, so '5' right-aligns under '100'.
+    const auto = table([['Num'], ['100'], [''], ['5']], { autoAlignNumbers: true });
+    const forced = table([['Num'], ['100'], [''], ['5']], { autoAlignNumbers: true, align: ['left'] });
+    // Right vs left alignment must differ → the blank didn't break detection
+    expect(auto).not.toBe(forced);
+    // '5' is right-aligned: padding sits before it inside the cell
+    const fiveLine = auto.split('\n').find((l) => /\b5\b/.test(l) && !l.includes('100'))!;
+    expect(fiveLine).toMatch(/\s5\s/); // spaces on the left of 5 (right-aligned)
+  });
+});

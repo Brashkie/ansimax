@@ -711,6 +711,59 @@ export const visibleLen = (str: string): number => {
 };
 
 // ─────────────────────────────────────────────
+//  v1.6.5 — public Unicode width detection (Phase 8)
+//
+//  These expose the width machinery that `charWidth`/`visibleLen` already
+//  use internally, plus per-character classifiers. Same tables — nothing
+//  is duplicated; this is the public "width detection" surface.
+// ─────────────────────────────────────────────
+
+/**
+ * Public alias for the ANSI-aware, grapheme-aware display width of a string
+ * (the number of terminal cells it occupies). Wide CJK and emoji count as 2,
+ * combining marks and zero-width joiners as 0. ANSI escapes are ignored.
+ *
+ * @since 1.6.5
+ */
+export const stringWidth = (str: string): number => visibleLen(str);
+
+/**
+ * True when the first character of `char` is East-Asian fullwidth / wide
+ * (CJK ideographs, Hangul, fullwidth forms) — i.e. occupies 2 cells.
+ *
+ * @since 1.6.5
+ */
+export const isFullWidth = (char: string): boolean => {
+  if (!char) return false;
+  const c = [...char][0] ?? '';
+  return WIDE_RE.test(c) || EMOJI_RE.test(c);
+};
+
+/**
+ * True when the first character of `char` is a zero-width combining mark,
+ * joiner, or variation selector (occupies 0 cells).
+ *
+ * @since 1.6.5
+ */
+export const isCombining = (char: string): boolean => {
+  if (!char) return false;
+  const c = [...char][0] ?? '';
+  return c === ZWJ || c === VS16 || COMBINING_RE.test(c);
+};
+
+/**
+ * True when the first character of `char` is an emoji (per the width tables,
+ * these render as 2 cells).
+ *
+ * @since 1.6.5
+ */
+export const isEmoji = (char: string): boolean => {
+  if (!char) return false;
+  const c = [...char][0] ?? '';
+  return EMOJI_RE.test(c);
+};
+
+// ─────────────────────────────────────────────
 //  ANSI-safe slicing
 //
 //  sliceAnsi(str, start, end) returns the substring spanning visible

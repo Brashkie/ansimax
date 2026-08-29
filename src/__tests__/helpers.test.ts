@@ -1,6 +1,7 @@
 import {
   isHexColor, truncateAnsi, repeatVisible, rgbTo256,
   charWidth, graphemes, sliceAnsi, wrapAnsi, gradientColor,
+  stringWidth, isFullWidth, isCombining, isEmoji,
   onResize, debounce, throttle, requestTerminalFrame, cancelTerminalFrame,
   memoize, diffLines, termSize,
   clamp, lerp, hexToRgb, rgbToHex, lerpColor,
@@ -1916,5 +1917,34 @@ describe('color contrast + a11y (v1.6.3)', () => {
     expect(meetsContrast(black, white)).toBe(true);         // 21:1
     expect(meetsContrast(white, white)).toBe(false);        // 1:1
     expect(meetsContrast({ r: 119, g: 119, b: 119 }, white, 3)).toBe(true); // ~4.48 ≥ 3
+  });
+});
+
+describe('Unicode width detection (v1.6.5)', () => {
+  it('stringWidth counts wide chars as 2 and ignores ANSI', () => {
+    expect(stringWidth('中文')).toBe(4);
+    expect(stringWidth('ab')).toBe(2);
+    expect(stringWidth('\u001b[31mab\u001b[0m')).toBe(2);
+  });
+
+  it('isFullWidth is true for CJK and Hangul, false for latin', () => {
+    expect(isFullWidth('中')).toBe(true);
+    expect(isFullWidth('가')).toBe(true);
+    expect(isFullWidth('A')).toBe(false);
+    expect(isFullWidth('')).toBe(false);
+  });
+
+  it('isEmoji distinguishes emoji from text', () => {
+    expect(isEmoji('😀')).toBe(true);
+    expect(isEmoji('A')).toBe(false);
+    expect(isEmoji('')).toBe(false);
+  });
+
+  it('isCombining detects combining marks, ZWJ, and VS16', () => {
+    expect(isCombining('\u0301')).toBe(true); // combining acute
+    expect(isCombining('\u200D')).toBe(true); // ZWJ
+    expect(isCombining('\uFE0F')).toBe(true); // VS16
+    expect(isCombining('A')).toBe(false);
+    expect(isCombining('')).toBe(false);
   });
 });
