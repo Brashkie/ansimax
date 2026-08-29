@@ -7,7 +7,7 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.5'));
+console.log(components.badge('VERSION', 'v1.6.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -965,7 +965,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 ### 🔴 Fase 10 — Charts de terminal
 - [ ] Barras (horizontal + vertical, agrupadas, apiladas)
 - [ ] Líneas (con braille para resolución sub-carácter)
-- [ ] Sparklines (mini-charts inline para status bars)
+- [x] Sparklines (mini-charts inline para status bars) (v1.6.6)
 - [ ] Áreas (rellenas con gradientes)
 - [ ] Heatmaps (grids 2D color-mapped)
 - [ ] Pie / donut (con etiquetas de porcentaje)
@@ -1094,6 +1094,24 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.6 — Charts inline (comienza Fase 10) + easings escalonados
+
+- 📊 **Charts inline** — `sparkline`, `bar`, `histogram` (además del namespace `chart`)
+- 🪜 **Easings escalonados** — `steps(n, position)`, `stepStart`, `stepEnd` (estilo CSS `steps()`)
+- 〰️ **Easings smoothstep** — `smoothStep`, `smootherStep` (curvas S de shader)
+- 🧪 **+45 tests**
+
+```js
+import { sparkline, bar, histogram, steps } from 'ansimax';
+
+sparkline([1, 5, 2, 8, 3, 7, 9, 4]);   // '▁▅▂▇▃▆█▄'
+bar(0.66, { width: 12 });               // precisión de octavos de celda
+histogram([{ label: 'GET', value: 1240 }, { label: 'POST', value: 430 }]);
+steps(4);                               // easing escalonado
+```
+
+Drop-in replacement para `1.6.5`.
 
 ### v1.6.5 — Detección de ancho Unicode + suavizado de ETA + alineación numérica
 

@@ -1146,3 +1146,31 @@ describe('barrel coverage — v1.6.5 re-exports', () => {
     expect(eta.progress()).toBe(0);
   });
 });
+
+describe('barrel coverage — v1.6.6 re-exports', () => {
+  it('exposes charts and new easings from the main entry', async () => {
+    const main = await import('../index.js');
+    // Fase 10 — charts
+    expect(typeof main.sparkline).toBe('function');
+    expect(typeof main.bar).toBe('function');
+    expect(typeof main.histogram).toBe('function');
+    expect([...main.sparkline([0, 4, 8], { min: 0, max: 8 })]).toHaveLength(3);
+    expect(main.bar(1, { width: 4 })).toBe('████');
+    // Fase 6 — easings
+    expect(typeof main.steps).toBe('function');
+    expect(typeof main.stepStart).toBe('function');
+    expect(typeof main.stepEnd).toBe('function');
+    expect(typeof main.smoothStep).toBe('function');
+    expect(typeof main.smootherStep).toBe('function');
+    expect(main.steps(4)(0.5)).toBe(0.5);
+    expect(main.smoothStep(0.5)).toBeCloseTo(0.5, 10);
+  });
+
+  it('exposes the chart namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { chart: Record<string, unknown> }).chart;
+    expect(typeof ns.sparkline).toBe('function');
+    expect(typeof ns.bar).toBe('function');
+    expect(typeof ns.histogram).toBe('function');
+  });
+});

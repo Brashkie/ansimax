@@ -72,6 +72,11 @@ export type {
 } from './ascii/index.js';
 
 export { loader, resetLoaderCursorCount } from './loaders/index.js';
+// v1.6.6 — Phase 10: inline mini-charts
+export { sparkline, bar, histogram } from './charts/index.js';
+export type {
+  SparklineOptions, BarOptions, HistogramRow, HistogramOptions,
+} from './charts/index.js';
 export type {
   SpinnerType, SpinOptions, ProgressOptions, ProgressAnimateOptions,
   Task, TaskResult, TasksOptions,
@@ -255,7 +260,9 @@ export type {
 
 // v1.3.5 — Easing curves (Robert Penner library)
 export { easings, resolveEasingByName } from './utils/easing.js';
-export type { EasingFunction, EasingLibraryName } from './utils/easing.js';
+// v1.6.6 — stepped + preset easings
+export { steps, stepStart, stepEnd, smoothStep, smootherStep } from './utils/easing.js';
+export type { EasingFunction, EasingLibraryName, StepPosition } from './utils/easing.js';
 
 // v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL
 export {
@@ -287,6 +294,9 @@ import {
   pinoShim as _pinoShim, winstonTransport as _winstonT,
 } from './logger/index.js';
 import { tweenEngine as _tweenNs } from './tween/index.js';
+// v1.6.6 — Phase 10 charts namespace
+import { sparkline as _spark, bar as _bar, histogram as _histo } from './charts/index.js';
+const chartNs = { sparkline: _spark, bar: _bar, histogram: _histo };
 
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
@@ -310,6 +320,8 @@ const ansimax = {
   logger: loggerNs,
   // v1.5.0
   tween: _tweenNs,
+  // v1.6.6
+  chart: chartNs,
 };
 export default ansimax;
 

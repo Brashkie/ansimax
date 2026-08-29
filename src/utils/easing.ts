@@ -168,3 +168,61 @@ export const resolveEasingByName = (
   }
   return easings.linear;
 };
+
+// ─────────────────────────────────────────────
+//  v1.6.6 — stepped + preset easings (Phase 6)
+// ─────────────────────────────────────────────
+
+/** Direction for the {@link steps} easing, mirroring CSS `steps()`. */
+export type StepPosition = 'start' | 'end';
+
+/**
+ * A stepped (staircase) easing, like CSS `steps(n, position)`. Instead of a
+ * smooth curve, progress jumps in `n` discrete increments — useful for
+ * "typewriter" / retro / mechanical motion, or snapping a value to a grid.
+ *
+ * - `'end'` (default): the jump happens at the *end* of each step, so `t=0`
+ *   yields `0` and the final step completes at `t=1`.
+ * - `'start'`: the jump happens at the *start* of each step, so progress
+ *   leaps immediately and reaches `1` before `t=1`.
+ *
+ * @param n         number of steps (≥ 1)
+ * @param position  where the jump occurs within each step. Default `'end'`.
+ * @since 1.6.6
+ */
+export const steps = (n: number, position: StepPosition = 'end'): EasingFunction => {
+  const count = Math.max(1, Math.floor(n));
+  return (t: number): number => {
+    const clamped = Math.max(0, Math.min(1, t));
+    if (position === 'start') {
+      return Math.min(1, Math.ceil(clamped * count) / count);
+    }
+    // 'end'
+    return Math.floor(clamped * count) / count;
+  };
+};
+
+/** Single hard jump at the start (`steps(1, 'start')`). @since 1.6.6 */
+export const stepStart: EasingFunction = steps(1, 'start');
+/** Single hard jump at the end (`steps(1, 'end')`). @since 1.6.6 */
+export const stepEnd: EasingFunction = steps(1, 'end');
+
+/**
+ * Smoothstep (Hermite) easing — the classic `3t² − 2t³` S-curve used in
+ * shaders. Gentler than `easeInOutCubic`, with zero first-derivative at both
+ * ends. @since 1.6.6
+ */
+export const smoothStep: EasingFunction = (t) => {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * (3 - 2 * c);
+};
+
+/**
+ * Smootherstep (Ken Perlin's variant) — `6t⁵ − 15t⁴ + 10t³`. Even smoother
+ * than {@link smoothStep}, with zero first *and* second derivatives at the
+ * ends. @since 1.6.6
+ */
+export const smootherStep: EasingFunction = (t) => {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * c * (c * (c * 6 - 15) + 10);
+};

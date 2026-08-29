@@ -3,6 +3,61 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.6] — Inline charts (Phase 10 begins) + stepped easings
+
+Opens Phase 10 (terminal charts) with inline mini-charts, and adds stepped +
+smoothstep easings to Phase 6. All additive — zero breaking changes.
+
+### Added — Inline mini-charts (Phase 10)
+
+A new `charts` module (also the `chart` namespace on the default export). Each
+function returns a string — no stdout ownership — so you can drop them into
+status bars, table cells, or log lines:
+
+```js
+import { sparkline, bar, histogram } from 'ansimax';
+
+sparkline([1, 5, 2, 8, 3, 7, 9, 4]);        // '▁▅▂▇▃▆█▄'
+bar(0.66, { width: 12 });                    // eighth-cell precision
+histogram([
+  { label: 'GET',  value: 1240 },
+  { label: 'POST', value: 430 },
+]);                                          // aligned, scaled bars
+```
+
+- `sparkline(values, { min, max, colorFn })` — one line of `▁▂▃▄▅▆▇█`;
+  non-finite entries render as gaps, flat series sit at the lowest tick
+- `bar(fraction, { width, emptyChar, colorFn })` — horizontal bar with
+  eighth-cell (`▏▎▍▌▋▊▉`) sub-character precision; clamps to `[0,1]`
+- `histogram(rows, { width, showValue, colorFn })` — labelled rows scaled to
+  the max value, with aligned labels and optional value readouts
+- All accept an optional `colorFn` so color stays opt-in and the module
+  itself is dependency-free
+
+### Added — Stepped + smoothstep easings (Phase 6)
+
+```js
+import { steps, stepStart, stepEnd, smoothStep, smootherStep } from 'ansimax';
+
+steps(4);            // staircase easing, CSS steps(4, end)
+steps(5, 'start');   // jump at the start of each step
+smoothStep;          // 3t² − 2t³ Hermite S-curve
+smootherStep;        // 6t⁵ − 15t⁴ + 10t³ (Perlin)
+```
+
+- `steps(n, position)` — discrete staircase easing (retro/mechanical motion),
+  mirroring CSS `steps()`; `stepStart` / `stepEnd` are the single-jump presets
+- `smoothStep` / `smootherStep` — the classic shader S-curves, joining the
+  31-easing library
+
+### Notes
+
+- Charts are pure string builders — compose them anywhere, color them with
+  your own `color`/`gradient`
+- `+45` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.5] — Unicode width detection + ETA smoothing + numeric table alignment
 
 Advances Phase 8 (Unicode width detection), improves Phase 7 (rate formatters +

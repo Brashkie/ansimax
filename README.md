@@ -7,7 +7,7 @@
 _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • Components • Themes_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.5-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
 [![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● ready'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.5'));
+console.log(components.badge('VERSION', 'v1.6.6'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -970,9 +970,9 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
 
 ### 🔴 Phase 10 — Terminal charts
-- [ ] Bar charts (horizontal + vertical, grouped, stacked)
+- [~] Bar charts (horizontal + vertical, grouped, stacked) — horizontal bar + histogram (v1.6.6)
 - [ ] Line charts (with braille for sub-character resolution)
-- [ ] Sparklines (inline mini-charts for status bars)
+- [x] Sparklines (inline mini-charts for status bars) (v1.6.6)
 - [ ] Area charts (filled with gradients)
 - [ ] Heatmaps (color-mapped 2D grids)
 - [ ] Pie / donut charts (with percentage labels)
@@ -1098,6 +1098,24 @@ ansimax/
 ---
 
 ## 📝 Changelog
+
+### v1.6.6 — Inline charts (Phase 10 begins) + stepped easings
+
+- 📊 **Inline charts** — `sparkline`, `bar`, `histogram` (also the `chart` namespace)
+- 🪜 **Stepped easings** — `steps(n, position)`, `stepStart`, `stepEnd` (CSS `steps()` style)
+- 〰️ **Smoothstep easings** — `smoothStep`, `smootherStep` (shader S-curves)
+- 🧪 **+45 tests**
+
+```js
+import { sparkline, bar, histogram, steps } from 'ansimax';
+
+sparkline([1, 5, 2, 8, 3, 7, 9, 4]);   // '▁▅▂▇▃▆█▄'
+bar(0.66, { width: 12 });               // eighth-cell precision
+histogram([{ label: 'GET', value: 1240 }, { label: 'POST', value: 430 }]);
+steps(4);                               // staircase easing
+```
+
+Drop-in replacement for `1.6.5`.
 
 ### v1.6.5 — Unicode width detection + ETA smoothing + numeric table alignment
 

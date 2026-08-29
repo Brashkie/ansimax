@@ -1,4 +1,5 @@
 import { easings, resolveEasingByName, EasingFunction } from '../utils/easing.js';
+import { steps, stepStart, stepEnd, smoothStep, smootherStep } from '../utils/easing.js';
 
 describe('easings library (v1.3.5)', () => {
   describe('endpoint preservation', () => {
@@ -183,5 +184,74 @@ describe('resolveEasingByName (v1.3.5)', () => {
     expect(resolveEasingByName(42)).toBe(easings.linear);
     // @ts-expect-error testing defensive behavior
     expect(resolveEasingByName({})).toBe(easings.linear);
+  });
+});
+
+describe('steps easing (v1.6.6)', () => {
+  it('steps(end) jumps at the end of each step', () => {
+    const s = steps(4, 'end');
+    expect(s(0)).toBe(0);
+    expect(s(0.1)).toBe(0);
+    expect(s(0.25)).toBe(0.25);
+    expect(s(0.4)).toBe(0.25);
+    expect(s(0.5)).toBe(0.5);
+    expect(s(1)).toBe(1);
+  });
+
+  it('steps(start) jumps at the start of each step', () => {
+    const s = steps(4, 'start');
+    expect(s(0)).toBe(0);
+    expect(s(0.01)).toBe(0.25);
+    expect(s(0.25)).toBe(0.25);
+    expect(s(1)).toBe(1);
+  });
+
+  it('defaults to end position', () => {
+    expect(steps(2)(0.4)).toBe(steps(2, 'end')(0.4));
+  });
+
+  it('clamps the step count to at least 1', () => {
+    const s = steps(0);
+    expect(s(0.5)).toBe(0);
+    expect(s(1)).toBe(1);
+  });
+
+  it('clamps t to [0,1]', () => {
+    const s = steps(4);
+    expect(s(-1)).toBe(0);
+    expect(s(2)).toBe(1);
+  });
+
+  it('stepStart and stepEnd are single hard jumps', () => {
+    expect(stepStart(0)).toBe(0);
+    expect(stepStart(0.01)).toBe(1);
+    expect(stepEnd(0.99)).toBe(0);
+    expect(stepEnd(1)).toBe(1);
+  });
+});
+
+describe('smoothStep / smootherStep (v1.6.6)', () => {
+  it('both hit the endpoints and midpoint exactly', () => {
+    for (const fn of [smoothStep, smootherStep]) {
+      expect(fn(0)).toBe(0);
+      expect(fn(1)).toBe(1);
+      expect(fn(0.5)).toBeCloseTo(0.5, 10);
+    }
+  });
+
+  it('are monotonic across the range', () => {
+    for (const fn of [smoothStep, smootherStep]) {
+      let prev = -1;
+      for (let t = 0; t <= 1.0001; t += 0.1) {
+        const v = fn(t);
+        expect(v).toBeGreaterThanOrEqual(prev);
+        prev = v;
+      }
+    }
+  });
+
+  it('clamp out-of-range input', () => {
+    expect(smoothStep(-1)).toBe(0);
+    expect(smootherStep(2)).toBe(1);
   });
 });
