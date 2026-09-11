@@ -226,3 +226,81 @@ export const smootherStep: EasingFunction = (t) => {
   const c = Math.max(0, Math.min(1, t));
   return c * c * c * (c * (c * 6 - 15) + 10);
 };
+
+// ─────────────────────────────────────────────
+//  v1.6.7 — cubic-bezier easing factory (Phase 6)
+// ─────────────────────────────────────────────
+
+/**
+ * Build an easing function from a cubic Bézier curve, exactly like CSS
+ * `cubic-bezier(x1, y1, x2, y2)`. The curve runs from `(0,0)` to `(1,1)`
+ * with two control points `(x1,y1)` and `(x2,y2)`; `x` must stay in `[0,1]`
+ * (a monotonic time axis) while `y` may overshoot for anticipation/overshoot
+ * effects.
+ *
+ * For a given input `t` (time), it solves for the curve parameter whose `x`
+ * equals `t` (Newton–Raphson with a bisection fallback), then returns that
+ * point's `y`. Presets like `easeInOutCubic` correspond to specific control
+ * points; this factory covers every curve in between.
+ *
+ * @example
+ * ```js
+ * import { cubicBezier } from 'ansimax';
+ *
+ * const ease = cubicBezier(0.25, 0.1, 0.25, 1);   // CSS "ease"
+ * const snap = cubicBezier(0.68, -0.55, 0.27, 1.55); // overshoot both ends
+ * ```
+ *
+ * @since 1.6.7
+ */
+export const cubicBezier = (
+  x1: number, y1: number, x2: number, y2: number,
+): EasingFunction => {
+  // Clamp the x control points to [0,1] so the time axis stays monotonic.
+  const cx1 = Math.max(0, Math.min(1, x1));
+  const cx2 = Math.max(0, Math.min(1, x2));
+
+  // Bézier basis (P0=0, P3=1) expressed as polynomial coefficients.
+  const bezier = (a: number, b: number, u: number): number => {
+    // B(u) = 3(1-u)²·u·a + 3(1-u)·u²·b + u³
+    const mu = 1 - u;
+    return 3 * mu * mu * u * a + 3 * mu * u * u * b + u * u * u;
+  };
+  const bezierPrime = (a: number, b: number, u: number): number => {
+    // dB/du
+    const mu = 1 - u;
+    return 3 * mu * mu * a + 6 * mu * u * (b - a) + 3 * u * u * (1 - b);
+  };
+
+  // Solve bezier_x(u) = t for u, then return bezier_y(u).
+  const solveU = (t: number): number => {
+    let u = t; // good initial guess since x≈t for gentle curves
+    // Newton–Raphson
+    for (let i = 0; i < 8; i++) {
+      const x = bezier(cx1, cx2, u) - t;
+      if (Math.abs(x) < 1e-6) return u;
+      const dx = bezierPrime(cx1, cx2, u);
+      /* istanbul ignore next — defensive divide-by-zero guard: for a monotonic x-axis curve, Newton either converges or overshoots; it never lands exactly on a zero-derivative point, so the bisection fallback below is reached via loop exhaustion, not this break */
+      if (Math.abs(dx) < 1e-6) break; // derivative too flat — fall back
+      u -= x / dx;
+    }
+    // Bisection fallback for robustness
+    let lo = 0, hi = 1;
+    u = t;
+    for (let i = 0; i < 20; i++) {
+      const x = bezier(cx1, cx2, u);
+      if (Math.abs(x - t) < 1e-6) break;
+      if (x < t) lo = u; else hi = u;
+      u = (lo + hi) / 2;
+    }
+    return u;
+  };
+
+  return (t: number): number => {
+    const clamped = Math.max(0, Math.min(1, t));
+    if (clamped === 0) return 0;
+    if (clamped === 1) return 1;
+    const u = solveU(clamped);
+    return bezier(y1, y2, u); // y may overshoot [0,1] for anticipation
+  };
+};

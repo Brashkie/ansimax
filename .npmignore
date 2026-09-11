@@ -16,6 +16,7 @@ test/
 examples/
 demo/
 scripts/
+easing.test.ts
 
 # ─────────────────────────────────────────────
 #  Config files

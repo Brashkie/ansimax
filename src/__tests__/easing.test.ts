@@ -1,5 +1,5 @@
 import { easings, resolveEasingByName, EasingFunction } from '../utils/easing.js';
-import { steps, stepStart, stepEnd, smoothStep, smootherStep } from '../utils/easing.js';
+import { steps, stepStart, stepEnd, smoothStep, smootherStep, cubicBezier } from '../utils/easing.js';
 
 describe('easings library (v1.3.5)', () => {
   describe('endpoint preservation', () => {
@@ -253,5 +253,61 @@ describe('smoothStep / smootherStep (v1.6.6)', () => {
   it('clamp out-of-range input', () => {
     expect(smoothStep(-1)).toBe(0);
     expect(smootherStep(2)).toBe(1);
+  });
+});
+
+describe('cubicBezier (v1.6.7)', () => {
+  it('the linear curve (0,0,1,1) is the identity', () => {
+    const lin = cubicBezier(0, 0, 1, 1);
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(lin(t)).toBeCloseTo(t, 3);
+    }
+  });
+
+  it('hits the endpoints exactly', () => {
+    const ease = cubicBezier(0.25, 0.1, 0.25, 1);
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+  });
+
+  it('is monotonic in time for a standard ease', () => {
+    const ease = cubicBezier(0.25, 0.1, 0.25, 1);
+    let prev = -1;
+    for (let t = 0; t <= 1.0001; t += 0.1) {
+      const v = ease(t);
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = v;
+    }
+  });
+
+  it('allows y to overshoot for anticipation/overshoot curves', () => {
+    const snap = cubicBezier(0.68, -0.55, 0.27, 1.55);
+    const vals = [0.1, 0.3, 0.7, 0.9].map((t) => snap(t));
+    expect(vals.some((v) => v < 0)).toBe(true);  // anticipation
+    expect(vals.some((v) => v > 1)).toBe(true);  // overshoot
+  });
+
+  it('clamps t to [0,1]', () => {
+    const ease = cubicBezier(0.42, 0, 0.58, 1);
+    expect(ease(-1)).toBe(0);
+    expect(ease(2)).toBe(1);
+  });
+
+  it('falls back to bisection when Newton-Raphson does not converge', () => {
+    // Control points (0, y, 0, y) give a near-zero x-derivative near t=0, so
+    // Newton either hits the flat-derivative break or fails to converge in 8
+    // iterations — exercising the bisection fallback. The result must still
+    // be valid: exact endpoints, in-range, and monotonic.
+    const ease = cubicBezier(0, 0.5, 0, 0.5);
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+    let prev = -1;
+    for (let t = 0; t <= 1.0001; t += 0.05) {
+      const v = ease(t);
+      expect(v).toBeGreaterThanOrEqual(-1e-9);
+      expect(v).toBeLessThanOrEqual(1 + 1e-9);
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9); // monotonic
+      prev = v;
+    }
   });
 });

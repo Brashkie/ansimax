@@ -1,6 +1,6 @@
 import {
   createETA, createThroughput, createLiveRegion, createProgressGroup,
-  createTimer,
+  createTimer, createCounter,
   formatBytes, formatCount, formatDuration, formatPercent, formatRate,
 } from '../loaders/meters.js';
 
@@ -549,5 +549,62 @@ describe('createETA EMA smoothing (v1.6.5)', () => {
     eta.update(10);
     // With one sample the window rate is 0 (needs 2); exercises the default path.
     expect(eta.rate()).toBe(0);
+  });
+});
+
+describe('createCounter (v1.6.7)', () => {
+  const wait = (ms: number) => new Promise<void>((r) => setTimeout(() => r(), ms));
+
+  it('counts ticks and totals', () => {
+    const c = createCounter();
+    c.tick();
+    c.tick();
+    c.tick(3); // batch
+    expect(c.total()).toBe(5);
+  });
+
+  it('ignores non-finite / negative tick amounts', () => {
+    const c = createCounter();
+    c.tick(NaN);
+    c.tick(-5);
+    c.tick(2);
+    expect(c.total()).toBe(2);
+  });
+
+  it('reports a positive rate after timed ticks', async () => {
+    const c = createCounter({ alpha: 0.5 });
+    for (let i = 0; i < 5; i++) { c.tick(); await wait(20); }
+    expect(c.rate()).toBeGreaterThan(0);
+    expect(c.formatRate()).toMatch(/\/s$/);
+  });
+
+  it('average reflects lifetime rate', async () => {
+    const c = createCounter();
+    c.tick(10);
+    await wait(40);
+    expect(c.average()).toBeGreaterThan(0);
+    expect(c.elapsed()).toBeGreaterThanOrEqual(30);
+  });
+
+  it('rate is 0 before a second tick', () => {
+    const c = createCounter();
+    c.tick();
+    expect(c.rate()).toBe(0);
+  });
+
+  it('reset clears count, rate, and clock', async () => {
+    const c = createCounter();
+    c.tick(5);
+    await wait(10);
+    c.tick(5);
+    c.reset();
+    expect(c.total()).toBe(0);
+    expect(c.rate()).toBe(0);
+  });
+
+  it('is available on the loader namespace', async () => {
+    const main = await import('../loaders/index.js');
+    expect(typeof main.loader.counter).toBe('function');
+    expect(main.loader.counter).toBe(createCounter);
   });
 });

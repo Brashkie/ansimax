@@ -629,3 +629,91 @@ export const createTimer = (autoStart = false): Timer => {
   if (autoStart) api.start();
   return api;
 };
+
+// ─────────────────────────────────────────────
+//  Event counter with rate (v1.6.7)
+//
+//  Counts discrete events and reports a smoothed events-per-second rate
+//  (EMA of inter-event intervals). Timer-free — reads the clock on tick()
+//  and on the getters. Complements createThroughput (which tracks a
+//  cumulative amount) by tracking discrete counts.
+// ─────────────────────────────────────────────
+
+export interface CounterOptions {
+  /** EMA smoothing factor in (0,1] for the rate. Default 0.3. */
+  alpha?: number;
+}
+
+export interface Counter {
+  /** Record `n` events (default 1). */
+  tick(n?: number): void;
+  /** Total events counted. */
+  total(): number;
+  /** Smoothed events-per-second rate. */
+  rate(): number;
+  /** Formatted rate string, e.g. "1.2K/s". */
+  formatRate(): string;
+  /** Milliseconds since the counter was created (or last reset). */
+  elapsed(): number;
+  /** Average events-per-second over the whole lifetime. */
+  average(): number;
+  /** Reset the count, rate, and clock. */
+  reset(): void;
+}
+
+/**
+ * Create an event counter that tracks a total and a smoothed rate. Call
+ * `tick()` whenever an event happens; read `rate()` for the current
+ * events-per-second (EMA-smoothed) or `average()` for the lifetime mean.
+ *
+ * @example
+ * ```js
+ * import { createCounter } from 'ansimax';
+ *
+ * const c = createCounter();
+ * onRequest(() => c.tick());
+ * setInterval(() => process.stdout.write(`\r${c.formatRate()} (${c.total()})`), 500);
+ * ```
+ *
+ * @since 1.6.7
+ */
+export const createCounter = (opts: CounterOptions = {}): Counter => {
+  const alpha = Math.max(0.01, Math.min(1, opts.alpha ?? 0.3));
+  let count = 0;
+  let started = Date.now();
+  let lastTick: number | null = null;
+  let emaRate = 0;
+  let emaStarted = false;
+
+  return {
+    tick(n = 1): void {
+      const add = Number.isFinite(n) ? Math.max(0, n) : 0;
+      count += add;
+      const now = Date.now();
+      if (lastTick !== null) {
+        const dt = (now - lastTick) / 1000;
+        if (dt > 0) {
+          const instant = add / dt; // events/sec since last tick
+          if (!emaStarted) { emaRate = instant; emaStarted = true; }
+          else emaRate = alpha * instant + (1 - alpha) * emaRate;
+        }
+      }
+      lastTick = now;
+    },
+    total(): number { return count; },
+    rate(): number { return emaRate; },
+    formatRate(): string { return `${formatCount(emaRate)}/s`; },
+    elapsed(): number { return Date.now() - started; },
+    average(): number {
+      const secs = (Date.now() - started) / 1000;
+      return secs > 0 ? count / secs : 0;
+    },
+    reset(): void {
+      count = 0;
+      started = Date.now();
+      lastTick = null;
+      emaRate = 0;
+      emaStarted = false;
+    },
+  };
+};

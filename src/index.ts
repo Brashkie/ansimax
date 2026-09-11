@@ -93,14 +93,14 @@ export {
   // v1.6.1 — Phase 7 progress groups
   createProgressGroup,
   // v1.6.4 — elapsed-time timer
-  createTimer,
+  createTimer, createCounter,
 } from './loaders/index.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,
   LiveRegion, LiveRegionOptions,
   // v1.6.1
   ProgressGroup, ProgressGroupOptions, ProgressGroupItemOptions,
-  Timer,
+  Timer, Counter, CounterOptions,
 } from './loaders/index.js';
 
 export { frames, resetFramesCursorCount } from './frames/index.js';
@@ -132,6 +132,9 @@ export { themes, createTheme, clearThemeColorCache } from './themes/index.js';
 export type { Theme, ThemeInstance, ThemeStyleName, ThemeChangeListener, BannerOpts as ThemeBannerOpts } from './themes/index.js';
 
 export { images, createCanvas, renderPixelArt, gradientRect, SPRITES, clearAnsiCache, flipHorizontal, flipVertical, rotate90 } from './images/index.js';
+// v1.6.7 — universal auto-render (half-block / ASCII by capability)
+export { renderImageAuto } from './images/index.js';
+export type { RenderMethod, RenderImageAutoOptions, RenderImageAutoResult } from './images/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
@@ -262,6 +265,8 @@ export type {
 export { easings, resolveEasingByName } from './utils/easing.js';
 // v1.6.6 — stepped + preset easings
 export { steps, stepStart, stepEnd, smoothStep, smootherStep } from './utils/easing.js';
+// v1.6.7 — cubic-bezier factory
+export { cubicBezier } from './utils/easing.js';
 export type { EasingFunction, EasingLibraryName, StepPosition } from './utils/easing.js';
 
 // v1.5.0 — Phase 6 closure: tween engine, spring physics, composition DSL

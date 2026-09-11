@@ -1,5 +1,5 @@
 import { renderPixelArt, SPRITES, images, gradientRect, createCanvas,
-  flipHorizontal, flipVertical, rotate90, clearAnsiCache } from '../images/index.js';
+  flipHorizontal, flipVertical, rotate90, clearAnsiCache, renderImageAuto } from '../images/index.js';
 import { stripAnsi } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
@@ -1215,5 +1215,36 @@ describe('gradientRect preset option (v1.6.1)', () => {
     const out = gradientRect({ width: 20, height: 2, preset: 'no-such-preset' });
     const def = gradientRect({ width: 20, height: 2 });
     expect(out).toBe(def);
+  });
+});
+
+describe('renderImageAuto (v1.6.7)', () => {
+  const px = () => Array.from({ length: 4 }, (_, y) =>
+    Array.from({ length: 4 }, (_, x) => ({ r: x * 60, g: y * 60, b: 128 })));
+
+  it('returns output, method, and detectedProtocol', () => {
+    const r = renderImageAuto(px());
+    expect(typeof r.output).toBe('string');
+    expect(r.output.length).toBeGreaterThan(0);
+    expect(['halfblock', 'ascii']).toContain(r.method);
+    expect(['kitty', 'iterm', 'sixel', 'none']).toContain(r.detectedProtocol);
+  });
+
+  it('forced halfblock renders block characters', () => {
+    const r = renderImageAuto(px(), { method: 'halfblock' });
+    expect(r.method).toBe('halfblock');
+    expect(/[▀▄█]/.test(r.output)).toBe(true);
+  });
+
+  it('forced ascii renders an ASCII ramp (no block chars required)', () => {
+    const r = renderImageAuto(px(), { method: 'ascii', asciiWidth: 8 });
+    expect(r.method).toBe('ascii');
+    expect(r.output.length).toBeGreaterThan(0);
+  });
+
+  it('is available on the images namespace as renderAuto', () => {
+    expect(typeof images.renderAuto).toBe('function');
+    const r = images.renderAuto(px(), { method: 'ascii' });
+    expect(r.method).toBe('ascii');
   });
 });

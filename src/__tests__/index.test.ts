@@ -1174,3 +1174,22 @@ describe('barrel coverage — v1.6.6 re-exports', () => {
     expect(typeof ns.histogram).toBe('function');
   });
 });
+
+describe('barrel coverage — v1.6.7 re-exports', () => {
+  it('exposes renderImageAuto, cubicBezier, and createCounter from the main entry', async () => {
+    const main = await import('../index.js');
+    // Universal image render
+    expect(typeof main.renderImageAuto).toBe('function');
+    const px = [[{ r: 10, g: 20, b: 30 }, { r: 40, g: 50, b: 60 }]];
+    const r = main.renderImageAuto(px, { method: 'ascii', asciiWidth: 4 });
+    expect(r.method).toBe('ascii');
+    // Fase 6 — cubicBezier
+    expect(typeof main.cubicBezier).toBe('function');
+    expect(main.cubicBezier(0, 0, 1, 1)(0.5)).toBeCloseTo(0.5, 3);
+    // Fase 7 — counter
+    expect(typeof main.createCounter).toBe('function');
+    const c = main.createCounter();
+    c.tick(3);
+    expect(c.total()).toBe(3);
+  });
+});

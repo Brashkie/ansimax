@@ -3,6 +3,72 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.7] — Universal image auto-render + cubic-bezier easing + event counter
+
+Advances the image phase with a *portable* auto-renderer (no proprietary
+protocol encoders), adds a cubic-bezier easing factory to Phase 6, and an
+event counter to Phase 7. All additive — zero breaking changes.
+
+### Added — Universal image auto-render (Phase 12)
+
+`renderImageAuto(pixels)` picks the best **portable** rendering method for the
+current terminal — half-blocks when color is available (double vertical
+resolution, works in any truecolor/256 terminal), ASCII when it isn't. It
+returns the string plus which method ran and which inline-image protocol the
+terminal advertises:
+
+```js
+import { renderImageAuto } from 'ansimax';
+
+const { output, method, detectedProtocol } = renderImageAuto(pixels);
+// method: 'halfblock' | 'ascii'
+// detectedProtocol: 'kitty' | 'iterm' | 'sixel' | 'none'  (detection only)
+```
+
+**On protocols:** ansimax renders images through methods it generates itself
+and that work everywhere — it never emits Sixel/Kitty/iTerm. Those remain
+*detection only* (`detectImageProtocol`, from v1.6.4), surfaced via
+`detectedProtocol` so a caller can plug in their own encoder if they want; the
+default output is always portable. The roadmap (Phase 12) now states this
+explicitly.
+
+### Added — Cubic-bezier easing (Phase 6)
+
+```js
+import { cubicBezier } from 'ansimax';
+
+const ease = cubicBezier(0.25, 0.1, 0.25, 1);       // CSS "ease"
+const snap = cubicBezier(0.68, -0.55, 0.27, 1.55);  // anticipation + overshoot
+```
+
+`cubicBezier(x1, y1, x2, y2)` builds an easing from a cubic Bézier curve, just
+like CSS. It solves the curve parameter for each time input via Newton–Raphson
+with a bisection fallback; `y` may overshoot `[0,1]` for anticipation/overshoot
+motion. Covers every curve the 31 named presets sit on.
+
+### Added — Event counter (Phase 7)
+
+```js
+import { createCounter } from 'ansimax';
+
+const c = createCounter();
+onRequest(() => c.tick());
+c.formatRate();   // "1.2K/s"  (EMA-smoothed events/sec)
+c.total();        // lifetime count
+c.average();      // lifetime events/sec
+```
+
+`createCounter({ alpha })` tracks a total and a smoothed events-per-second
+rate (EMA), complementing `createThroughput` (which tracks a cumulative
+amount). Available as `loader.counter`.
+
+### Notes
+
+- Image auto-render reuses the existing half-block renderer — no duplication
+- `+50` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.6] — Inline charts (Phase 10 begins) + stepped easings
 
 Opens Phase 10 (terminal charts) with inline mini-charts, and adds stepped +

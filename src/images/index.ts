@@ -19,6 +19,9 @@
 // ─────────────────────────────────────────────
 
 import { fgRgb, bgRgb as bgRgbCode, reset, write } from '../utils/ansi.js';
+import { supportsColor } from '../utils/ansi.js';
+import { detectImageProtocol, type ImageProtocol } from '../utils/capabilities.js';
+import { fromImage as asciiFromImage } from '../ascii/image.js';
 // v1.6.1 — resolve named gradient presets for gradientRect
 import { presetStops as resolvePresetStops } from '../colors/index.js';
 import {
@@ -988,10 +991,94 @@ export const createCanvas = (
 };
 
 // ─────────────────────────────────────────────
+//  Universal auto-render (v1.6.7)
+//
+//  Picks the best *universally-renderable* method for the current terminal
+//  and returns a string ansimax generates itself — no proprietary protocol
+//  encoders. The order is:
+//    truecolor / 256  → half-blocks  (▀ with fg/bg, double vertical res)
+//    no color         → ASCII ramp   (fromImage)
+//
+//  detectImageProtocol() (Sixel/Kitty/iTerm) is DETECTION only — ansimax
+//  does not emit those protocols. `reportProtocol: true` surfaces what the
+//  terminal *could* accept, so callers can plug in their own encoder if they
+//  want, but the default output is always portable.
+// ─────────────────────────────────────────────
+
+export type RenderMethod = 'halfblock' | 'ascii';
+
+export interface RenderImageAutoOptions {
+  /** Force a specific method instead of auto-detecting. */
+  method?: RenderMethod;
+  /** Passed through to the half-block renderer (scale, braille). */
+  scale?: number;
+  /** Use braille (2×4) instead of half-blocks when rendering in color. */
+  braille?: boolean;
+  /** Target width in characters for the ASCII fallback. Default `80`. */
+  asciiWidth?: number;
+}
+
+export interface RenderImageAutoResult {
+  /** The rendered string. */
+  output: string;
+  /** Which universal method was actually used. */
+  method: RenderMethod;
+  /**
+   * The richest inline-image protocol the terminal advertises (detection
+   * only — ansimax does not emit it). `'none'` when nothing was detected.
+   */
+  detectedProtocol: ImageProtocol;
+}
+
+/**
+ * Render a pixel grid with the best *portable* method for the current
+ * terminal: half-blocks when color is available (double vertical resolution,
+ * works in any truecolor/256 terminal), falling back to an ASCII ramp when
+ * there's no color. Returns the string plus which method was used and which
+ * inline-image protocol the terminal advertises (for callers who want to
+ * supply their own Sixel/Kitty encoder — ansimax never emits those).
+ *
+ * @example
+ * ```js
+ * import { renderImageAuto } from 'ansimax';
+ *
+ * const { output, method } = renderImageAuto(pixels);
+ * console.log(output);          // half-blocks in a truecolor terminal
+ * // method === 'halfblock' | 'ascii'
+ * ```
+ *
+ * @since 1.6.7
+ */
+export const renderImageAuto = (
+  pixels: PixelGrid,
+  opts: RenderImageAutoOptions = {},
+): RenderImageAutoResult => {
+  const detectedProtocol = detectImageProtocol();
+  const hasColor = supportsColor() !== 'none';
+
+  // Choose the method: explicit override, else color-driven.
+  const method: RenderMethod = opts.method ?? (hasColor ? 'halfblock' : 'ascii');
+
+  let output = '';
+  if (method === 'halfblock') {
+    output = renderPixelArt(pixels, {
+      scale: opts.scale ?? 1,
+      halfBlock: true,
+      braille: opts.braille ?? false,
+    });
+  } else {
+    output = asciiFromImage(pixels, { width: opts.asciiWidth ?? 80 });
+  }
+
+  return { output, method, detectedProtocol };
+};
+
+// ─────────────────────────────────────────────
 //  Public API
 // ─────────────────────────────────────────────
 export const images = {
   render:         renderPixelArt,
+  renderAuto:     renderImageAuto,
   sprites:        SPRITES,
   flipHorizontal,
   flipVertical,

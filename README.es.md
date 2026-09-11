@@ -7,10 +7,10 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.6-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.6.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-2000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3040%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM%20%2B%20CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -114,7 +114,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (2000+ tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3040+ tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.6'));
+console.log(components.badge('VERSION', 'v1.6.7'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -1041,7 +1041,7 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr todos los 2000+ tests
+npm test              # Correr todos los 3040+ tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
@@ -1055,7 +1055,7 @@ Cobertura (a v1.3.0):
 | **Functions** | ~99% |
 | **Lines** | ~99% |
 | **Tests totales** | **2,000+** |
-| **Test suites** | 18 |
+| **Test suites** | 27 |
 | **Matrix CI** | Node 18, 20, 22, latest |
 | **Plataformas probadas** | Linux, macOS, Windows |
 
@@ -1086,7 +1086,7 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          16 test suites, 1700+ tests
+└── __tests__/          27 test suites, 3040+ tests
 ```
 
 ---
@@ -1094,6 +1094,25 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.6.7 — Auto-render universal de imagen + easing cubic-bezier + contador de eventos
+
+- 🖼️ **`renderImageAuto`** — elige half-blocks (color) o ASCII (sin color) según capacidad; portable, sin encoders propietarios
+- 📐 **`cubicBezier(x1,y1,x2,y2)`** — factory de easing estilo CSS (resolución Newton–Raphson; admite overshoot)
+- 🔢 **`createCounter`** — contador de eventos con tasa EMA, total y promedio de vida
+- 🧪 **+50 tests**
+
+```js
+import { renderImageAuto, cubicBezier, createCounter } from 'ansimax';
+
+const { output, method } = renderImageAuto(pixels);  // 'halfblock' | 'ascii'
+const ease = cubicBezier(0.25, 0.1, 0.25, 1);        // "ease" de CSS
+const c = createCounter(); c.tick(); c.formatRate();  // "1.2K/s"
+```
+
+> **Sobre protocolos de imagen:** ansimax renderiza con métodos universales que genera él mismo (half-blocks / ASCII) y funcionan en cualquier terminal. Sixel/Kitty/iTerm son *solo detección* — se exponen para que quien quiera conecte su propio encoder, nunca se emiten por defecto.
+
+Drop-in replacement para `1.6.6`.
 
 ### v1.6.6 — Charts inline (comienza Fase 10) + easings escalonados
 
@@ -2054,7 +2073,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — ~1700+ tests en 16 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3040+ tests en 27 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 
