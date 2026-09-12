@@ -1,6 +1,6 @@
 import {
   createETA, createThroughput, createLiveRegion, createProgressGroup,
-  createTimer, createCounter,
+  createTimer, createCounter, createStopwatch,
   formatBytes, formatCount, formatDuration, formatPercent, formatRate,
 } from '../loaders/meters.js';
 
@@ -606,5 +606,71 @@ describe('createCounter (v1.6.7)', () => {
     const main = await import('../loaders/index.js');
     expect(typeof main.loader.counter).toBe('function');
     expect(main.loader.counter).toBe(createCounter);
+  });
+});
+
+describe('createStopwatch (v1.7.0)', () => {
+  const wait = (ms: number) => new Promise<void>((r) => setTimeout(() => r(), ms));
+
+  it('records laps with duration and cumulative total', async () => {
+    const sw = createStopwatch();
+    await wait(30);
+    const l1 = sw.lap('load');
+    await wait(30);
+    const l2 = sw.lap('save');
+    expect(l1.label).toBe('load');
+    expect(l1.duration).toBeGreaterThanOrEqual(20);
+    expect(l2.total).toBeGreaterThanOrEqual(l1.total); // cumulative grows
+    expect(sw.laps()).toHaveLength(2);
+  });
+
+  it('auto-labels laps when no label is given', () => {
+    const sw = createStopwatch();
+    const l = sw.lap();
+    expect(l.label).toBe('lap 1');
+  });
+
+  it('slowest returns the longest lap, or null when empty', async () => {
+    const sw = createStopwatch();
+    expect(sw.slowest()).toBeNull();
+    sw.lap('a');
+    await wait(40);
+    sw.lap('slow');
+    expect(sw.slowest()!.label).toBe('slow');
+  });
+
+  it('elapsed grows and reset clears laps', async () => {
+    const sw = createStopwatch();
+    sw.lap('x');
+    await wait(20);
+    expect(sw.elapsed()).toBeGreaterThanOrEqual(15);
+    sw.reset();
+    expect(sw.laps()).toHaveLength(0);
+    expect(sw.slowest()).toBeNull();
+  });
+
+  it('report renders a line per lap, or a placeholder when empty', () => {
+    const sw = createStopwatch();
+    expect(sw.report()).toBe('(no laps)');
+    sw.lap('phase one');
+    sw.lap('phase two');
+    const report = sw.report();
+    expect(report.split('\n')).toHaveLength(2);
+    expect(report).toContain('phase one');
+    expect(report).toContain('phase two');
+  });
+
+  it('laps() returns a copy, not the internal array', () => {
+    const sw = createStopwatch();
+    sw.lap('a');
+    const laps = sw.laps();
+    laps.push({ label: 'fake', duration: 0, total: 0 });
+    expect(sw.laps()).toHaveLength(1); // internal state untouched
+  });
+
+  it('is available on the loader namespace', async () => {
+    const main = await import('../loaders/index.js');
+    expect(typeof main.loader.stopwatch).toBe('function');
+    expect(main.loader.stopwatch).toBe(createStopwatch);
   });
 });

@@ -553,6 +553,57 @@ export const gradientColor = (colors: RGB[], t: number, space: ColorSpace = 'rgb
   return lerpColor(colors[lo] as RGB, colors[hi] as RGB, scaled - lo, space);
 };
 
+/**
+ * **v1.7.0** — Sample a multi-stop gradient using a Catmull-Rom spline
+ * instead of piecewise-linear interpolation. Where `gradientColor` produces
+ * a visible "kink" (a discontinuous first derivative) at every stop, the
+ * spline passes smoothly *through* each stop with C¹ continuity — the color
+ * velocity has no sudden direction changes, so long multi-stop gradients look
+ * noticeably smoother. Interpolates each RGB channel independently.
+ *
+ * With fewer than 3 stops there's nothing to curve, so it defers to the
+ * linear `gradientColor`.
+ *
+ * @since 1.7.0
+ */
+export const gradientColorSpline = (colors: RGB[], t: number): RGB => {
+  if (!Array.isArray(colors) || colors.length === 0) {
+    throw new Error('gradientColorSpline requires at least one color stop');
+  }
+  if (colors.length < 3) return gradientColor(colors, t, 'rgb');
+
+  const safeT = isFiniteNumber(t) ? t : 0;
+  const ct = clamp(safeT, 0, 1);
+  const n = colors.length;
+  const scaled = ct * (n - 1);
+  const i = Math.min(Math.floor(scaled), n - 2);
+  const localT = scaled - i;
+
+  // Catmull-Rom needs P0..P3 around the [P1,P2] segment; clamp at the ends
+  // (duplicate the boundary stop) so the spline stays inside the palette.
+  const at = (idx: number): RGB => colors[Math.max(0, Math.min(n - 1, idx))] as RGB;
+  const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+
+  const ch = (a: number, b: number, c: number, d: number): number => {
+    // Catmull-Rom (tension 0.5), inlined to avoid a helpers↔math import cycle.
+    const t2 = localT * localT;
+    const t3 = t2 * localT;
+    const v = 0.5 * (
+      2 * b
+      + (-a + c) * localT
+      + (2 * a - 5 * b + 4 * c - d) * t2
+      + (-a + 3 * b - 3 * c + d) * t3
+    );
+    // Clamp the spline output to a valid byte (Catmull-Rom can overshoot).
+    return Math.max(0, Math.min(255, Math.round(v)));
+  };
+  return {
+    r: ch(p0.r, p1.r, p2.r, p3.r),
+    g: ch(p0.g, p1.g, p2.g, p3.g),
+    b: ch(p0.b, p1.b, p2.b, p3.b),
+  };
+};
+
 // Maps a 24-bit RGB value to the nearest xterm-256 palette index.
 // Grayscale ramp: indices 232–255. Color cube: 16–231 (6×6×6).
 export const rgbTo256 = (r: number, g: number, b: number): number => {
@@ -566,6 +617,111 @@ export const rgbTo256 = (r: number, g: number, b: number): number => {
     + 36 * Math.round(cr / 255 * 5)
     +  6 * Math.round(cg / 255 * 5)
     +      Math.round(cb / 255 * 5);
+};
+
+// ─────────────────────────────────────────────
+//  v1.7.0 — Perceptual color quantization (Oklab ΔE)
+//
+//  Quantizing in RGB with Euclidean distance (L2) produces hue shifts and
+//  contrast loss, because RGB distance ≠ perceived distance. Oklab is a
+//  perceptually-uniform space: equal ΔE ≈ equal perceived difference. These
+//  helpers pick the nearest palette color by ΔE_OK instead of RGB L2.
+// ─────────────────────────────────────────────
+
+/**
+ * Perceptual color distance (ΔE) between two colors in Oklab space.
+ * `√((L1-L2)² + (a1-a2)² + (b1-b2)²)`. Lower = more perceptually similar.
+ * This is the metric a good quantizer minimizes, unlike raw RGB distance.
+ *
+ * @since 1.7.0
+ */
+export const oklabDistance = (c1: RGB, c2: RGB): number => {
+  const o1 = rgbToOklab(c1);
+  const o2 = rgbToOklab(c2);
+  const dL = o1.L - o2.L;
+  const da = o1.a - o2.a;
+  const db = o1.b - o2.b;
+  return Math.sqrt(dL * dL + da * da + db * db);
+};
+
+// Build the xterm-256 palette as RGB once (indices 16..255: 6×6×6 cube +
+// grayscale ramp). Indices 0..15 (system colors) are terminal-defined and
+// omitted from perceptual matching.
+const CUBE_STEPS = [0, 95, 135, 175, 215, 255];
+let _palette256: RGB[] | null = null;
+let _paletteOklab: Oklab[] | null = null;
+
+const buildPalette256 = (): void => {
+  const pal: RGB[] = [];
+  // 6×6×6 color cube (indices 16..231)
+  for (let r = 0; r < 6; r++) {
+    for (let g = 0; g < 6; g++) {
+      for (let b = 0; b < 6; b++) {
+        pal.push({
+          r: CUBE_STEPS[r] as number,
+          g: CUBE_STEPS[g] as number,
+          b: CUBE_STEPS[b] as number,
+        });
+      }
+    }
+  }
+  // Grayscale ramp (indices 232..255): 8, 18, ... 238
+  for (let i = 0; i < 24; i++) {
+    const v = 8 + i * 10;
+    pal.push({ r: v, g: v, b: v });
+  }
+  _palette256 = pal;
+  _paletteOklab = pal.map((c) => rgbToOklab(c));
+};
+
+/**
+ * Map a 24-bit RGB color to the nearest xterm-256 palette index using
+ * **perceptual** distance (Oklab ΔE) rather than the fast 6×6×6 cube rounding
+ * of {@link rgbTo256}. Slower (searches the palette) but visibly better on
+ * gradients and skin tones — less hue drift, better contrast. The returned
+ * index is in `16..255` (the cube + grayscale ramp; system colors 0–15 are
+ * terminal-defined and excluded).
+ *
+ * @since 1.7.0
+ */
+export const rgbTo256Perceptual = (r: number, g: number, b: number): number => {
+  if (!_palette256 || !_paletteOklab) buildPalette256();
+  const pal = _paletteOklab as Oklab[];
+  const target = rgbToOklab({ r: clampByte(r), g: clampByte(g), b: clampByte(b) });
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < pal.length; i++) {
+    const o = pal[i] as Oklab;
+    const dL = target.L - o.L;
+    const da = target.a - o.a;
+    const db = target.b - o.b;
+    const dist = dL * dL + da * da + db * db; // squared ΔE — monotonic, no sqrt
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best + 16; // palette array starts at xterm index 16
+};
+
+/**
+ * Find the nearest color in a custom palette by perceptual (Oklab ΔE)
+ * distance, returning its index. Useful for mapping an image to a fixed
+ * set of ANSI/theme colors while preserving perceived hue and contrast.
+ *
+ * @since 1.7.0
+ */
+export const nearestPerceptual = (color: RGB, palette: RGB[]): number => {
+  if (!Array.isArray(palette) || palette.length === 0) return -1;
+  const target = rgbToOklab(color);
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < palette.length; i++) {
+    const o = rgbToOklab(palette[i] as RGB);
+    const dL = target.L - o.L;
+    const da = target.a - o.a;
+    const db = target.b - o.b;
+    const dist = dL * dL + da * da + db * db;
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best;
 };
 
 // ─────────────────────────────────────────────

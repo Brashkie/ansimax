@@ -310,4 +310,16 @@ describe('cubicBezier (v1.6.7)', () => {
       prev = v;
     }
   });
+
+  it('hits the exact zero-derivative guard: x1=1, x2=0 gives x\'(t)=12(t-½)²', () => {
+    // For cubicBezier(1, y1, 0, y2) the x-derivative factors to 12(t-½)²,
+    // a perfect square with a double root at t=0.5. Newton seeds t0 = x, and
+    // x(0.5)=0.5, so evaluating at 0.5 makes the FIRST iteration compute
+    // dx = x'(0.5) = 0 exactly → the divide-by-zero guard fires cleanly.
+    // The curve stays monotonic (12(t-½)² ≥ 0), so it's a valid easing.
+    const ease = cubicBezier(1, 0, 0, 1);
+    expect(ease(0.5)).toBeCloseTo(0.5, 10);
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+  });
 });

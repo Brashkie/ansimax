@@ -3,6 +3,91 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — Perceptual color, managed screen, spline gradients, lap timing
+
+A larger minor release. Adds a perceptually-accurate color quantizer (the
+Oklab ΔE upgrade), a managed alternate-screen session (the TUI foundation), a
+Catmull-Rom spline gradient sampler, and a lap stopwatch. All additive — zero
+breaking changes.
+
+### Added — Perceptual color quantization (Oklab ΔE)
+
+Quantizing in RGB with Euclidean distance shifts hues and flattens contrast,
+because RGB distance ≠ perceived distance. These pick the nearest color by
+**Oklab ΔE** — a perceptually-uniform metric — instead:
+
+```js
+import { rgbTo256Perceptual, nearestPerceptual, oklabDistance } from 'ansimax';
+
+rgbTo256Perceptual(128, 64, 32);            // nearest xterm-256 by ΔE (16..255)
+nearestPerceptual(color, myPalette);        // nearest index in a custom palette
+oklabDistance(a, b);                        // perceptual distance
+```
+
+The result has noticeably less banding and hue drift on gradients and skin
+tones than the fast 6×6×6 cube rounding of `rgbTo256` (which stays available
+for speed). Reuses the existing `rgbToOklab` transform (v1.3.5).
+
+### Added — Managed alternate screen (Phase 5, TUI foundation)
+
+`createScreen()` runs a full-screen session like vim/htop/less — it switches
+to the terminal's alternate buffer (so scrollback is untouched), hides the
+cursor, and **guarantees restoration** on exit, throw, or crash
+(exit/SIGINT/SIGTERM):
+
+```js
+import { createScreen } from 'ansimax';
+
+const screen = createScreen();
+await screen.run((s) => {
+  s.moveTo(1, 1);
+  s.write('Full-screen app');
+  // ...draw loop...
+}); // terminal restored no matter how the block ends
+```
+
+`enter` / `exit` / `clear` / `write` / `moveTo` / `isActive` / `run`. Pure
+ANSI, synchronous, zero deps. This is the building block for TUI apps.
+
+### Added — Catmull-Rom spline gradients (Phase 6)
+
+`gradientColorSpline(colors, t)` samples a multi-stop gradient with a
+Catmull-Rom C¹ spline instead of piecewise-linear interpolation. It passes
+*through* each stop but with no derivative "kink" at the stops, so long
+multi-stop gradients look smoother. Falls back to linear for < 3 stops; clamps
+channel overshoot. Wires in the `catmullRom` math from v1.6.2.
+
+### Added — Lap stopwatch (Phase 7)
+
+`createStopwatch()` records labelled splits for profiling sequential stages:
+
+```js
+import { createStopwatch } from 'ansimax';
+
+const sw = createStopwatch();
+await loadData();   sw.lap('load');
+await transform();  sw.lap('transform');
+console.log(sw.report());   // aligned table: label, duration, cumulative
+sw.slowest();               // the slowest lap
+```
+
+Available as `loader.stopwatch`.
+
+### Fixed
+
+- `cubicBezier` — added a test for the `x'(t)=12(t-½)²` double-root curve
+  (`cubicBezier(1,0,0,1)` at `0.5`), which lands exactly on the
+  zero-derivative vertex; documents why the divide-by-zero guard's specific
+  branch is intercepted by the convergence return above it
+
+### Notes
+
+- Perceptual quantizer reuses `rgbToOklab`; spline reuses the `catmullRom`
+  basis — both wire existing math into higher-level API
+- `+60` tests. **Zero breaking changes.**
+
+---
+
 ## [1.6.7] — Universal image auto-render + cubic-bezier easing + event counter
 
 Advances the image phase with a *portable* auto-renderer (no proprietary

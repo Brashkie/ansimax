@@ -1193,3 +1193,29 @@ describe('barrel coverage — v1.6.7 re-exports', () => {
     expect(c.total()).toBe(3);
   });
 });
+
+describe('barrel coverage — v1.7.0 re-exports', () => {
+  it('exposes perceptual quantization, spline gradient, screen, and stopwatch', async () => {
+    const main = await import('../index.js');
+    // Fase 12 — perceptual quantizer
+    expect(typeof main.oklabDistance).toBe('function');
+    expect(typeof main.rgbTo256Perceptual).toBe('function');
+    expect(typeof main.nearestPerceptual).toBe('function');
+    expect(main.rgbTo256Perceptual(128, 64, 32)).toBeGreaterThanOrEqual(16);
+    // Fase 6 — spline gradient
+    expect(typeof main.gradientColorSpline).toBe('function');
+    const stops = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }];
+    expect(main.gradientColorSpline(stops, 0)).toEqual({ r: 255, g: 0, b: 0 });
+    // Fase 5 — managed screen
+    expect(typeof main.createScreen).toBe('function');
+    expect(main.SCREEN_SEQUENCES.enterAlt).toContain('1049h');
+    const scr = main.createScreen({ out: () => {}, installSignalHandlers: false });
+    expect(scr.isActive()).toBe(false);
+    // Fase 7 — stopwatch
+    expect(typeof main.createStopwatch).toBe('function');
+    const sw = main.createStopwatch();
+    sw.lap('x');
+    expect(sw.laps()).toHaveLength(1);
+    expect(typeof main.loader.stopwatch).toBe('function');
+  });
+});

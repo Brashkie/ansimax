@@ -280,8 +280,13 @@ export const cubicBezier = (
       const x = bezier(cx1, cx2, u) - t;
       if (Math.abs(x) < 1e-6) return u;
       const dx = bezierPrime(cx1, cx2, u);
-      /* istanbul ignore next — defensive divide-by-zero guard: for a monotonic x-axis curve, Newton either converges or overshoots; it never lands exactly on a zero-derivative point, so the bisection fallback below is reached via loop exhaustion, not this break */
-      if (Math.abs(dx) < 1e-6) break; // derivative too flat — fall back
+      /* istanbul ignore next — the only points where x'(t)=0 on a monotonic
+         Bézier are double roots (e.g. cubicBezier(1,·,0,·) → 12(t-½)²), and
+         there x(t)=t too, so the |x|<1e-6 return above fires first. Newton
+         never *lands* on a zero-derivative point from elsewhere (it approaches
+         a double root asymptotically → loop exhaustion → bisection). Kept as a
+         real divide-by-zero guard; see the cubicBezier(1,0,0,1) test. */
+      if (Math.abs(dx) < 1e-6) break;
       u -= x / dx;
     }
     // Bisection fallback for robustness

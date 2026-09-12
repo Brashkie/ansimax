@@ -7,10 +7,10 @@
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.6.7-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
+[![npm](https://img.shields.io/badge/npm-v1.7.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3040%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM%20%2B%20CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -114,7 +114,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3040+ tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3000+ tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -481,7 +481,7 @@ console.log(components.table([
   ['loaders',    color.green('● listo'),  '100%'],
 ], { borderStyle: 'rounded' }));
 
-console.log(components.badge('VERSION', 'v1.6.7'));
+console.log(components.badge('VERSION', 'v1.7.0'));
 console.log(components.badge('BUILD',   'passing'));
 ```
 
@@ -914,6 +914,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Hyperlinks de terminal (OSC 8)
 - [x] Título de ventana (OSC 2)
 - [x] Bell (BEL)
+- [x] **Managed alternate screen** — `createScreen` (alt buffer, guaranteed restore on crash) — TUI foundation (v1.7.0)
 
 ### ✅ Fase 6 — Motor de animaciones
 - [x] Typewriter, fadeIn, fadeOut, slide, pulse, wave, glitch, reveal
@@ -1041,7 +1042,7 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr todos los 3040+ tests
+npm test              # Correr todos los 3000+ tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
@@ -1086,7 +1087,7 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          27 test suites, 3040+ tests
+└── __tests__/          27 test suites, 3000+ tests
 ```
 
 ---
@@ -1094,6 +1095,27 @@ ansimax/
 ## 📝 Changelog
 
 ## 📝 Changelog
+
+### v1.7.0 — Color perceptual, pantalla gestionada, gradientes spline, cronómetro de vueltas
+
+Un minor grande. Destacados:
+
+- 🎨 **Cuantización perceptual** — `rgbTo256Perceptual`, `nearestPerceptual`, `oklabDistance` (ΔE de Oklab — mata el banding vs RGB L2)
+- 🖥️ **Pantalla alternativa gestionada** — `createScreen` (pantalla completa estilo vim/htop con restauración garantizada) — fundación TUI
+- 🌈 **Gradientes spline** — `gradientColorSpline` (Catmull-Rom C¹, suave a través de multi-stops)
+- ⏱️ **Cronómetro de vueltas** — `createStopwatch` (splits con etiqueta, `report()`, `slowest()`)
+- 🧪 **+60 tests**
+
+```js
+import { createScreen, rgbTo256Perceptual, gradientColorSpline, createStopwatch } from 'ansimax';
+
+await createScreen().run((s) => { s.moveTo(1,1); s.write('App pantalla completa'); });
+rgbTo256Perceptual(128, 64, 32);              // xterm-256 más cercano por ΔE perceptual
+gradientColorSpline(stops, 0.25);             // muestreo multi-stop suave
+const sw = createStopwatch(); sw.lap('load'); // perfilar etapas
+```
+
+Drop-in replacement para `1.6.7`.
 
 ### v1.6.7 — Auto-render universal de imagen + easing cubic-bezier + contador de eventos
 
@@ -2073,7 +2095,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3040+ tests en 27 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3000+ tests en 27 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

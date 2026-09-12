@@ -1383,6 +1383,8 @@ import {
   mixColors, quantizeColor,
   // v1.6.3 — contrast + a11y
   relativeLuminance, contrastRatio, readableTextColor, meetsContrast,
+  // v1.7.0
+  oklabDistance, rgbTo256Perceptual, nearestPerceptual, gradientColorSpline,
 } from '../utils/helpers.js';
 
 describe('isFiniteNumber (v1.3.5)', () => {
@@ -1946,5 +1948,83 @@ describe('Unicode width detection (v1.6.5)', () => {
     expect(isCombining('\uFE0F')).toBe(true); // VS16
     expect(isCombining('A')).toBe(false);
     expect(isCombining('')).toBe(false);
+  });
+});
+
+describe('perceptual quantization — Oklab (v1.7.0)', () => {
+  it('oklabDistance is 0 for identical colors and positive otherwise', () => {
+    expect(oklabDistance({ r: 100, g: 50, b: 200 }, { r: 100, g: 50, b: 200 })).toBe(0);
+    expect(oklabDistance({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 })).toBeGreaterThan(0);
+  });
+
+  it('oklabDistance is symmetric', () => {
+    const a = { r: 30, g: 200, b: 90 };
+    const b = { r: 210, g: 40, b: 160 };
+    expect(oklabDistance(a, b)).toBeCloseTo(oklabDistance(b, a), 10);
+  });
+
+  it('rgbTo256Perceptual returns a valid palette index in 16..255', () => {
+    for (const [r, g, b] of [[128, 64, 32], [200, 150, 180], [50, 120, 90], [0, 0, 0], [255, 255, 255]]) {
+      const idx = rgbTo256Perceptual(r as number, g as number, b as number);
+      expect(idx).toBeGreaterThanOrEqual(16);
+      expect(idx).toBeLessThanOrEqual(255);
+    }
+  });
+
+  it('rgbTo256Perceptual can differ from the fast cube mapping', () => {
+    // At least one of these mid-tones should map differently under perceptual
+    // distance than the naive 6×6×6 cube rounding.
+    const cases: Array<[number, number, number]> = [[128, 64, 32], [50, 120, 90], [200, 150, 180]];
+    const anyDiffer = cases.some(([r, g, b]) => rgbTo256Perceptual(r, g, b) !== rgbTo256(r, g, b));
+    expect(anyDiffer).toBe(true);
+  });
+
+  it('nearestPerceptual picks the closest palette entry', () => {
+    const pal = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }];
+    expect(nearestPerceptual({ r: 250, g: 10, b: 10 }, pal)).toBe(0); // ~red
+    expect(nearestPerceptual({ r: 10, g: 250, b: 10 }, pal)).toBe(1); // ~green
+  });
+
+  it('nearestPerceptual returns -1 for an empty palette', () => {
+    expect(nearestPerceptual({ r: 1, g: 2, b: 3 }, [])).toBe(-1);
+  });
+});
+
+describe('gradientColorSpline — Catmull-Rom (v1.7.0)', () => {
+  const stops = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }];
+
+  it('passes exactly through the stops', () => {
+    expect(gradientColorSpline(stops, 0)).toEqual({ r: 255, g: 0, b: 0 });
+    expect(gradientColorSpline(stops, 0.5)).toEqual({ r: 0, g: 255, b: 0 }); // middle stop
+    expect(gradientColorSpline(stops, 1)).toEqual({ r: 0, g: 0, b: 255 });
+  });
+
+  it('differs from linear interpolation between stops', () => {
+    const sp = gradientColorSpline(stops, 0.25);
+    const ln = gradientColor(stops, 0.25, 'rgb');
+    expect(sp.r === ln.r && sp.g === ln.g && sp.b === ln.b).toBe(false);
+  });
+
+  it('keeps channels within [0,255] even when the spline overshoots', () => {
+    for (let t = 0; t <= 1.0001; t += 0.05) {
+      const c = gradientColorSpline(stops, t);
+      for (const ch of [c.r, c.g, c.b]) {
+        expect(ch).toBeGreaterThanOrEqual(0);
+        expect(ch).toBeLessThanOrEqual(255);
+      }
+    }
+  });
+
+  it('falls back to linear for fewer than 3 stops', () => {
+    const two = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }];
+    expect(gradientColorSpline(two, 0.5)).toEqual(gradientColor(two, 0.5, 'rgb'));
+  });
+
+  it('handles non-finite t by clamping to 0', () => {
+    expect(gradientColorSpline(stops, NaN)).toEqual({ r: 255, g: 0, b: 0 });
+  });
+
+  it('throws on empty stops', () => {
+    expect(() => gradientColorSpline([], 0.5)).toThrow();
   });
 });

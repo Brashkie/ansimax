@@ -72,6 +72,9 @@ export type {
 } from './ascii/index.js';
 
 export { loader, resetLoaderCursorCount } from './loaders/index.js';
+// v1.7.0 — Phase 5: managed alternate screen (TUI foundation)
+export { createScreen, SCREEN_SEQUENCES } from './screen/index.js';
+export type { Screen, ScreenOptions } from './screen/index.js';
 // v1.6.6 — Phase 10: inline mini-charts
 export { sparkline, bar, histogram } from './charts/index.js';
 export type {
@@ -93,14 +96,14 @@ export {
   // v1.6.1 — Phase 7 progress groups
   createProgressGroup,
   // v1.6.4 — elapsed-time timer
-  createTimer, createCounter,
+  createTimer, createCounter, createStopwatch,
 } from './loaders/index.js';
 export type {
   ETA, ETAOptions, Throughput, ThroughputOptions,
   LiveRegion, LiveRegionOptions,
   // v1.6.1
   ProgressGroup, ProgressGroupOptions, ProgressGroupItemOptions,
-  Timer, Counter, CounterOptions,
+  Timer, Counter, CounterOptions, Stopwatch, Lap,
 } from './loaders/index.js';
 
 export { frames, resetFramesCursorCount } from './frames/index.js';
@@ -222,6 +225,8 @@ export {
   balancedWrap,
   // Multi-stop gradient
   gradientColor,
+  // v1.7.0 — Catmull-Rom spline gradient
+  gradientColorSpline,
   // Resize listener
   onResize,
   // Frame-rate helpers
@@ -240,6 +245,8 @@ export {
   rgbToHsl, hslToRgb, rgbToOklab, oklabToRgb,
   // v1.6.3 — contrast + accessibility
   relativeLuminance, contrastRatio, readableTextColor, meetsContrast,
+  // v1.7.0 — perceptual quantization (Oklab ΔE)
+  oklabDistance, rgbTo256Perceptual, nearestPerceptual,
   mixColors, quantizeColor,
   // v1.3.7 — consolidated clamp helpers
   clampPercent, clampInt,

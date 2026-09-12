@@ -717,3 +717,100 @@ export const createCounter = (opts: CounterOptions = {}): Counter => {
     },
   };
 };
+
+// ─────────────────────────────────────────────
+//  Lap stopwatch (v1.7.0)
+//
+//  A stopwatch that records intermediate splits ("laps"), each with a label,
+//  its own duration, and the cumulative time. Handy for profiling the stages
+//  of a pipeline — start it, call lap('stage name') after each phase, read
+//  the table at the end. Timer-free (reads the clock on lap()).
+// ─────────────────────────────────────────────
+
+export interface Lap {
+  /** Label for this lap. */
+  label: string;
+  /** Duration of this lap alone, in ms (since the previous lap or start). */
+  duration: number;
+  /** Cumulative time from start to this lap, in ms. */
+  total: number;
+}
+
+export interface Stopwatch {
+  /** Record a lap with an optional label. Returns the recorded lap. */
+  lap(label?: string): Lap;
+  /** All laps recorded so far. */
+  laps(): Lap[];
+  /** Total elapsed time from start to now, in ms. */
+  elapsed(): number;
+  /** The slowest lap, or null if none recorded. */
+  slowest(): Lap | null;
+  /** Reset to a fresh start with no laps. */
+  reset(): void;
+  /** A formatted multi-line report of all laps (label, duration, cumulative). */
+  report(): string;
+}
+
+/**
+ * Create a lap stopwatch for profiling sequential stages. Call `lap()` after
+ * each stage to record its split; `report()` renders an aligned table.
+ *
+ * @example
+ * ```js
+ * import { createStopwatch } from 'ansimax';
+ *
+ * const sw = createStopwatch();
+ * await loadData();   sw.lap('load');
+ * await transform();  sw.lap('transform');
+ * await save();       sw.lap('save');
+ * console.log(sw.report());
+ * ```
+ *
+ * @since 1.7.0
+ */
+export const createStopwatch = (): Stopwatch => {
+  let start = Date.now();
+  let lastLap = start;
+  const recorded: Lap[] = [];
+
+  const api: Stopwatch = {
+    lap(label?: string): Lap {
+      const now = Date.now();
+      const lap: Lap = {
+        label: label ?? `lap ${recorded.length + 1}`,
+        duration: now - lastLap,
+        total: now - start,
+      };
+      recorded.push(lap);
+      lastLap = now;
+      return lap;
+    },
+    laps(): Lap[] {
+      return recorded.slice();
+    },
+    elapsed(): number {
+      return Date.now() - start;
+    },
+    slowest(): Lap | null {
+      if (recorded.length === 0) return null;
+      return recorded.reduce((max, l) => (l.duration > max.duration ? l : max));
+    },
+    reset(): void {
+      start = Date.now();
+      lastLap = start;
+      recorded.length = 0;
+    },
+    report(): string {
+      if (recorded.length === 0) return '(no laps)';
+      const labelWidth = Math.max(...recorded.map((l) => l.label.length));
+      return recorded
+        .map((l) => {
+          const label = l.label.padEnd(labelWidth);
+          return `${label}  ${formatDuration(l.duration).padStart(7)}  (${formatDuration(l.total)})`;
+        })
+        .join('\n');
+    },
+  };
+
+  return api;
+};
