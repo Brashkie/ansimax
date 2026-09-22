@@ -77,8 +77,11 @@ export { createScreen, SCREEN_SEQUENCES } from './screen/index.js';
 export type { Screen, ScreenOptions } from './screen/index.js';
 // v1.6.6 — Phase 10: inline mini-charts
 export { sparkline, bar, histogram } from './charts/index.js';
+// v1.7.1 — Phase 10: Braille line chart
+export { lineChart } from './charts/index.js';
 export type {
   SparklineOptions, BarOptions, HistogramRow, HistogramOptions,
+  LineChartSeries, LineChartOptions,
 } from './charts/index.js';
 export type {
   SpinnerType, SpinOptions, ProgressOptions, ProgressAnimateOptions,
@@ -212,6 +215,13 @@ export {
   supportsKittyGraphics, supportsITermImages, supportsSixel,
 } from './utils/capabilities.js';
 export type { ImageProtocol } from './utils/capabilities.js';
+// v1.7.1 — Phase 8: font cell aspect ratio
+export {
+  cellAspectRatio, aspectScale, DEFAULT_CELL_ASPECT,
+} from './utils/capabilities.js';
+export type {
+  CellAspectOptions, AspectScale,
+} from './utils/capabilities.js';
 export {
   termSize, hexToRgb, rgbToHex, stripAnsi, visibleLen, clamp, lerpColor,
   isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, padBoth, center, wordWrap, lerp, rgbTo256,
@@ -307,8 +317,11 @@ import {
 } from './logger/index.js';
 import { tweenEngine as _tweenNs } from './tween/index.js';
 // v1.6.6 — Phase 10 charts namespace
-import { sparkline as _spark, bar as _bar, histogram as _histo } from './charts/index.js';
-const chartNs = { sparkline: _spark, bar: _bar, histogram: _histo };
+import {
+  sparkline as _spark, bar as _bar, histogram as _histo,
+  lineChart as _line,
+} from './charts/index.js';
+const chartNs = { sparkline: _spark, bar: _bar, histogram: _histo, lineChart: _line };
 
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {

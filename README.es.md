@@ -950,7 +950,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ) (v1.6.5)
 - [x] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty) (v1.6.4)
 - [ ] **Base de datos de capacidades de terminal** (flags xterm completos + probes de versión)
-- [ ] **Detección de métricas de fuente** (ancho/alto de celda para layouts pixel-accurate)
+- [x] **Detección de métricas de fuente** — relación de aspecto de celda (`cellAspectRatio`, `aspectScale`) para layouts sub-celda pixel-accurate; sobreescribible, por defecto el casi-universal 0.5 (v1.7.1)
 
 ### 🟡 Fase 9 — Renderizado avanzado
 - [x] Canvas dirty-rectangle (solo redibujar píxeles cambiados)
@@ -965,7 +965,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 
 ### 🔴 Fase 10 — Charts de terminal
 - [ ] Barras (horizontal + vertical, agrupadas, apiladas)
-- [ ] Líneas (con braille para resolución sub-carácter)
+- [x] Líneas (con braille para resolución sub-carácter) — `lineChart`, sub-pixel 8×, multi-serie, color por cobertura de celda estilo Wu (v1.7.1)
 - [x] Sparklines (mini-charts inline para status bars) (v1.6.6)
 - [ ] Áreas (rellenas con gradientes)
 - [ ] Heatmaps (grids 2D color-mapped)

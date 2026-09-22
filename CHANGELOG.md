@@ -3,6 +3,58 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.1] — Braille line charts + font cell aspect ratio
+
+Two roadmap items, zero breaking changes: a Braille line chart (Phase 10) and
+font cell-aspect detection (Phase 8).
+
+### Added — Braille line chart (Phase 10)
+
+`lineChart` renders a numeric series — or several overlaid — as a multi-line
+Braille string. Each cell packs a 2×4 sub-pixel block, so lines are drawn at
+**8× the resolution** of a sparkline and joined with a Bresenham segment for a
+continuous curve at any data density.
+
+```js
+import { lineChart } from 'ansimax';
+
+const wave = Array.from({ length: 60 }, (_, i) => Math.sin(i / 6));
+console.log(lineChart(wave, { width: 40, height: 8 }));
+
+// Several series on shared axes:
+console.log(lineChart([{ data: cpu }, { data: mem }]));
+```
+
+- Larger values sit higher (inverted y); a flat series draws along the center.
+- Non-finite points break the line into a gap; no finite data returns `''`.
+- Optional `colorFn(cell, coverage)` — the honest Braille analogue of Wu
+  anti-aliasing. You can't half-light a dot, so per-cell intensity (lit
+  sub-pixels / 8) is projected onto the cell's color instead.
+- `min` / `max` clamp the axis; `width` / `height` set the cell grid.
+
+Also in the `chart` namespace as `chart.lineChart`.
+
+### Added — Font cell aspect ratio (Phase 8)
+
+Terminal cells are ~2× taller than wide, so a naive sub-pixel canvas draws
+circles as ellipses. `cellAspectRatio` resolves `R = cell_width / cell_height`
+and `aspectScale` builds the `S(1, 1/R)` scale matrix to correct raster y.
+
+```js
+import { cellAspectRatio, aspectScale, DEFAULT_CELL_ASPECT } from 'ansimax';
+
+const r = cellAspectRatio();     // explicit → measured → env → 0.5
+const { sy } = aspectScale(r);   // multiply raster-y by sy (≈ 2)
+```
+
+Resolution order: an explicit `ratio` → measured `cellWidth`/`cellHeight` →
+the `ANSIMAX_CELL_ASPECT` env override → `DEFAULT_CELL_ASPECT` (0.5). A true
+cell-metrics query (CSI 16 t) is async and unsupported on many terminals, so R
+is exposed as a plain, overridable value — never a blocking probe. Pathological
+inputs fall back rather than throw.
+
+---
+
 ## [1.7.0] — Perceptual color, managed screen, spline gradients, lap timing
 
 A larger minor release. Adds a perceptually-accurate color quantizer (the

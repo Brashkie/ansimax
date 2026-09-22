@@ -957,7 +957,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Unicode width detection** (CJK halfwidth/fullwidth, emoji clusters, ZWJ sequences) (v1.6.5)
 - [x] **Image protocol detection** — *detection only*, not an encoder: reports which protocol the terminal advertises so callers can plug in their own; ansimax itself renders via the universal path (v1.6.4)
 - [ ] **Terminal capability database** (full xterm capability flags + version probes)
-- [ ] **Font metrics detection** (cell width/height for pixel-accurate layouts)
+- [x] **Font metrics detection** — cell aspect ratio (`cellAspectRatio`, `aspectScale`) for pixel-accurate sub-cell layouts; overridable, defaults to the near-universal 0.5 (v1.7.1)
 
 ### 🟡 Phase 9 — Advanced rendering
 - [x] Dirty-rectangle canvas (only redraw changed pixels)
@@ -972,7 +972,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 
 ### 🔴 Phase 10 — Terminal charts
 - [~] Bar charts (horizontal + vertical, grouped, stacked) — horizontal bar + histogram (v1.6.6)
-- [ ] Line charts (with braille for sub-character resolution)
+- [x] Line charts (with braille for sub-character resolution) — `lineChart`, 8× sub-pixel, multi-series, Wu-style per-cell coverage color (v1.7.1)
 - [x] Sparklines (inline mini-charts for status bars) (v1.6.6)
 - [ ] Area charts (filled with gradients)
 - [ ] Heatmaps (color-mapped 2D grids)

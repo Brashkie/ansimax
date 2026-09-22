@@ -1219,3 +1219,34 @@ describe('barrel coverage — v1.7.0 re-exports', () => {
     expect(typeof main.loader.stopwatch).toBe('function');
   });
 });
+
+describe('barrel coverage — v1.7.1 re-exports', () => {
+  it('exposes lineChart from the main entry (Fase 10)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.lineChart).toBe('function');
+    // Exercise so the re-export line is covered, not just referenced.
+    const out = main.lineChart([0, 1, 2, 3], { width: 6, height: 3 });
+    expect(typeof out).toBe('string');
+    expect(out.split('\n')).toHaveLength(3);
+  });
+
+  it('exposes lineChart on the chart namespace of the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { chart: Record<string, unknown> }).chart;
+    expect(typeof ns.lineChart).toBe('function');
+    expect((ns.lineChart as typeof main.lineChart)([0, 5, 2])).toEqual(
+      main.lineChart([0, 5, 2]),
+    );
+  });
+
+  it('exposes font cell-aspect helpers from the main entry (Fase 8)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.cellAspectRatio).toBe('function');
+    expect(typeof main.aspectScale).toBe('function');
+    expect(main.DEFAULT_CELL_ASPECT).toBe(0.5);
+    // Exercise so the re-export lines are covered.
+    expect(main.cellAspectRatio()).toBe(0.5);
+    expect(main.cellAspectRatio({ ratio: 0.6 })).toBe(0.6);
+    expect(main.aspectScale(0.5)).toEqual({ sx: 1, sy: 2 });
+  });
+});

@@ -1,4 +1,4 @@
-import { sparkline, bar, histogram } from '../charts/index.js';
+import { sparkline, bar, histogram, lineChart } from '../charts/index.js';
 
 describe('sparkline (v1.6.6)', () => {
   it('renders one block char per value', () => {
@@ -122,5 +122,126 @@ describe('histogram (v1.6.6)', () => {
       { label: 'B', value: 0 },
     ], { width: 6, showValue: false });
     expect(out.split('\n')).toHaveLength(2);
+  });
+});
+
+describe('lineChart (v1.7.1)', () => {
+  const BRAILLE_LO = 0x2800;
+  const BRAILLE_HI = 0x28ff;
+  const isBrailleOrSpace = (s: string): boolean =>
+    [...s].every((ch) => {
+      const cp = ch.codePointAt(0)!;
+      return ch === '\n' || (cp >= BRAILLE_LO && cp <= BRAILLE_HI);
+    });
+
+  it('returns a grid of the requested cell dimensions', () => {
+    const out = lineChart([0, 1, 2, 3], { width: 10, height: 4 });
+    const lines = out.split('\n');
+    expect(lines).toHaveLength(4);
+    for (const l of lines) expect([...l]).toHaveLength(10);
+  });
+
+  it('emits only Braille glyphs (U+2800..U+28FF)', () => {
+    const out = lineChart([0, 3, 1, 4, 2], { width: 8, height: 3 });
+    expect(isBrailleOrSpace(out)).toBe(true);
+  });
+
+  it('accepts a plain number[] (single series)', () => {
+    expect(typeof lineChart([1, 2, 3])).toBe('string');
+  });
+
+  it('accepts a LineChartSeries[] (multi series)', () => {
+    const out = lineChart(
+      [{ data: [0, 2, 4] }, { data: [4, 2, 0] }],
+      { width: 8, height: 4 },
+    );
+    expect(out.split('\n')).toHaveLength(4);
+  });
+
+  it('draws a flat series along the vertical center', () => {
+    const out = lineChart([5, 5, 5, 5], { width: 6, height: 4 });
+    const lines = out.split('\n');
+    // Center rows carry glyphs; the extreme rows stay blank.
+    const nonBlank = lines
+      .map((l, i) => ({ i, lit: [...l].some((c) => c !== '⠀') }))
+      .filter((r) => r.lit)
+      .map((r) => r.i);
+    expect(nonBlank.length).toBeGreaterThan(0);
+    expect(nonBlank).not.toContain(0);
+    expect(nonBlank).not.toContain(lines.length - 1);
+  });
+
+  it('places larger values higher (inverted y)', () => {
+    // Ramp up: the last (largest) column should light a higher row than the
+    // first (smallest) column.
+    const out = lineChart([0, 10], { width: 4, height: 4, min: 0, max: 10 });
+    const lines = out.split('\n');
+    const width = [...(lines[0] ?? '')].length;
+    const firstLitRow = (colChars: string[]): number =>
+      colChars.findIndex((c) => c !== '⠀');
+    const leftCol = lines.map((l) => [...l][0] ?? '⠀');
+    const rightCol = lines.map((l) => [...l][width - 1] ?? '⠀');
+    expect(firstLitRow(rightCol)).toBeLessThan(firstLitRow(leftCol));
+  });
+
+  it('breaks the line on a non-finite point (gap)', () => {
+    const solid = lineChart([0, 1, 2, 3, 4], { width: 10, height: 4 });
+    const gapped = lineChart([0, 1, NaN, 3, 4], { width: 10, height: 4 });
+    expect(gapped).not.toBe(solid);
+  });
+
+  it('returns empty string for an empty series', () => {
+    expect(lineChart([])).toBe('');
+  });
+
+  it('returns empty string when no finite data exists', () => {
+    expect(lineChart([NaN, Infinity, -Infinity])).toBe('');
+  });
+
+  it('handles a single data point without throwing', () => {
+    const out = lineChart([7], { width: 4, height: 2 });
+    expect(isBrailleOrSpace(out)).toBe(true);
+  });
+
+  it('clamps out-of-range values to the given min/max', () => {
+    const out = lineChart([-100, 0, 100], { width: 6, height: 4, min: 0, max: 10 });
+    expect(isBrailleOrSpace(out)).toBe(true);
+  });
+
+  it('passes each lit cell a coverage in (0, 1] to colorFn', () => {
+    const seen: number[] = [];
+    lineChart([0, 5, 0, 5, 0], {
+      width: 6, height: 3,
+      colorFn: (cell, coverage) => { seen.push(coverage); return cell; },
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const k of seen) {
+      expect(k).toBeGreaterThan(0);
+      expect(k).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('does not invoke colorFn for blank cells', () => {
+    let blankCalls = 0;
+    lineChart([0, 0], {
+      width: 6, height: 4,
+      colorFn: (cell, coverage) => {
+        if (coverage === 0) blankCalls++;
+        return cell;
+      },
+    });
+    expect(blankCalls).toBe(0);
+  });
+
+  it('ignores a malformed series entry (non-array data)', () => {
+    // @ts-expect-error — exercising defensive runtime guard
+    const out = lineChart([{ data: null }, { data: [0, 1, 2] }], { width: 6, height: 3 });
+    expect(typeof out).toBe('string');
+  });
+
+  it('defaults to a 40×8 grid when no size is given', () => {
+    const lines = lineChart([0, 1, 2, 3, 4, 5]).split('\n');
+    expect(lines).toHaveLength(8);
+    expect([...(lines[0] ?? '')]).toHaveLength(40);
   });
 });
