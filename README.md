@@ -972,7 +972,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 
 ### 🔴 Phase 10 — Terminal charts
 - [~] Bar charts (horizontal + vertical, grouped, stacked) — horizontal bar + histogram (v1.6.6)
-- [x] Line charts (with braille for sub-character resolution) — `lineChart`, 8× sub-pixel, multi-series, Wu-style per-cell coverage color (v1.7.1)
+- [x] Line charts (with braille for sub-character resolution) — `lineChart`, 8× sub-pixel, multi-series, per-cell coverage color (v1.7.1); **Xiaolin Wu anti-aliasing** via `antialias` — fractional edge weights projected onto coverage (v1.7.2)
 - [x] Sparklines (inline mini-charts for status bars) (v1.6.6)
 - [ ] Area charts (filled with gradients)
 - [ ] Heatmaps (color-mapped 2D grids)
@@ -982,8 +982,9 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [ ] Real-time streaming charts (live data feed with rolling window)
 - [ ] **Plot composer** (multi-chart dashboards with shared axes)
 
-### 🔴 Phase 11 — Forms & Input
-- [ ] Text input prompts (with autocomplete + history)
+### 🟡 Phase 11 — Forms & Input
+- [x] **Fuzzy matcher** — Myers bit-parallel Levenshtein (`fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch`); typo-tolerant, end-free substring search, `O(m·⌈n/32⌉)`, zero deps (v1.7.2)
+- [ ] Text input prompts (with autocomplete + history) — fuzzy engine ready (v1.7.2)
 - [ ] Password prompts (masked, strength meter)
 - [ ] Confirm dialogs (yes/no with default highlight)
 - [ ] Numeric input (with min/max validation)
@@ -1101,12 +1102,46 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          27 test suites, 3000+ tests
+└── __tests__/          29 test suites, 3100+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.2 — Wu anti-aliased lines + fuzzy matching
+
+- 〰️ **Wu anti-aliasing** — `lineChart(..., { antialias: true })` splits each step's intensity across the two nearest sub-pixels; fractional edge weights ride the per-cell `colorFn` coverage (Phase 10 improvement)
+- 🔎 **Fuzzy matching** — new `fuzzy` module: `fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch` (Myers bit-parallel Levenshtein, typo-tolerant, `O(m·⌈n/32⌉)`) — Phase 11 begins
+- 📓 **Showcase** — added live-metrics (sparkline + Wu lineChart) and a fuzzy command-palette step
+- 🧪 **+40 tests**
+
+```js
+import { lineChart, fuzzySearch } from 'ansimax';
+
+lineChart(latency, { width: 40, height: 6, antialias: true, colorFn: fade });
+
+const cmds = ['rollback', 'restart', 'rollout', 'scale', 'status'];
+fuzzySearch('rollbck', cmds, { limit: 3 }).map((r) => r.value); // ['rollback', ...]
+```
+
+Drop-in replacement for `1.7.1`.
+
+### v1.7.1 — Braille line charts + font cell aspect ratio
+
+- 📈 **Braille line chart** — `lineChart` renders a series (or several) as a 2×4 sub-pixel braille canvas, 8× a sparkline's resolution, joined with Bresenham (Phase 10)
+- 📐 **Font cell aspect ratio** — `cellAspectRatio` / `aspectScale` resolve `R = cell_width/cell_height` so sub-pixel canvases keep circles round; sync, overridable, defaults to 0.5 (Phase 8)
+- 🧪 **+30 tests**
+
+```js
+import { lineChart, cellAspectRatio, aspectScale } from 'ansimax';
+
+const wave = Array.from({ length: 60 }, (_, i) => Math.sin(i / 6));
+lineChart(wave, { width: 40, height: 8 });
+const { sy } = aspectScale(cellAspectRatio());  // multiply raster-y by sy (≈ 2)
+```
+
+Drop-in replacement for `1.7.0`.
 
 ### v1.7.0 — Perceptual color, managed screen, spline gradients, lap timing
 
@@ -2143,7 +2178,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3000+ tests across 27 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3100+ tests across 29 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

@@ -83,6 +83,13 @@ export type {
   SparklineOptions, BarOptions, HistogramRow, HistogramOptions,
   LineChartSeries, LineChartOptions,
 } from './charts/index.js';
+// v1.7.2 — Phase 11: fuzzy matching & ranking (Myers bit-parallel)
+export {
+  fuzzyDistance, fuzzyMatch, fuzzyScore, fuzzySearch,
+} from './fuzzy/index.js';
+export type {
+  FuzzyOptions, FuzzyResult, FuzzySearchOptions,
+} from './fuzzy/index.js';
 export type {
   SpinnerType, SpinOptions, ProgressOptions, ProgressAnimateOptions,
   Task, TaskResult, TasksOptions,
@@ -323,6 +330,12 @@ import {
 } from './charts/index.js';
 const chartNs = { sparkline: _spark, bar: _bar, histogram: _histo, lineChart: _line };
 
+// v1.7.2 — Phase 11 fuzzy namespace
+import {
+  fuzzyDistance as _fd, fuzzyMatch as _fm, fuzzyScore as _fs, fuzzySearch as _fsearch,
+} from './fuzzy/index.js';
+const fuzzyNs = { distance: _fd, match: _fm, score: _fs, search: _fsearch };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -347,6 +360,8 @@ const ansimax = {
   tween: _tweenNs,
   // v1.6.6
   chart: chartNs,
+  // v1.7.2
+  fuzzy: fuzzyNs,
 };
 export default ansimax;
 

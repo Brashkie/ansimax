@@ -70,6 +70,8 @@ import {
   panels,
   json,
   markdown,
+  sparkline, lineChart,
+  fuzzySearch,
   tween, spring, stagger, sequence,
   createLogger,
   sleep,
@@ -162,7 +164,28 @@ async function main() {
   console.log(metricsTable.split('\n').map((l) => '  ' + l).join('\n'));
   console.log('\n  ' + badges + '\n');
 
-  // ── 7. Project structure (trees) ──────────────────────────────
+  // ── 7. Live metrics (sparkline + braille lineChart) ───────────
+  // Throughput over the last 24 samples as an inline sparkline...
+  const throughput = [8, 9, 11, 10, 12, 14, 13, 15, 14, 16, 18, 17,
+    19, 18, 20, 22, 21, 23, 22, 24, 23, 25, 24, 26];
+  console.log(color.bold('  Throughput (24h):'));
+  console.log('  ' + color.green(sparkline(throughput)) + '  ' +
+    color.dim(`${throughput[throughput.length - 1]}k rps`));
+  console.log();
+
+  // ...and p99 latency as a Wu anti-aliased braille line chart. The colorFn
+  // receives each cell's coverage (0..1) and fades the color by intensity,
+  // which is where Wu's fractional edge weights show up.
+  const latency = Array.from({ length: 80 },
+    (_, i) => 120 + Math.sin(i / 7) * 40 + Math.sin(i / 2) * 8);
+  const fade = (cell, coverage) =>
+    coverage > 0.5 ? color.cyan(cell) : color.dim(cell);
+  console.log(color.bold('  p99 latency (ms):'));
+  console.log(lineChart(latency, { width: 40, height: 6, antialias: true, colorFn: fade })
+    .split('\n').map((l) => '  ' + l).join('\n'));
+  console.log();
+
+  // ── 8. Project structure (trees) ──────────────────────────────
   console.log(color.bold('  Deployed artifact tree:'));
   console.log(trees.render({
     label: 'stardust-api/',
@@ -174,7 +197,7 @@ async function main() {
   }, { style: 'rounded' }).split('\n').map((l) => '  ' + l).join('\n'));
   console.log();
 
-  // ── 8. Release notes (markdown) ───────────────────────────────
+  // ── 9. Release notes (markdown) ───────────────────────────────
   console.log(color.bold('  Release notes:\n'));
   console.log(markdown.render([
     '## v4.2.0',
@@ -184,7 +207,7 @@ async function main() {
     '- Improved cold-start by `40%`',
   ].join('\n')).split('\n').map((l) => '  ' + l).join('\n'));
 
-  // ── 9. Event timeline (components.timeline) ───────────────────
+  // ── 10. Event timeline (components.timeline) ──────────────────
   console.log(color.bold('  Deploy timeline:'));
   console.log(components.timeline([
     { label: 'Build started', time: '10:00' },
@@ -194,7 +217,20 @@ async function main() {
   ]).split('\n').map((l) => '  ' + l).join('\n'));
   console.log();
 
-  // ── 10. Canvas art finale (createCanvas + frames.morph) ───────
+  // ── 11. Command palette (fuzzy matching) ──────────────────────
+  // The operator fat-fingers a subcommand; fuzzySearch tolerates the typo
+  // and ranks the closest real command (Myers bit-parallel Levenshtein).
+  const subcommands = ['rollback', 'restart', 'rollout', 'scale', 'status'];
+  const typed = 'rollbck';
+  const suggestions = fuzzySearch(typed, subcommands, { limit: 3 });
+  console.log(color.bold(`  Unknown command "${typed}" — did you mean:`));
+  for (const hit of suggestions) {
+    const pct = Math.round(hit.score * 100);
+    console.log(`    ${color.cyan(hit.value)} ${color.dim(`(${pct}% match)`)}`);
+  }
+  console.log();
+
+  // ── 12. Canvas art finale (createCanvas + frames.morph) ───────
   const canvas = createCanvas(30, 8, { r: 20, g: 20, b: 30 });
   const green = { r: 80, g: 250, b: 123 };
   const purple = { r: 189, g: 147, b: 249 };
@@ -228,6 +264,13 @@ main().catch((err) => {
   their target, and good UI code accounts for it).
 - **Cascading UI with `stagger`.** The canary checks don't all print at once —
   they cascade in, 200ms apart, the way a polished CLI reveals a list.
+- **Observability inline.** A `sparkline` shows throughput at a glance, and a
+  Wu anti-aliased `lineChart` draws p99 latency in braille at 8× sub-pixel
+  resolution — the `colorFn` fades each cell by its coverage, which is where
+  Wu's fractional edge weights land.
+- **Typo-tolerant commands.** When the operator mistypes a subcommand,
+  `fuzzySearch` (Myers bit-parallel Levenshtein) ranks the closest real one
+  with a match percentage — the building block of a fuzzy command palette.
 - **Everything composes.** `ascii.table` feeds a dashboard, `trees.render`
   shows the artifact layout, `markdown.render` formats release notes, and
   `frames.morph` animates the finale — all in the same output stream.

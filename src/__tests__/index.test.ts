@@ -1250,3 +1250,35 @@ describe('barrel coverage — v1.7.1 re-exports', () => {
     expect(main.aspectScale(0.5)).toEqual({ sx: 1, sy: 2 });
   });
 });
+
+describe('barrel coverage — v1.7.2 re-exports', () => {
+  it('exposes the fuzzy matchers from the main entry (Fase 11)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.fuzzyDistance).toBe('function');
+    expect(typeof main.fuzzyMatch).toBe('function');
+    expect(typeof main.fuzzyScore).toBe('function');
+    expect(typeof main.fuzzySearch).toBe('function');
+    // Exercise so the re-export lines are covered, not just referenced.
+    expect(main.fuzzyDistance('confg', 'config file')).toBe(1);
+    expect(main.fuzzyMatch('comit', 'commit')).toBe(true);
+    expect(main.fuzzyScore('git', 'github')).toBe(1);
+    expect(main.fuzzySearch('comit', ['commit', 'config']).map((r) => r.value)).toEqual(['commit']);
+  });
+
+  it('exposes the fuzzy namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { fuzzy: Record<string, unknown> }).fuzzy;
+    expect(typeof ns.distance).toBe('function');
+    expect(typeof ns.match).toBe('function');
+    expect(typeof ns.score).toBe('function');
+    expect(typeof ns.search).toBe('function');
+    expect((ns.distance as typeof main.fuzzyDistance)('git', 'github')).toBe(0);
+  });
+
+  it('exposes lineChart antialias through the main entry (Fase 10 improvement)', async () => {
+    const main = await import('../index.js');
+    const aa = main.lineChart([0, 1, 2, 3, 4], { width: 8, height: 4, antialias: true });
+    expect(typeof aa).toBe('string');
+    expect(aa.split('\n')).toHaveLength(4);
+  });
+});

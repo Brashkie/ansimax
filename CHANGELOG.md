@@ -3,6 +3,63 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.2] — Wu anti-aliased lines + fuzzy matching
+
+Two roadmap items, zero breaking changes: Xiaolin Wu anti-aliasing for the
+Braille line chart (Phase 10 improvement) and a typo-tolerant fuzzy matcher
+(Phase 11 begins).
+
+### Added — Wu anti-aliased Braille lines (Phase 10)
+
+`lineChart` gains an `antialias` option. A Braille dot can't be half-lit, so
+instead of smoothing the glyphs, Wu's algorithm splits each step's intensity
+between the two nearest sub-pixels (`I₁ = 1 − frac`, `I₂ = frac`) and preserves
+those fractional weights in the per-cell coverage handed to `colorFn`. Drive
+truecolor opacity from that coverage and the line's edge reads visibly smoother.
+
+```js
+import { lineChart } from 'ansimax';
+
+const wave = Array.from({ length: 80 }, (_, i) => Math.sin(i / 8));
+// Coverage now carries Wu's fractional edge weights:
+lineChart(wave, { width: 40, height: 8, antialias: true, colorFn: fade });
+```
+
+The default (`antialias: false`) is byte-for-byte unchanged — the coverage of a
+hard line is still exactly `lit / 8`.
+
+### Added — Fuzzy matching & ranking (Phase 11)
+
+A new `fuzzy` module built on **Myers' bit-parallel Levenshtein** algorithm.
+The edit-distance DP matrix only ever changes by `{-1, 0, +1}` between adjacent
+cells, so Myers packs a whole column into bit-vectors and advances one text
+character per handful of AND/OR/shift ops — `O(m·⌈n/32⌉)`, fast enough to
+re-rank an autocomplete list on every keystroke. The search is end-free
+(the pattern may match any substring), so `confg` still finds `config file`.
+
+```js
+import { fuzzyDistance, fuzzyMatch, fuzzyScore, fuzzySearch } from 'ansimax';
+
+fuzzyDistance('confg', 'config file');   // 1
+fuzzyMatch('comit', 'commit');           // true (within 2 edits)
+fuzzyScore('color', 'colour');           // 0.8
+
+const cmds = ['commit', 'config', 'checkout', 'clone', 'clean'];
+fuzzySearch('comit', cmds).map((r) => r.value);  // ['commit']
+```
+
+- `fuzzyDistance(pattern, text)` — min edit distance to the best substring.
+- `fuzzyMatch(pattern, text, { maxErrors })` — boolean, default 2 errors.
+- `fuzzyScore(pattern, text, { maxErrors })` — `[0,1]` relevance (0 past the cap).
+- `fuzzySearch(pattern, candidates, { maxErrors, limit, key, caseSensitive })` —
+  ranked `{ value, distance, score, index }[]`; ties break by shorter candidate,
+  then original order. Patterns over 32 chars use an equivalent DP fallback.
+
+Also exposed as the `fuzzy` namespace (`fuzzy.distance`, `fuzzy.match`,
+`fuzzy.score`, `fuzzy.search`).
+
+---
+
 ## [1.7.1] — Braille line charts + font cell aspect ratio
 
 Two roadmap items, zero breaking changes: a Braille line chart (Phase 10) and

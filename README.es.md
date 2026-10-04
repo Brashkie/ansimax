@@ -965,7 +965,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 
 ### 🔴 Fase 10 — Charts de terminal
 - [ ] Barras (horizontal + vertical, agrupadas, apiladas)
-- [x] Líneas (con braille para resolución sub-carácter) — `lineChart`, sub-pixel 8×, multi-serie, color por cobertura de celda estilo Wu (v1.7.1)
+- [x] Líneas (con braille para resolución sub-carácter) — `lineChart`, sub-pixel 8×, multi-serie, color por cobertura de celda (v1.7.1); **anti-aliasing Xiaolin Wu** vía `antialias` — pesos fraccionales de borde proyectados sobre la cobertura (v1.7.2)
 - [x] Sparklines (mini-charts inline para status bars) (v1.6.6)
 - [ ] Áreas (rellenas con gradientes)
 - [ ] Heatmaps (grids 2D color-mapped)
@@ -975,8 +975,9 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [ ] Charts en streaming en tiempo real (feed de datos con ventana móvil)
 - [ ] **Compositor de plots** (dashboards multi-chart con ejes compartidos)
 
-### 🔴 Fase 11 — Formularios e input
-- [ ] Prompts de texto (con autocomplete + historial)
+### 🟡 Fase 11 — Formularios e input
+- [x] **Matcher fuzzy** — Levenshtein bit-paralelo de Myers (`fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch`); tolerante a typos, búsqueda de subcadena sin anclaje, `O(m·⌈n/32⌉)`, cero deps (v1.7.2)
+- [ ] Prompts de texto (con autocomplete + historial) — motor fuzzy listo (v1.7.2)
 - [ ] Prompts de password (mascarados, medidor de fortaleza)
 - [ ] Diálogos de confirmación (yes/no con highlight de default)
 - [ ] Input numérico (con validación min/max)
@@ -1087,7 +1088,7 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          27 test suites, 3000+ tests
+└── __tests__/          29 test suites, 3100+ tests
 ```
 
 ---
@@ -2095,7 +2096,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3000+ tests en 27 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3100+ tests en 29 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

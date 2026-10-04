@@ -245,3 +245,84 @@ describe('lineChart (v1.7.1)', () => {
     expect([...(lines[0] ?? '')]).toHaveLength(40);
   });
 });
+
+describe('lineChart — Wu anti-aliasing (v1.7.2)', () => {
+  const BRAILLE_LO = 0x2800;
+  const BRAILLE_HI = 0x28ff;
+  const isBrailleOrSpace = (s: string): boolean =>
+    [...s].every((ch) => {
+      const cp = ch.codePointAt(0)!;
+      return ch === '\n' || (cp >= BRAILLE_LO && cp <= BRAILLE_HI);
+    });
+
+  const wave = Array.from({ length: 48 }, (_, i) => Math.sin(i / 6));
+
+  it('default (antialias off) is byte-for-byte unchanged', () => {
+    const plain = lineChart(wave, { width: 24, height: 6 });
+    const explicit = lineChart(wave, { width: 24, height: 6, antialias: false });
+    expect(explicit).toBe(plain);
+  });
+
+  it('emits only braille glyphs in Wu mode', () => {
+    const out = lineChart(wave, { width: 24, height: 6, antialias: true });
+    expect(isBrailleOrSpace(out)).toBe(true);
+  });
+
+  it('hard-line coverage is always an integer number of eighths', () => {
+    const seen: number[] = [];
+    lineChart([0, 7, 1, 6, 2], {
+      width: 12, height: 4,
+      colorFn: (cell, coverage) => { seen.push(coverage); return cell; },
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const k of seen) {
+      const eighths = k * 8;
+      expect(Math.abs(eighths - Math.round(eighths))).toBeLessThan(1e-9);
+    }
+  });
+
+  it('Wu coverage carries fractional edge weights', () => {
+    const seen: number[] = [];
+    lineChart([0, 7, 1, 6, 2], {
+      width: 12, height: 4, antialias: true,
+      colorFn: (cell, coverage) => { seen.push(coverage); return cell; },
+    });
+    const hasFractional = seen.some((k) => {
+      const eighths = k * 8;
+      return Math.abs(eighths - Math.round(eighths)) > 1e-9;
+    });
+    expect(hasFractional).toBe(true);
+  });
+
+  it('Wu coverage stays within (0, 1]', () => {
+    const seen: number[] = [];
+    lineChart(wave, {
+      width: 24, height: 6, antialias: true,
+      colorFn: (cell, coverage) => { seen.push(coverage); return cell; },
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const k of seen) {
+      expect(k).toBeGreaterThan(0);
+      expect(k).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('Wu mode still returns empty for no finite data', () => {
+    expect(lineChart([NaN, Infinity], { antialias: true })).toBe('');
+  });
+
+  it('Wu mode handles a single point and a steep (y-dominant) segment', () => {
+    expect(isBrailleOrSpace(lineChart([5], { width: 3, height: 2, antialias: true }))).toBe(true);
+    // Near-vertical jump exercises the y-dominant branch of the Wu walker.
+    const steep = lineChart([0, 100], { width: 2, height: 8, min: 0, max: 100, antialias: true });
+    expect(isBrailleOrSpace(steep)).toBe(true);
+  });
+
+  it('Wu mode handles zero-length segments (consecutive points on one sub-pixel)', () => {
+    // At width 1 (2 sub-columns) several flat samples map to the same sub-pixel,
+    // so successive points share an (x, y) — the degenerate Wu segment.
+    const out = lineChart([7, 7, 7, 7, 7], { width: 1, height: 1, antialias: true });
+    expect(isBrailleOrSpace(out)).toBe(true);
+    expect(out.split('\n')).toHaveLength(1);
+  });
+});

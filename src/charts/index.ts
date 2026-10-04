@@ -216,11 +216,25 @@ export interface LineChartOptions {
   max?: number;
   /**
    * Per-cell colorizer: receives the composed Braille glyph and the cell's
-   * coverage (lit sub-pixels / 8, in `[0,1]`). Returns a styled string. This
-   * is the honest Braille analogue of Wu anti-aliasing — you can't half-light
-   * a dot, so intensity is projected onto the cell's color instead.
+   * coverage (summed sub-pixel intensity / 8, in `[0,1]`). Returns a styled
+   * string. This is the honest Braille analogue of Wu anti-aliasing — you
+   * can't half-light a dot, so intensity is projected onto the cell's color
+   * instead. With {@link LineChartOptions.antialias} on, the coverage carries
+   * the fractional Wu weights, so a `colorFn` mapping coverage → opacity
+   * renders a visibly smoother line.
    */
   colorFn?: (cell: string, coverage: number) => string;
+  /**
+   * Draw lines with Xiaolin Wu anti-aliasing instead of a hard Bresenham
+   * segment. Each step along the dominant axis splits its intensity between
+   * the two nearest sub-pixels (`I₁ = 1 − frac`, `I₂ = frac`). A Braille dot
+   * can't be half-lit, so both dots still turn on — but the fractional weight
+   * is preserved in the per-cell coverage handed to `colorFn`, which softens
+   * the edge when coverage drives truecolor opacity. Default `false`.
+   *
+   * @since 1.7.2
+   */
+  antialias?: boolean;
 }
 
 const _bresenham = (
@@ -240,6 +254,42 @@ const _bresenham = (
     const e2 = 2 * err;
     if (e2 > -dy) { err -= dy; cx += sx; }
     if (e2 < dx) { err += dx; cy += sy; }
+  }
+};
+
+// Xiaolin Wu line: walk the dominant axis, splitting each step's intensity
+// between the two nearest sub-pixels on the minor axis. `plot(x, y, i)` gets a
+// weight `i ∈ (0, 1]`. A Braille dot can't be half-lit, so the caller still
+// sets the bit — but the weight is preserved for per-cell coverage.
+const _wuLine = (
+  x0: number, y0: number, x1: number, y1: number,
+  plot: (x: number, y: number, intensity: number) => void,
+): void => {
+  const dxAbs = Math.abs(x1 - x0);
+  const dyAbs = Math.abs(y1 - y0);
+  if (dxAbs === 0 && dyAbs === 0) { plot(x0, y0, 1); return; }
+  if (dxAbs >= dyAbs) {
+    // x is the dominant axis — one plotted column per x step.
+    const [xa, ya, xb, yb] = x0 <= x1 ? [x0, y0, x1, y1] : [x1, y1, x0, y0];
+    const slope = (yb - ya) / (xb - xa);
+    for (let x = xa; x <= xb; x++) {
+      const y = ya + slope * (x - xa);
+      const yi = Math.floor(y);
+      const frac = y - yi;
+      plot(x, yi, 1 - frac);
+      if (frac > 0) plot(x, yi + 1, frac);
+    }
+  } else {
+    // y is the dominant axis — one plotted row per y step.
+    const [xa, ya, xb, yb] = y0 <= y1 ? [x0, y0, x1, y1] : [x1, y1, x0, y0];
+    const slope = (xb - xa) / (yb - ya);
+    for (let y = ya; y <= yb; y++) {
+      const x = xa + slope * (y - ya);
+      const xi = Math.floor(x);
+      const frac = x - xi;
+      plot(xi, y, 1 - frac);
+      if (frac > 0) plot(xi + 1, y, frac);
+    }
   }
 };
 
@@ -290,10 +340,17 @@ export const lineChart = (
   const hi = Number.isFinite(opts.max as number) ? (opts.max as number) : Math.max(...finite);
   const span = hi - lo;
 
-  // Sub-pixel grid (row-major booleans as 0/1).
-  const grid = new Uint8Array(W * H);
-  const plot = (x: number, y: number): void => {
-    if (x >= 0 && x < W && y >= 0 && y < H) grid[y * W + x] = 1;
+  // Sub-pixel intensity grid (row-major, 0..1). In the default hard-line mode
+  // every plotted pixel gets intensity 1, so the packed coverage is exactly
+  // `lit / 8`; in Wu mode it carries the fractional edge weights.
+  const aa = opts.antialias === true;
+  const grid = new Float32Array(W * H);
+  const plot = (x: number, y: number, intensity = 1): void => {
+    if (x >= 0 && x < W && y >= 0 && y < H) {
+      const idx = y * W + x;
+      // Keep the strongest contribution so crossing lines don't over-saturate.
+      if (intensity > grid[idx]!) grid[idx] = intensity;
+    }
   };
   const toY = (v: number): number => {
     // Invert so larger values sit higher; flat series maps to the center.
@@ -310,29 +367,35 @@ export const lineChart = (
       if (!Number.isFinite(v)) { prev = null; continue; }
       const x = n === 1 ? 0 : Math.round((i / (n - 1)) * (W - 1));
       const y = toY(v);
-      if (prev) _bresenham(prev.x, prev.y, x, y, plot);
-      else plot(x, y);
+      if (prev) {
+        if (aa) _wuLine(prev.x, prev.y, x, y, plot);
+        else _bresenham(prev.x, prev.y, x, y, (px, py) => plot(px, py, 1));
+      } else {
+        plot(x, y, 1);
+      }
       prev = { x, y };
     }
   }
 
-  // Pack the sub-pixel grid into Braille cells.
+  // Pack the sub-pixel grid into Braille cells. A dot turns on for any non-zero
+  // intensity; the summed intensity (not the raw count) becomes the coverage.
   const out: string[] = [];
   for (let cy = 0; cy < rows; cy++) {
     let line = '';
     for (let cx = 0; cx < cols; cx++) {
       let bits = 0;
-      let count = 0;
+      let intensity = 0;
       for (let dy = 0; dy < 4; dy++) {
         for (let dx = 0; dx < 2; dx++) {
-          if (grid[(cy * 4 + dy) * W + (cx * 2 + dx)]) {
+          const w = grid[(cy * 4 + dy) * W + (cx * 2 + dx)]!;
+          if (w > 0) {
             bits |= 1 << brailleBit(dx, dy);
-            count++;
+            intensity += w;
           }
         }
       }
       const ch = String.fromCodePoint(BRAILLE_BASE + bits);
-      line += (opts.colorFn && bits) ? opts.colorFn(ch, count / 8) : ch;
+      line += (opts.colorFn && bits) ? opts.colorFn(ch, intensity / 8) : ch;
     }
     out.push(line);
   }
