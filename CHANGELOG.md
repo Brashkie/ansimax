@@ -3,6 +3,48 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.3] — Catmull-Rom keyframe spline tween
+
+One focused improvement to a completed phase (Phase 6 — animation), zero
+breaking changes. Chaining linear tweens kinks the velocity at every junction;
+`keyframes` glides through a whole series of waypoints on a Catmull-Rom C¹
+spline, so motion (and color, and layout) stays smooth across each one.
+
+### Added — `keyframes` + `interpolateSpline` (Phase 6)
+
+```js
+import { keyframes, interpolateSpline } from 'ansimax';
+
+// Pure, shape-aware spline interpolation through N waypoints.
+interpolateSpline([0, 100, 0], 0.5);                    // 100 (through the peak)
+interpolateSpline([[0, 0], [50, 80], [100, 0]], 0.5);   // [50, 80]
+
+// Animated — the multi-frame sibling of tween().
+await keyframes({
+  frames: [0, 100, 60, 80],
+  duration: 1200,
+  onUpdate: (v) => drawBar(v),
+});
+```
+
+- `interpolateSpline(frames, t)` — pure Catmull-Rom through the series; `t ∈
+  [0,1]` spans all frames, passes **exactly** through `frames[k]` at
+  `t = k/(n-1)`, and keeps velocity continuous (C¹) across every waypoint.
+  Shape-aware (numbers, flat numeric arrays, flat numeric records), like
+  `interpolate`. One frame is constant; two fall back to a straight line.
+- `keyframes(opts)` — animated, sharing `tween`'s whole contract: AbortSignal,
+  `reducedMotion`, drift-corrected timing, `repeat`/`yoyo` (yoyo reverses the
+  frame order), and `onStart`/`onComplete`.
+- `keyframeStep(opts)` — composable `AnimationStep` for `sequence()` /
+  `parallel()`.
+
+All three are also on the `tween` namespace (`tween.keyframes`,
+`tween.interpolateSpline`, `tween.keyframeStep`). Reuses the `catmullRom`
+helper (v1.6.2) — the same math already behind `gradientColorSpline` (v1.7.0),
+now wired into the motion engine.
+
+---
+
 ## [1.7.2] — Wu anti-aliased lines + fuzzy matching
 
 Two roadmap items, zero breaking changes: Xiaolin Wu anti-aliasing for the

@@ -555,3 +555,201 @@ describe('stagger (v1.5.1)', () => {
     expect(typeof tweenEngine.stagger).toBe('function');
   });
 });
+
+import { keyframes, interpolateSpline, keyframeStep } from '../tween/index.js';
+
+describe('interpolateSpline (v1.7.3)', () => {
+  it('passes exactly through each numeric waypoint at t = k/(n-1)', () => {
+    const f = [0, 100, 0, 80];
+    for (let k = 0; k < f.length; k++) {
+      expect(interpolateSpline(f, k / (f.length - 1))).toBeCloseTo(f[k]!, 9);
+    }
+  });
+
+  it('anchors the endpoints at t=0 and t=1', () => {
+    expect(interpolateSpline([5, 50, 95], 0)).toBe(5);
+    expect(interpolateSpline([5, 50, 95], 1)).toBe(95);
+  });
+
+  it('keeps velocity continuous (C1) across an interior joint', () => {
+    const f = [0, 100, 0, 80];
+    const tj = 2 / 3; // interior waypoint (index 2), not an extremum
+    const h = 1e-7;
+    const left = (interpolateSpline(f, tj) - interpolateSpline(f, tj - h)) / h;
+    const right = (interpolateSpline(f, tj + h) - interpolateSpline(f, tj)) / h;
+    expect(Math.abs(left - right)).toBeLessThan(1e-2);
+  });
+
+  it('is constant for a single frame', () => {
+    expect(interpolateSpline([42], 0)).toBe(42);
+    expect(interpolateSpline([42], 0.5)).toBe(42);
+    expect(interpolateSpline([42], 1)).toBe(42);
+  });
+
+  it('falls back to a straight line for two frames', () => {
+    expect(interpolateSpline([10, 20], 0.5)).toBe(15);
+    expect(interpolateSpline([10, 20], 0.25)).toBe(12.5);
+  });
+
+  it('clamps t outside [0,1] to the endpoints', () => {
+    const f = [0, 100, 0, 80];
+    expect(interpolateSpline(f, -1)).toBe(0);
+    expect(interpolateSpline(f, 2)).toBe(80);
+  });
+
+  it('splines flat numeric arrays component-wise', () => {
+    const mid = interpolateSpline([[0, 0], [50, 80], [100, 0]], 0.5);
+    expect(mid).toEqual([50, 80]);
+  });
+
+  it('splines flat numeric records key-wise', () => {
+    const mid = interpolateSpline([{ x: 0, y: 0 }, { x: 50, y: 80 }, { x: 100, y: 0 }], 0.5);
+    expect(mid).toEqual({ x: 50, y: 80 });
+  });
+
+  it('throws on an empty frame list', () => {
+    expect(() => interpolateSpline([] as number[], 0.5)).toThrow();
+  });
+});
+
+describe('keyframes (v1.7.3)', () => {
+  it('animates through waypoints, ending on the last frame at progress 1', async () => {
+    const updates: Array<[number, number]> = [];
+    await keyframes({
+      frames: [0, 100, 60, 80], duration: 40, fps: 120,
+      onUpdate: (v, p) => updates.push([v as number, p]),
+    });
+    expect(updates.length).toBeGreaterThan(1);
+    const last = updates[updates.length - 1]!;
+    expect(last[0]).toBe(80);
+    expect(last[1]).toBe(1);
+    const progs = updates.map((u) => u[1]);
+    expect(progs.every((p, i) => i === 0 || p >= progs[i - 1]!)).toBe(true);
+  });
+
+  it('reducedMotion settles at the final frame in one update', async () => {
+    const updates: Array<[number, number]> = [];
+    await keyframes({
+      frames: [0, 50, 100], reducedMotion: true,
+      onUpdate: (v, p) => updates.push([v as number, p]),
+    });
+    expect(updates).toEqual([[100, 1]]);
+  });
+
+  it('fires onStart and onComplete around a normal run', async () => {
+    let started = false;
+    let completed = false;
+    await keyframes({
+      frames: [0, 10, 20], duration: 20, fps: 120,
+      onStart: () => { started = true; },
+      onComplete: () => { completed = true; },
+      onUpdate: () => {},
+    });
+    expect(started).toBe(true);
+    expect(completed).toBe(true);
+  });
+
+  it('does not call onComplete when already aborted', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort(); // synchronous pre-abort — deterministic, no timer race
+    let completed = false;
+    await keyframes({
+      frames: [0, 100, 0], duration: 1000, signal: ctrl.signal,
+      onComplete: () => { completed = true; },
+      onUpdate: () => {},
+    });
+    expect(completed).toBe(false);
+  });
+
+  it('is a no-op for an empty frame list', async () => {
+    let calls = 0;
+    await keyframes({ frames: [] as number[], onUpdate: () => { calls++; } });
+    expect(calls).toBe(0);
+  });
+
+  it('settles immediately for a single frame', async () => {
+    const updates: Array<[number, number]> = [];
+    await keyframes({ frames: [7], onUpdate: (v, p) => updates.push([v as number, p]) });
+    expect(updates).toEqual([[7, 1]]);
+  });
+
+  it('yoyo reverses the frame order on the odd pass', async () => {
+    const passStarts: number[] = [];
+    await keyframes({
+      frames: [0, 100], duration: 20, fps: 120, repeat: 1, yoyo: true,
+      onUpdate: (v, p) => { if (p === 0) passStarts.push(v as number); },
+    });
+    // Each pass emits its t=0 value twice (initial + first loop frame); the
+    // forward pass starts at 0, the reversed pass starts at 100.
+    expect(passStarts[0]).toBe(0);
+    expect(passStarts[passStarts.length - 1]).toBe(100);
+  });
+
+  it('keyframeStep yields a composable AnimationStep', async () => {
+    const step = keyframeStep({ frames: [0, 50, 100], reducedMotion: true, onUpdate: () => {} });
+    expect(typeof step).toBe('function');
+    await expect(step()).resolves.toBeUndefined();
+  });
+
+  it('is available on the tweenEngine namespace', () => {
+    expect(typeof tweenEngine.keyframes).toBe('function');
+    expect(typeof tweenEngine.interpolateSpline).toBe('function');
+    expect(typeof tweenEngine.keyframeStep).toBe('function');
+  });
+});
+
+describe('keyframes / interpolateSpline — coverage edge cases (v1.7.3)', () => {
+  it('interpolateSpline snaps to the nearest waypoint for an unsupported shape', () => {
+    // null frames are neither number, array, nor plain object → defensive snap.
+    const frames = [null, null] as unknown as number[];
+    expect(interpolateSpline(frames, 0.5)).toBe(null as unknown as number);
+    expect(interpolateSpline(frames, 0)).toBe(null as unknown as number);
+  });
+
+  it('keyframes is a no-op when onUpdate is not a function', async () => {
+    await expect(
+      keyframes({ frames: [0, 1], onUpdate: undefined as unknown as (v: number, p: number) => void }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('keyframes honors a delay before animating', async () => {
+    const updates: number[] = [];
+    await keyframes({
+      frames: [0, 10], delay: 5, duration: 10, fps: 120,
+      onUpdate: (v) => updates.push(v as number),
+    });
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates[updates.length - 1]).toBe(10);
+  });
+
+  it('keyframes aborted during the delay never starts or completes', async () => {
+    const ctrl = new AbortController();
+    let started = false;
+    let completed = false;
+    // Launch first (the delay sleep is now in flight), then abort synchronously
+    // — deterministic, no timer race.
+    const p = keyframes({
+      frames: [0, 100], delay: 200, duration: 50, signal: ctrl.signal,
+      onStart: () => { started = true; },
+      onComplete: () => { completed = true; },
+      onUpdate: () => {},
+    });
+    ctrl.abort();
+    await p;
+    expect(started).toBe(false);
+    expect(completed).toBe(false);
+  });
+
+  it('keyframes aborted mid-pass stops without completing', async () => {
+    const ctrl = new AbortController();
+    let completed = false;
+    await keyframes({
+      frames: [0, 100], duration: 1000, signal: ctrl.signal,
+      onComplete: () => { completed = true; },
+      // Abort inside the very first update → the pass loop returns on its
+      // first iteration (deterministic, no timer).
+      onUpdate: () => { ctrl.abort(); },
+    });
+    expect(completed).toBe(false);
+  });
+});

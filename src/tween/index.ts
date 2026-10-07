@@ -10,15 +10,16 @@
 // ─────────────────────────────────────────────
 
 import { clamp, lerp } from '../utils/helpers.js';
+import { catmullRom } from '../utils/math.js';
 import { sleep } from '../utils/ansi.js';
 import { resolveEasingByName } from '../utils/easing.js';
 import type {
-  Tweenable, TweenOptions, SpringOptions, AnimationStep,
+  Tweenable, TweenOptions, SpringOptions, AnimationStep, KeyframesOptions,
 } from './types.js';
 
 export type {
   Tweenable, TweenOptions, TweenOnUpdate,
-  SpringConfig, SpringOptions, AnimationStep,
+  SpringConfig, SpringOptions, AnimationStep, KeyframesOptions,
 } from './types.js';
 
 // ─────────────────────────────────────────────
@@ -68,6 +69,86 @@ export const interpolate = <T extends Tweenable>(from: T, to: T, t: number): T =
 
   // Shape mismatch — no meaningful interpolation, snap at the midpoint.
   return ct < 0.5 ? from : to;
+};
+
+// Catmull-Rom through a list of scalar waypoints. `t ∈ [0,1]` spans the whole
+// series; the curve passes exactly through each value at `t = k/(n-1)` and
+// stays C¹ (continuous velocity) across the joints. Endpoints are duplicated
+// so the first/last segments have tangents.
+const _splineScalar = (values: number[], t: number): number => {
+  // Always called with ≥ 2 samples: `interpolateSpline` handles the 0- and
+  // 1-frame cases before delegating, and every delegate passes one value per
+  // frame (frames.length ≥ 2 by then).
+  const n = values.length;
+  if (n === 2) return lerp(values[0] as number, values[1] as number, clamp(t, 0, 1));
+  const ct = clamp(t, 0, 1);
+  const seg = ct * (n - 1);
+  let i = Math.floor(seg);
+  if (i >= n - 1) i = n - 2;          // clamp the last sample onto its segment
+  const localT = seg - i;
+  const p1 = values[i] as number;
+  const p2 = values[i + 1] as number;
+  const p0 = (values[i - 1] ?? p1) as number;
+  const p3 = (values[i + 2] ?? p2) as number;
+  return catmullRom(p0, p1, p2, p3, localT);
+};
+
+/**
+ * Interpolate through a *series* of waypoints with a Catmull-Rom C¹ spline,
+ * the multi-point analogue of {@link interpolate}. `t ∈ [0,1]` spans the whole
+ * series: the result equals `frames[k]` exactly at `t = k/(frames.length-1)`
+ * and the velocity stays continuous across every waypoint (no kinks).
+ *
+ * Shape-aware like `interpolate`: numbers, flat numeric arrays, and flat
+ * numeric records are splined component-by-component. A single frame is
+ * constant; two frames fall back to a straight line.
+ *
+ * @example
+ * ```js
+ * import { interpolateSpline } from 'ansimax';
+ *
+ * interpolateSpline([0, 100, 0], 0.5);   // 100 — passes through the peak
+ * interpolateSpline([[0, 0], [50, 80], [100, 0]], 0.5); // [50, 80]
+ * ```
+ *
+ * @since 1.7.3
+ */
+export const interpolateSpline = <T extends Tweenable>(frames: T[], t: number): T => {
+  if (!Array.isArray(frames) || frames.length === 0) {
+    throw new Error('interpolateSpline requires at least one frame');
+  }
+  if (frames.length === 1) return frames[0] as T;
+  const first = frames[0] as T;
+
+  if (typeof first === 'number') {
+    return _splineScalar(frames as number[], t) as T;
+  }
+
+  if (Array.isArray(first)) {
+    const arrays = frames as unknown as number[][];
+    const len = Math.min(...arrays.map((a) => a.length));
+    const out: number[] = new Array(len);
+    for (let c = 0; c < len; c++) {
+      out[c] = _splineScalar(arrays.map((a) => a[c] as number), t);
+    }
+    return out as T;
+  }
+
+  if (first !== null && typeof first === 'object') {
+    const records = frames as unknown as Record<string, number>[];
+    const out: Record<string, number> = {};
+    for (const k of Object.keys(records[0] as Record<string, number>)) {
+      out[k] = _splineScalar(
+        records.map((r) => (typeof r[k] === 'number' ? (r[k] as number) : 0)),
+        t,
+      );
+    }
+    return out as T;
+  }
+
+  // Unsupported shape — snap to the nearest waypoint.
+  const idx = Math.round(clamp(t, 0, 1) * (frames.length - 1));
+  return frames[idx] as T;
 };
 
 // ─────────────────────────────────────────────
@@ -151,6 +232,86 @@ export const tween = async <T extends Tweenable>(opts: TweenOptions<T>): Promise
     const b = reversed ? from : to;
     const ok = await runPass(a, b);
     if (!ok) return; // aborted — do NOT call onComplete
+  }
+
+  onComplete?.();
+};
+
+/**
+ * Animate through a series of waypoints with a Catmull-Rom C¹ spline — the
+ * multi-frame sibling of {@link tween}. Where chaining linear tweens kinks the
+ * velocity at every junction, `keyframes` glides through each waypoint with a
+ * continuous tangent, so motion (and color, and layout) feels organic.
+ *
+ * Shares `tween`'s contract: AbortSignal-aware, honors `reducedMotion`,
+ * drift-corrected timing, `repeat`/`yoyo`, and the `onStart`/`onComplete`
+ * lifecycle. With fewer than two frames there is nothing to animate.
+ *
+ * @example
+ * ```js
+ * import { keyframes } from 'ansimax';
+ *
+ * // Bounce a bar up to 100 and settle back, smoothly through the peak
+ * await keyframes({
+ *   frames: [0, 100, 60, 80],
+ *   duration: 1200,
+ *   onUpdate: (v) => drawBar(v),
+ * });
+ * ```
+ *
+ * @since 1.7.3
+ */
+export const keyframes = async <T extends Tweenable>(opts: KeyframesOptions<T>): Promise<void> => {
+  const {
+    frames, duration = 300, easing, onUpdate,
+    delay = 0, signal, reducedMotion = false, fps = 60,
+    repeat = 0, yoyo = false, onStart, onComplete,
+  } = opts;
+
+  if (typeof onUpdate !== 'function') return;
+  if (!Array.isArray(frames) || frames.length === 0) return;
+  if (signal?.aborted) return;
+
+  const last = frames[frames.length - 1] as T;
+
+  // A single frame, reducedMotion, or non-positive duration → settle at the
+  // final waypoint in one update.
+  if (frames.length === 1 || reducedMotion || duration <= 0) {
+    onStart?.();
+    onUpdate(last, 1);
+    onComplete?.();
+    return;
+  }
+
+  if (delay > 0) {
+    await sleep(delay, { signal });
+    if (signal?.aborted) return;
+  }
+
+  onStart?.();
+
+  const easingFn = resolveEasingByName(easing);
+  const frameMs = Math.max(1, Math.round(1000 / clamp(fps, 1, 240)));
+
+  const runPass = async (seq: T[]): Promise<boolean> => {
+    const start = Date.now();
+    onUpdate(interpolateSpline(seq, easingFn(0)), 0);
+    for (;;) {
+      if (signal?.aborted) return false;
+      const elapsed = Date.now() - start;
+      const progress = clamp(elapsed / duration, 0, 1);
+      onUpdate(interpolateSpline(seq, easingFn(progress)), progress);
+      if (progress >= 1) return true;
+      await sleep(frameMs, { signal });
+    }
+  };
+
+  const totalRuns = 1 + Math.max(0, Number.isFinite(repeat) ? repeat : Infinity);
+  const reversedFrames = [...frames].reverse();
+  for (let run = 0; run < totalRuns; run++) {
+    const seq = yoyo && run % 2 === 1 ? reversedFrames : frames;
+    const ok = await runPass(seq);
+    if (!ok) return;
   }
 
   onComplete?.();
@@ -368,6 +529,17 @@ export const springStep = (
 ): AnimationStep =>
   (signal?: AbortSignal) => spring({ ...opts, signal });
 
+/**
+ * Wrap a {@link keyframes} animation as a composable `AnimationStep` for use
+ * in `sequence()` / `parallel()`.
+ *
+ * @since 1.7.3
+ */
+export const keyframeStep = <T extends Tweenable>(
+  opts: Omit<KeyframesOptions<T>, 'signal'>,
+): AnimationStep =>
+  (signal?: AbortSignal) => keyframes({ ...opts, signal } as KeyframesOptions<T>);
+
 // ─────────────────────────────────────────────
 //  Namespace
 // ─────────────────────────────────────────────
@@ -375,11 +547,14 @@ export const springStep = (
 export const tweenEngine = {
   tween,
   spring,
+  keyframes,
   interpolate,
+  interpolateSpline,
   sequence,
   parallel,
   stagger,
   delay,
   tweenStep,
   springStep,
+  keyframeStep,
 };

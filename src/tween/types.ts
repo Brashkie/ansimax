@@ -112,3 +112,40 @@ export interface SpringOptions {
 
 /** A composable animation step: any function returning a promise. */
 export type AnimationStep = (signal?: AbortSignal) => Promise<void>;
+
+/**
+ * Options for {@link keyframes} — a tween that eases through a *series* of
+ * waypoints with a Catmull-Rom C¹ spline, so velocity stays continuous at
+ * every keyframe instead of kinking the way back-to-back linear tweens do.
+ *
+ * @since 1.7.3
+ */
+export interface KeyframesOptions<T extends Tweenable> {
+  /**
+   * Two or more waypoints of the same shape. The animation passes *through*
+   * each one in order; the curve between them is shaped by its neighbours.
+   */
+  frames: T[];
+  /** Total duration across all frames, in milliseconds. Default `300`. */
+  duration?: number;
+  /** Easing applied to the global progress before sampling the spline. */
+  easing?: EasingLibraryName | string | EasingFunction;
+  /** Called every frame with the current value + global progress in `[0,1]`. */
+  onUpdate: TweenOnUpdate<T>;
+  /** Delay before the first frame, in ms. Default `0`. */
+  delay?: number;
+  /** Cancel mid-flight; resolves immediately when aborted. */
+  signal?: AbortSignal;
+  /** Accessibility: jump straight to the last frame with no interpolation. */
+  reducedMotion?: boolean;
+  /** Approximate frames per second. Default `60`. */
+  fps?: number;
+  /** Times to repeat after the first run. `Infinity` loops. Default `0`. */
+  repeat?: number;
+  /** Alternate direction each repeat (reverse the frame order). Default `false`. */
+  yoyo?: boolean;
+  /** Called once before the first frame (after any `delay`). */
+  onStart?: () => void;
+  /** Called once after all runs complete. Not called if aborted. */
+  onComplete?: () => void;
+}

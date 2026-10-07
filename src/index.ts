@@ -298,9 +298,14 @@ export {
   tween, spring, interpolate, sequence, parallel, stagger, delay,
   tweenStep, springStep, tweenEngine,
 } from './tween/index.js';
+// v1.7.3 — Phase 6 improvement: Catmull-Rom keyframe spline tween
+export {
+  keyframes, interpolateSpline, keyframeStep,
+} from './tween/index.js';
 export type {
   Tweenable, TweenOptions, TweenOnUpdate,
   SpringConfig, SpringOptions, AnimationStep,
+  KeyframesOptions,
 } from './tween/index.js';
 
 // ── Default export: full API object ──

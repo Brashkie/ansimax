@@ -927,6 +927,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Composición de animaciones** (DSL `parallel + sequence + delay`) (v1.5.0)
 - [x] **Animaciones con física de spring** (estilo `react-spring`) (v1.5.0)
 - [x] **Motor de tween** (interpolar cualquier tipo de valor) (v1.5.0)
+- [x] **Tween spline por keyframes** — `keyframes` / `interpolateSpline` recorren N waypoints con un spline Catmull-Rom C¹ (velocidad continua en cada frame) (v1.7.3)
 
 ### ✅ Fase 7 — Ecosistema de progreso
 - [x] Spinners (11 estilos) con color + AbortSignal
@@ -1088,14 +1089,45 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          29 test suites, 3100+ tests
+└── __tests__/          29 test suites, 3150+ tests
 ```
 
 ---
 
 ## 📝 Changelog
 
-## 📝 Changelog
+### v1.7.3 — Tween spline por keyframes (Catmull-Rom)
+
+- 〰️ **Spline por keyframes** — `keyframes` recorre N waypoints con un spline Catmull-Rom C¹ (velocidad continua en cada frame, sin quiebres) — mejora de la Fase 6
+- 🧮 **`interpolateSpline`** — muestreo spline puro y consciente de forma; pasa exactamente por cada waypoint, cae a lineal con dos frames
+- 🧩 **`keyframeStep`** — `AnimationStep` componible; los tres también en el namespace `tween`
+- 🧪 **+35 tests**
+
+```js
+import { keyframes, interpolateSpline } from 'ansimax';
+
+interpolateSpline([0, 100, 0], 0.5);   // 100 — a través del pico
+await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: (v) => drawBar(v) });
+```
+
+Reemplazo directo de `1.7.2`.
+
+### v1.7.2 — Líneas Wu anti-aliased + matching fuzzy
+
+- 〰️ **Anti-aliasing Wu** — `lineChart(..., { antialias: true })` reparte la intensidad de cada paso entre los dos sub-píxeles más cercanos; los pesos fraccionales viajan en la cobertura por celda del `colorFn` (mejora de la Fase 10)
+- 🔎 **Matching fuzzy** — nuevo módulo `fuzzy`: `fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch` (Levenshtein bit-paralelo de Myers, tolerante a typos, `O(m·⌈n/32⌉)`) — comienza la Fase 11
+- 📓 **Showcase** — pasos de métricas en vivo (sparkline + lineChart Wu) y paleta de comandos fuzzy
+- 🧪 **+40 tests**
+
+Reemplazo directo de `1.7.1`.
+
+### v1.7.1 — Gráficos de línea braille + relación de aspecto de celda
+
+- 📈 **Gráfico de línea braille** — `lineChart` renderiza una serie (o varias) como canvas braille 2×4 sub-pixel, 8× la resolución de un sparkline, unido con Bresenham (Fase 10)
+- 📐 **Relación de aspecto de celda** — `cellAspectRatio` / `aspectScale` resuelven `R = cell_width/cell_height` para que los canvas sub-pixel mantengan círculos redondos; sync, sobreescribible, por defecto 0.5 (Fase 8)
+- 🧪 **+30 tests**
+
+Reemplazo directo de `1.7.0`.
 
 ### v1.7.0 — Color perceptual, pantalla gestionada, gradientes spline, cronómetro de vueltas
 
@@ -2096,7 +2128,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3100+ tests en 29 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3150+ tests en 29 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

@@ -1282,3 +1282,26 @@ describe('barrel coverage — v1.7.2 re-exports', () => {
     expect(aa.split('\n')).toHaveLength(4);
   });
 });
+
+describe('barrel coverage — v1.7.3 re-exports', () => {
+  it('exposes keyframes, interpolateSpline, keyframeStep from the main entry (Fase 6)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.keyframes).toBe('function');
+    expect(typeof main.interpolateSpline).toBe('function');
+    expect(typeof main.keyframeStep).toBe('function');
+    // Exercise so the re-export lines are covered, not just referenced.
+    expect(main.interpolateSpline([0, 100, 0], 0.5)).toBeCloseTo(100, 9);
+    const updates: number[] = [];
+    await main.keyframes({ frames: [0, 50, 100], reducedMotion: true, onUpdate: (v) => updates.push(v as number) });
+    expect(updates).toEqual([100]);
+  });
+
+  it('exposes keyframe helpers on the tween namespace of the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { tween: Record<string, unknown> }).tween;
+    expect(typeof ns.keyframes).toBe('function');
+    expect(typeof ns.interpolateSpline).toBe('function');
+    expect(typeof ns.keyframeStep).toBe('function');
+    expect((ns.interpolateSpline as typeof main.interpolateSpline)([10, 20], 0.5)).toBe(15);
+  });
+});

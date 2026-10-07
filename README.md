@@ -934,6 +934,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Animation composition** (`parallel + sequence + delay` DSL) (v1.5.0)
 - [x] **Spring physics** animations (`react-spring` style) (v1.5.0)
 - [x] **Tween engine** (interpolate any value type) (v1.5.0)
+- [x] **Keyframe spline tween** — `keyframes` / `interpolateSpline` glide through N waypoints on a Catmull-Rom C¹ spline (continuous velocity across every frame) (v1.7.3)
 
 ### ✅ Phase 7 — Progress ecosystem
 - [x] Spinners (11 styles) with color + AbortSignal
@@ -1102,12 +1103,28 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          29 test suites, 3100+ tests
+└── __tests__/          29 test suites, 3150+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.3 — Catmull-Rom keyframe spline tween
+
+- 〰️ **Keyframe spline** — `keyframes` eases through N waypoints on a Catmull-Rom C¹ spline (continuous velocity across every frame, no kinks) — Phase 6 improvement
+- 🧮 **`interpolateSpline`** — pure, shape-aware spline sampling; passes exactly through each waypoint, falls back to linear for two frames
+- 🧩 **`keyframeStep`** — composable `AnimationStep`; all three also on the `tween` namespace
+- 🧪 **+35 tests**
+
+```js
+import { keyframes, interpolateSpline } from 'ansimax';
+
+interpolateSpline([0, 100, 0], 0.5);   // 100 — through the peak
+await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: (v) => drawBar(v) });
+```
+
+Drop-in replacement for `1.7.2`.
 
 ### v1.7.2 — Wu anti-aliased lines + fuzzy matching
 
@@ -2178,7 +2195,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3100+ tests across 29 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3150+ tests across 29 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 
