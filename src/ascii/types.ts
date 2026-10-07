@@ -141,8 +141,10 @@ export interface FromImageOptions {
    * - `'atkinson'` — higher contrast, cleaner highlights (v1.6.2)
    * - `'jjn'` — Jarvis–Judice–Ninke, smoothest gradients, widest kernel (v1.6.2)
    * - `'sierra'` — balance of smoothness and speed (v1.6.2)
+   * - `'stucki'` — JJN refinement, very smooth, slightly sharper (v1.7.4)
+   * - `'burkes'` — Stucki's faster two-row cousin (v1.7.4)
    */
-  dither?: 'none' | 'floyd-steinberg' | 'atkinson' | 'jjn' | 'sierra';
+  dither?: 'none' | 'floyd-steinberg' | 'atkinson' | 'jjn' | 'sierra' | 'stucki' | 'burkes';
   /**
    * Edge detection mode. Renders edges as the brightest chars.
    * - `'none'` (default)

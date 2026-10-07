@@ -55,6 +55,8 @@ export {
   fromImage, figletText, parseFiglet, ASCII_RAMPS,
   // v1.6.2 — dithering algorithm names
   DITHER_ALGORITHMS,
+  // v1.7.4 — perceptual color dithering (Phase 12)
+  ditherColor,
   // v1.4.8 — auto-layout tables
   table as asciiTable,
   // v1.4.13 — ASCII ramp registry
@@ -65,6 +67,8 @@ export type {
   Glyph, FontMap, FontName, RegisterFontOptions, StreamOptions, Dimensions,
   // v1.2.5 — Phase 3 closure
   AsciiRamp, FromImageOptions, FigletFont, FigletOptions,
+  // v1.7.4 — perceptual color dithering
+  DitherColorOptions,
   // v1.4.8 — auto-layout tables (aliased to avoid clash with components.table)
   TableOptions as AsciiTableOptions,
   TableAlign as AsciiTableAlign,

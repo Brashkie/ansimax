@@ -883,7 +883,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Conversor Imagen → ASCII** — `ascii.fromImage()` con mapeo de luminancia (v1.2.5)
 - [x] **Renderizado ASCII en color** — preserva colores de imagen con `color: true` (v1.2.5)
 - [x] **Dithering de imágenes** — error diffusion Floyd-Steinberg (v1.2.5)
-- [x] **4 algoritmos de dithering** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2)
+- [x] **6 algoritmos de dithering** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4)
 - [x] **ASCII optimizado para rostros** — histogram stretching para retratos (v1.2.5)
 - [x] **Soporte de fuentes figlet** — parser + renderer `.flf` (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Detección de bordes** — operador Sobel integrado en `fromImage` (v1.2.5, bonus)
@@ -988,6 +988,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [ ] **Flujos de wizard** (formularios multi-paso con back/forward, indicador de progreso)
 
 ### 🔴 Fase 12 — Imagen y media
+- [x] **Dithering de color perceptual** — `ditherColor` difunde el error hacia una paleta eligiendo por ΔE de Oklab, sobre cualquiera de los 6 kernels (v1.7.4)
 - [ ] Renderizado de imágenes Sixel (xterm, mlterm, WezTerm)
 - [ ] Imágenes inline de iTerm2 (protocolo base64)
 - [ ] Protocolo gráfico de Kitty
@@ -1089,12 +1090,27 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          29 test suites, 3150+ tests
+└── __tests__/          29 test suites, 3200+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.4 — Dithering de color perceptual + kernels Stucki/Burkes
+
+- 🎨 **`ditherColor`** — cuantización de color con difusión de error que elige cada pixel por ΔE de Oklab, no por distancia RGB — Fase 12 (combina la métrica de v1.7.0 con los kernels de v1.6.2)
+- 🧩 **2 kernels más** — `'stucki'` y `'burkes'` se suman al set de dithering (ahora 6), usables en `fromImage` y `ditherColor` — mejora de la Fase 3
+- 🧪 **+30 tests**
+
+```js
+import { ditherColor } from 'ansimax';
+
+const palette = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 0, b: 0 }];
+ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+```
+
+Reemplazo directo de `1.7.3`.
 
 ### v1.7.3 — Tween spline por keyframes (Catmull-Rom)
 
@@ -2128,7 +2144,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3150+ tests en 29 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3200+ tests en 29 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

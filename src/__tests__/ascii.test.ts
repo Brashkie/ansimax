@@ -2601,3 +2601,86 @@ describe('ascii.table autoAlignNumbers (v1.6.5)', () => {
     expect(fiveLine).toMatch(/\s5\s/); // spaces on the left of 5 (right-aligned)
   });
 });
+
+import { ditherColor } from '../ascii/index.js';
+
+describe('dithering — Stucki + Burkes kernels (v1.7.4)', () => {
+  const grayGrid = () =>
+    Array.from({ length: 6 }, () =>
+      Array.from({ length: 12 }, () => ({ r: 128, g: 128, b: 128 })));
+
+  it('registers stucki and burkes in DITHER_ALGORITHMS', () => {
+    expect(DITHER_ALGORITHMS).toContain('stucki');
+    expect(DITHER_ALGORITHMS).toContain('burkes');
+  });
+
+  it('fromImage renders with the new kernels', () => {
+    for (const alg of ['stucki', 'burkes']) {
+      const out = ascii.fromImage(grayGrid(), { width: 12, dither: alg as never, ramp: 'binary' });
+      expect(typeof out).toBe('string');
+      expect(out.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('ditherColor — perceptual color dithering (v1.7.4)', () => {
+  const bw = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }];
+  // 1×16 gray ramp.
+  const ramp = () => [Array.from({ length: 16 }, (_, i) => ({ r: i * 17, g: i * 17, b: i * 17 }))];
+
+  it('maps every output pixel onto a palette color', () => {
+    const out = ditherColor(ramp(), bw, { metric: 'rgb' });
+    const flat = out.flat();
+    expect(flat.every((p) => bw.some((q) => q.r === p.r && q.g === p.g && q.b === p.b))).toBe(true);
+  });
+
+  it('preserves the grid shape', () => {
+    const out = ditherColor(ramp(), bw);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toHaveLength(16);
+  });
+
+  it('roughly preserves average brightness (the point of dithering)', () => {
+    const img = ramp();
+    const out = ditherColor(img, bw, { metric: 'rgb' });
+    const avgIn = img[0]!.reduce((a, p) => a + p.r, 0) / 16;
+    const avgOut = out[0]!.reduce((a, p) => a + p.r, 0) / 16;
+    expect(Math.abs(avgIn - avgOut)).toBeLessThan(40);
+  });
+
+  it('accepts both oklab and rgb metrics', () => {
+    expect(() => ditherColor(ramp(), bw, { metric: 'oklab' })).not.toThrow();
+    expect(() => ditherColor(ramp(), bw, { metric: 'rgb' })).not.toThrow();
+  });
+
+  it('works with each diffusion kernel', () => {
+    for (const alg of DITHER_ALGORITHMS) {
+      const out = ditherColor(ramp(), bw, { algorithm: alg as string });
+      expect(out[0]).toHaveLength(16);
+    }
+  });
+
+  it('falls back to Floyd–Steinberg for an unknown algorithm', () => {
+    const out = ditherColor(ramp(), bw, { algorithm: 'nope-not-real' });
+    const fs = ditherColor(ramp(), bw, { algorithm: 'floyd-steinberg' });
+    expect(out).toEqual(fs);
+  });
+
+  it('returns [] for an empty grid', () => {
+    expect(ditherColor([], bw)).toEqual([]);
+  });
+
+  it('returns the input coerced to RGB for an empty palette', () => {
+    const out = ditherColor([[{ r: 10, g: 20, b: 30 }]], []);
+    expect(out).toEqual([[{ r: 10, g: 20, b: 30 }]]);
+  });
+
+  it('treats null/transparent pixels as black', () => {
+    const out = ditherColor([[null]], [{ r: 0, g: 0, b: 0 }]);
+    expect(out[0]![0]).toEqual({ r: 0, g: 0, b: 0 });
+  });
+
+  it('is available on the ascii namespace', () => {
+    expect(typeof ascii.ditherColor).toBe('function');
+  });
+});

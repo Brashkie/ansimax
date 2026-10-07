@@ -43,6 +43,9 @@ export { fromImage, ASCII_RAMPS } from './image.js';
 export type { AsciiRamp } from './image.js';
 // v1.6.2 — dithering algorithm names
 export { DITHER_ALGORITHMS } from './image.js';
+// v1.7.4 — perceptual color dithering (Phase 12)
+export { ditherColor } from './image.js';
+export type { DitherColorOptions } from './image.js';
 // v1.4.13 — ramp registry
 export {
   registerAsciiRamp, unregisterAsciiRamp, listAsciiRamps,
@@ -66,7 +69,7 @@ export type { TableOptions, TableAlign, TableBorderStyle } from './table.js';
 import { registerFont as _registerFont, listFonts as _listFonts, hasFont as _hasFont, clearRenderCache as _clearRenderCache, getRenderCacheSize as _getRenderCacheSize } from './fonts.js';
 import { big as _big, small as _small, figlet as _figlet, stageRender as _stageRender, stageAlign as _stageAlign, stageColorize as _stageColorize, banner as _banner } from './render.js';
 import { box as _box, divider as _divider, logo as _logo, measure as _measure } from './shapes.js';
-import { fromImage as _fromImage } from './image.js';
+import { fromImage as _fromImage, ditherColor as _ditherColor } from './image.js';
 import {
   registerAsciiRamp as _registerRamp, unregisterAsciiRamp as _unregisterRamp,
   listAsciiRamps as _listRamps, hasAsciiRamp as _hasRamp,
@@ -109,6 +112,8 @@ export const ascii = {
   // v1.4.13 — ASCII ramp registry
   ramps: _ASCII_RAMPS,
   ditherAlgorithms: _DITHER_ALGORITHMS,
+  // v1.7.4 — perceptual color dithering
+  ditherColor: _ditherColor,
   registerRamp: _registerRamp,
   unregisterRamp: _unregisterRamp,
   listRamps: _listRamps,

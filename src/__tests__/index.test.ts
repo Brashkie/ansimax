@@ -1305,3 +1305,21 @@ describe('barrel coverage — v1.7.3 re-exports', () => {
     expect((ns.interpolateSpline as typeof main.interpolateSpline)([10, 20], 0.5)).toBe(15);
   });
 });
+
+describe('barrel coverage — v1.7.4 re-exports', () => {
+  it('exposes ditherColor from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.ditherColor).toBe('function');
+    const pal = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }];
+    const img = [[{ r: 128, g: 128, b: 128 }, { r: 200, g: 200, b: 200 }]];
+    const out = main.ditherColor(img, pal, { metric: 'rgb' });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toHaveLength(2);
+  });
+
+  it('registers stucki and burkes in DITHER_ALGORITHMS (Fase 3)', async () => {
+    const main = await import('../index.js');
+    expect(main.DITHER_ALGORITHMS).toContain('stucki');
+    expect(main.DITHER_ALGORITHMS).toContain('burkes');
+  });
+});

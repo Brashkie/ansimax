@@ -3,6 +3,50 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.4] — Perceptual color dithering + Stucki/Burkes kernels
+
+Two things, zero breaking changes: a new Phase 12 capability (perceptual color
+dithering) and an improvement to completed Phase 3 (two more diffusion kernels).
+
+### Added — Perceptual color dithering (Phase 12)
+
+`ditherColor` quantizes a color image to a palette with error-diffusion
+dithering, but picks each pixel's replacement by **Oklab ΔE** — the way the eye
+judges closeness — instead of raw RGB distance. It pairs ansimax's perceptual
+color metric (v1.7.0) with the classic diffusion kernels (v1.6.2), so gradients
+and skin tones keep their shape instead of banding or drifting hue.
+
+```js
+import { ditherColor } from 'ansimax';
+
+const palette = [
+  { r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 },
+  { r: 255, g: 0, b: 0 }, { r: 0, g: 128, b: 255 },
+];
+const out = ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+```
+
+- Pure — returns a fresh `RGB[][]` of the same shape; `null`/transparent pixels
+  are treated as black. `metric: 'oklab'` (default) or `'rgb'`; `algorithm` is
+  any of `DITHER_ALGORITHMS`. Unknown algorithm → Floyd–Steinberg; empty palette
+  → the input coerced to RGB, unchanged.
+- Also on the `ascii` namespace as `ascii.ditherColor`.
+
+### Improved — Two more diffusion kernels (Phase 3)
+
+`DITHER_ALGORITHMS` now also offers **`'stucki'`** (a JJN refinement — very
+smooth, slightly sharper) and **`'burkes'`** (Stucki's faster two-row cousin).
+Both are available wherever a dither algorithm is named — `fromImage({ dither })`
+and `ditherColor({ algorithm })`.
+
+```js
+import { fromImage } from 'ansimax';
+
+fromImage(pixels, { dither: 'stucki' });   // smoother tonal range
+```
+
+---
+
 ## [1.7.3] — Catmull-Rom keyframe spline tween
 
 One focused improvement to a completed phase (Phase 6 — animation), zero

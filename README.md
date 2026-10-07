@@ -888,7 +888,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Image → ASCII** converter — `ascii.fromImage()` with luminance mapping (v1.2.5)
 - [x] **Color ASCII** rendering — preserve image colors via `color: true` (v1.2.5)
 - [x] **Image dithering** — Floyd-Steinberg error diffusion (v1.2.5)
-- [x] **4 dithering algorithms** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2)
+- [x] **6 dithering algorithms** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4)
 - [x] **Face-optimized ASCII** — histogram stretching for portraits (v1.2.5)
 - [x] **Figlet font support** — `.flf` parser + renderer (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Edge detection** — Sobel operator integrated in `fromImage` (v1.2.5, bonus)
@@ -1006,6 +1006,7 @@ best portable method automatically.
 - [x] **Half-block rendering** — `▀`/`▄` with fg/bg color, double vertical resolution, any truecolor terminal
 - [ ] Sixel encoder (open DEC format — pure algorithm, portable to any Sixel terminal)
 - [x] **Perceptual quantization** — `rgbTo256Perceptual` / `nearestPerceptual` via Oklab ΔE (kills banding vs RGB L2) (v1.7.0)
+- [x] **Perceptual color dithering** — `ditherColor` error-diffuses to a palette choosing by Oklab ΔE, across any of the 6 kernels (v1.7.4)
 - [ ] PNG/JPEG decode → pixel grid (feed into the universal renderers)
 - [ ] QR code generation (with size + ECC level options)
 - [ ] Bar code generation (Code 128, EAN-13)
@@ -1103,12 +1104,27 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          29 test suites, 3150+ tests
+└── __tests__/          29 test suites, 3200+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.4 — Perceptual color dithering + Stucki/Burkes kernels
+
+- 🎨 **`ditherColor`** — error-diffusion color quantization that picks each pixel by Oklab ΔE, not RGB distance — Phase 12 (pairs the v1.7.0 metric with the v1.6.2 kernels)
+- 🧩 **2 more kernels** — `'stucki'` and `'burkes'` join the dither set (now 6), usable in both `fromImage` and `ditherColor` — Phase 3 improvement
+- 🧪 **+30 tests**
+
+```js
+import { ditherColor } from 'ansimax';
+
+const palette = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 0, b: 0 }];
+ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+```
+
+Drop-in replacement for `1.7.3`.
 
 ### v1.7.3 — Catmull-Rom keyframe spline tween
 
@@ -2195,7 +2211,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3150+ tests across 29 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3200+ tests across 29 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

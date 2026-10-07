@@ -8,6 +8,8 @@
 
 import { fgRgb, bgRgb, reset } from '../utils/ansi.js';
 import { isNoColor } from '../colors/index.js';
+import { nearestPerceptual } from '../utils/helpers.js';
+import type { RGB } from '../utils/helpers.js';
 import type { Pixel, PixelGrid } from '../images/index.js';
 import type { FromImageOptions } from './types.js';
 
@@ -215,6 +217,26 @@ const DIFFUSION_KERNELS: Record<string, DiffusionKernel> = {
       [-1, 2, 2], [0, 2, 3], [1, 2, 2],
     ],
   },
+  // Stucki (1981) — a refinement of JJN with the same 12-tap footprint but
+  // weights that sum to a power-of-two-friendly 42; very smooth, slightly
+  // sharper than JJN. @since 1.7.4
+  stucki: {
+    divisor: 42,
+    taps: [
+      [1, 0, 8], [2, 0, 4],
+      [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2],
+      [-2, 2, 1], [-1, 2, 2], [0, 2, 4], [1, 2, 2], [2, 2, 1],
+    ],
+  },
+  // Burkes (1988) — Stucki's two-row cousin: drops the third row for roughly
+  // half the work while keeping most of the smoothness. @since 1.7.4
+  burkes: {
+    divisor: 32,
+    taps: [
+      [1, 0, 8], [2, 0, 4],
+      [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2],
+    ],
+  },
 };
 
 /** Names of the available error-diffusion dithering algorithms. @since 1.6.2 */
@@ -266,6 +288,117 @@ const _errorDiffuse = (
         target[nx] = (target[nx] as number) + (err * weight) / divisor;
       }
     }
+  }
+  return out;
+};
+
+// Coerce any Pixel (RGB, RGBA, or null) to a plain RGB. null → black.
+const _pixelToRgb = (p: Pixel): RGB =>
+  p == null ? { r: 0, g: 0, b: 0 } : { r: p.r, g: p.g, b: p.b };
+
+const _clamp255 = (v: number): number => (v < 0 ? 0 : v > 255 ? 255 : Math.round(v));
+
+// Nearest palette index by squared RGB (L2) distance.
+const _nearestRgb = (c: RGB, palette: RGB[]): number => {
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < palette.length; i++) {
+    const p = palette[i] as RGB;
+    const dr = c.r - p.r;
+    const dg = c.g - p.g;
+    const db = c.b - p.b;
+    const dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best;
+};
+
+/** Options for {@link ditherColor}. @since 1.7.4 */
+export interface DitherColorOptions {
+  /**
+   * Error-diffusion kernel by name — any of {@link DITHER_ALGORITHMS}
+   * (`'floyd-steinberg'`, `'atkinson'`, `'jjn'`, `'sierra'`, `'stucki'`,
+   * `'burkes'`). Default `'floyd-steinberg'`.
+   */
+  algorithm?: string;
+  /**
+   * Nearest-color metric. `'oklab'` (default) picks the perceptually closest
+   * palette entry by Oklab ΔE — far less hue drift and banding than RGB
+   * distance. `'rgb'` uses plain squared Euclidean distance (faster).
+   */
+  metric?: 'oklab' | 'rgb';
+}
+
+/**
+ * Quantize a color image to a palette with error-diffusion dithering, choosing
+ * each pixel's replacement by **perceptual (Oklab ΔE) distance** rather than
+ * RGB distance. This is the Phase 12 pairing of ansimax's perceptual color
+ * metric (v1.7.0) with the classic diffusion kernels (v1.6.2): the error that
+ * quantization introduces is spread to neighbouring pixels, and the nearest
+ * palette entry is judged the way the eye judges it, so gradients and skin
+ * tones keep their shape instead of banding or shifting hue.
+ *
+ * Pure: returns a fresh `RGB[][]` the same shape as the input; `null`/
+ * transparent pixels are treated as black. Falls back to Floyd–Steinberg for
+ * an unknown `algorithm`. An empty palette returns the input coerced to RGB,
+ * unchanged.
+ *
+ * @example
+ * ```js
+ * import { ditherColor } from 'ansimax';
+ *
+ * const palette = [
+ *   { r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 },
+ *   { r: 255, g: 0, b: 0 }, { r: 0, g: 128, b: 255 },
+ * ];
+ * const out = ditherColor(pixels, palette, { algorithm: 'stucki' });
+ * ```
+ *
+ * @since 1.7.4
+ */
+export const ditherColor = (
+  pixels: PixelGrid,
+  palette: RGB[],
+  opts: DitherColorOptions = {},
+): RGB[][] => {
+  const h = Array.isArray(pixels) ? pixels.length : 0;
+  if (h === 0) return [];
+  const w = (pixels[0] as Pixel[]).length;
+
+  // Working grid of plain RGB (float, so diffused error accumulates cleanly).
+  const work: RGB[][] = pixels.map((row) => row.map(_pixelToRgb));
+  if (!Array.isArray(palette) || palette.length === 0) return work;
+
+  const kernel = DIFFUSION_KERNELS[opts.algorithm ?? 'floyd-steinberg']
+    ?? (DIFFUSION_KERNELS['floyd-steinberg'] as DiffusionKernel);
+  const usePerceptual = (opts.metric ?? 'oklab') === 'oklab';
+  const { divisor, taps } = kernel;
+
+  const out: RGB[][] = [];
+  for (let y = 0; y < h; y++) {
+    const row = work[y] as RGB[];
+    const outRow: RGB[] = new Array(w);
+    for (let x = 0; x < w; x++) {
+      const old = row[x] as RGB;
+      const idx = usePerceptual ? nearestPerceptual(old, palette) : _nearestRgb(old, palette);
+      const chosen = palette[idx] as RGB;
+      outRow[x] = { r: _clamp255(chosen.r), g: _clamp255(chosen.g), b: _clamp255(chosen.b) };
+      const er = old.r - chosen.r;
+      const eg = old.g - chosen.g;
+      const eb = old.b - chosen.b;
+      if (er === 0 && eg === 0 && eb === 0) continue;
+      for (const [dx, dy, weight] of taps) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+        const t = (work[ny] as RGB[])[nx] as RGB;
+        const f = weight / divisor;
+        t.r += er * f;
+        t.g += eg * f;
+        t.b += eb * f;
+      }
+    }
+    out.push(outRow);
   }
   return out;
 };
