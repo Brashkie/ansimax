@@ -3,6 +3,51 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.5] — Reed-Solomon (GF 2^8) + Bayer 8×8 dithering
+
+Two things, zero breaking changes: a new Phase 12 capability (Reed-Solomon error
+correction — the math backbone for QR) and an improvement to completed Phase 2
+(a finer ordered-dither matrix).
+
+### Added — Reed-Solomon over GF(2^8) (Phase 12)
+
+A new `ecc` module: the Galois-field arithmetic and Reed-Solomon coding that
+QR, Data Matrix, PDF417 and Aztec all build on. The field is GF(256) with the
+primitive polynomial `0x11D`; multiplication is table-driven (exp/log of
+α = 2), and the ECC codewords are the remainder of the message polynomial
+divided by `g(x) = ∏(x − α^i)`.
+
+```js
+import { reedSolomonEncode } from 'ansimax';
+
+// Canonical QR example: 16 data codewords → 10 ECC codewords
+const data = [0x10, 0x20, 0x0c, 0x56, 0x61, 0x80,
+              0xec, 0x11, 0xec, 0x11, 0xec, 0x11, 0xec, 0x11, 0xec, 0x11];
+reedSolomonEncode(data, 10);
+// → [0xa5, 0x24, 0xd4, 0xc1, 0xed, 0x36, 0xc7, 0x87, 0x2c, 0x55]
+```
+
+- `reedSolomonEncode(data, eccLength)` — returns exactly `eccLength` ECC bytes.
+- `rsGeneratorPoly(degree)` — the generator polynomial, leading coefficient first.
+- `gfMul(a, b)` / `gfPow(x, n)` — GF(256) primitives.
+- Verified byte-for-byte against the canonical QR tutorial vector. Also exposed
+  as the `ecc` namespace. (This is the math layer; a full QR matrix — finder/
+  timing/alignment patterns, masking — builds on top of it later.)
+
+### Improved — Bayer 8×8 ordered dithering (Phase 2)
+
+`gradientRect` gains `dither: 'bayer8'` — an 8×8 ordered-dither matrix (64
+thresholds vs the 4×4's 16), breaking gradient banding at a finer grain. The
+existing `'bayer'` (4×4) and `'none'` are unchanged.
+
+```js
+import { gradientRect } from 'ansimax';
+
+gradientRect({ width: 60, height: 20, preset: 'viridis', dither: 'bayer8' });
+```
+
+---
+
 ## [1.7.4] — Perceptual color dithering + Stucki/Burkes kernels
 
 Two things, zero breaking changes: a new Phase 12 capability (perceptual color

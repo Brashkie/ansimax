@@ -1323,3 +1323,30 @@ describe('barrel coverage — v1.7.4 re-exports', () => {
     expect(main.DITHER_ALGORITHMS).toContain('burkes');
   });
 });
+
+describe('barrel coverage — v1.7.5 re-exports', () => {
+  it('exposes the ecc / Reed-Solomon API from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.reedSolomonEncode).toBe('function');
+    expect(typeof main.rsGeneratorPoly).toBe('function');
+    expect(typeof main.gfMul).toBe('function');
+    expect(typeof main.gfPow).toBe('function');
+    // Exercise so the re-export lines are covered.
+    const data = [0x10, 0x20, 0x0c, 0x56, 0x61, 0x80,
+      0xec, 0x11, 0xec, 0x11, 0xec, 0x11, 0xec, 0x11, 0xec, 0x11];
+    expect(main.reedSolomonEncode(data, 10)).toEqual(
+      [0xa5, 0x24, 0xd4, 0xc1, 0xed, 0x36, 0xc7, 0x87, 0x2c, 0x55],
+    );
+    expect(main.gfMul(1, 42)).toBe(42);
+  });
+
+  it('exposes the ecc namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { ecc: Record<string, unknown> }).ecc;
+    expect(typeof ns.reedSolomonEncode).toBe('function');
+    expect(typeof ns.rsGeneratorPoly).toBe('function');
+    expect(typeof ns.gfMul).toBe('function');
+    expect(typeof ns.gfPow).toBe('function');
+    expect((ns.gfPow as typeof main.gfPow)(2, 8)).toBe(0x1d);
+  });
+});

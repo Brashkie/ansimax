@@ -770,6 +770,18 @@ describe('gradientRect — extended options', () => {
     expect(a).not.toBe(b);
   });
 
+  it('bayer8 dithering produces valid output distinct from none (v1.7.5)', () => {
+    const none = gradientRect({
+      width: 24, height: 8, colors: ['#000000', '#ffffff'], dither: 'none',
+    });
+    const b8 = gradientRect({
+      width: 24, height: 8, colors: ['#000000', '#ffffff'], dither: 'bayer8',
+    });
+    expect(typeof b8).toBe('string');
+    expect(b8.length).toBeGreaterThan(0);
+    expect(b8).not.toBe(none);
+  });
+
   it('braille gradient produces braille glyphs', () => {
     const result = gradientRect({
       width: 16, height: 8,

@@ -866,7 +866,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Gradientes radiales (en `gradientRect`)
 - [x] Gradientes diagonales
 - [x] Gradientes a ángulo arbitrario
-- [x] Dithering Bayer 4×4 para transiciones tonales suaves
+- [x] Dithering Bayer 4×4 para transiciones tonales suaves; **Bayer 8×8** (`dither: 'bayer8'`) para control de banding más fino (v1.7.5)
 - [x] UX single-stop (comportamiento estilo CSS)
 - [x] **Gradientes animados** — flujo de color en el tiempo con `animateGradient()` (v1.2.0)
 - [x] **Curvas de interpolación** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / personalizado (v1.2.0)
@@ -994,7 +994,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [ ] Protocolo gráfico de Kitty
 - [ ] PNG/JPEG → imagen de terminal (auto-detecta mejor protocolo)
 - [ ] Preview de video (frame-por-frame a bajo FPS)
-- [ ] Generación de códigos QR (con opciones de tamaño + nivel ECC)
+- [~] Generación de códigos QR (con opciones de tamaño + nivel ECC) — corrección Reed-Solomon sobre GF(2^8) lista (`reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`/`gfPow`); matriz/máscaras siguen (v1.7.5)
 - [ ] Generación de códigos de barras (Code 128, EAN-13)
 
 ### 🔴 Fase 13 — Sistema de plugins
@@ -1090,12 +1090,27 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          29 test suites, 3200+ tests
+└── __tests__/          30 test suites, 3230+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.5 — Reed-Solomon (GF 2^8) + dithering Bayer 8×8
+
+- 🧮 **Módulo `ecc`** — corrección Reed-Solomon sobre GF(2^8): `reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`, `gfPow` (el núcleo matemático de QR) — Fase 12; verificado contra el vector canónico de QR
+- 🎞️ **Bayer 8×8** — `gradientRect({ dither: 'bayer8' })` para control de banding más fino — mejora de la Fase 2
+- 🧪 **+30 tests**
+
+```js
+import { reedSolomonEncode, gradientRect } from 'ansimax';
+
+reedSolomonEncode([0x10, 0x20, 0x0c, 0x56], 10);   // 10 bytes de ECC
+gradientRect({ width: 60, height: 20, preset: 'viridis', dither: 'bayer8' });
+```
+
+Reemplazo directo de `1.7.4`.
 
 ### v1.7.4 — Dithering de color perceptual + kernels Stucki/Burkes
 
@@ -2144,7 +2159,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3200+ tests en 29 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3230+ tests en 30 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

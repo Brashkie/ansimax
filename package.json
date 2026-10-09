@@ -1,6 +1,6 @@
 {
   "name": "ansimax",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "description": "Zero-dependency CLI rendering library: colors, gradients, animations, ASCII art, pixel art, components, and themes — all in TypeScript.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

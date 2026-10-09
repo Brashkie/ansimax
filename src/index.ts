@@ -152,6 +152,8 @@ export { images, createCanvas, renderPixelArt, gradientRect, SPRITES, clearAnsiC
 // v1.6.7 — universal auto-render (half-block / ASCII by capability)
 export { renderImageAuto } from './images/index.js';
 export type { RenderMethod, RenderImageAutoOptions, RenderImageAutoResult } from './images/index.js';
+// v1.7.5 — Phase 12: Reed-Solomon error correction over GF(2^8)
+export { reedSolomonEncode, rsGeneratorPoly, gfMul, gfPow } from './ecc/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
@@ -345,6 +347,13 @@ import {
 } from './fuzzy/index.js';
 const fuzzyNs = { distance: _fd, match: _fm, score: _fs, search: _fsearch };
 
+// v1.7.5 — Phase 12 error-correction namespace
+import {
+  reedSolomonEncode as _rsEnc, rsGeneratorPoly as _rsGen,
+  gfMul as _gfMul, gfPow as _gfPow,
+} from './ecc/index.js';
+const eccNs = { reedSolomonEncode: _rsEnc, rsGeneratorPoly: _rsGen, gfMul: _gfMul, gfPow: _gfPow };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -371,6 +380,8 @@ const ansimax = {
   chart: chartNs,
   // v1.7.2
   fuzzy: fuzzyNs,
+  // v1.7.5
+  ecc: eccNs,
 };
 export default ansimax;
 

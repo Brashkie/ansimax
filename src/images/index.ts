@@ -486,6 +486,20 @@ const BAYER_4x4 = [
   [15/16,  7/16, 13/16,  5/16],
 ];
 
+// 8×8 Bayer matrix normalized to [0, 1). Four times the thresholds of the 4×4,
+// so banding breaks up at a finer grain — smoother gradients at a small cost.
+// (v1.7.4+ — exposed via `dither: 'bayer8'`.)
+const BAYER_8x8 = [
+  [ 0/64, 32/64,  8/64, 40/64,  2/64, 34/64, 10/64, 42/64],
+  [48/64, 16/64, 56/64, 24/64, 50/64, 18/64, 58/64, 26/64],
+  [12/64, 44/64,  4/64, 36/64, 14/64, 46/64,  6/64, 38/64],
+  [60/64, 28/64, 52/64, 20/64, 62/64, 30/64, 54/64, 22/64],
+  [ 3/64, 35/64, 11/64, 43/64,  1/64, 33/64,  9/64, 41/64],
+  [51/64, 19/64, 59/64, 27/64, 49/64, 17/64, 57/64, 25/64],
+  [15/64, 47/64,  7/64, 39/64, 13/64, 45/64,  5/64, 37/64],
+  [63/64, 31/64, 55/64, 23/64, 61/64, 29/64, 53/64, 21/64],
+];
+
 export interface GradientRectOptions {
   width?: number;
   height?: number;
@@ -507,8 +521,12 @@ export interface GradientRectOptions {
    * Rotates the radial sweep around the center point.
    */
   startAngle?: number;
-  /** Dithering algorithm. 'bayer' improves perceived smoothness. */
-  dither?: 'none' | 'bayer';
+  /**
+   * Dithering algorithm. `'bayer'` (4×4) improves perceived smoothness;
+   * `'bayer8'` (8×8, v1.7.5) breaks banding at a finer grain for smoother
+   * gradients.
+   */
+  dither?: 'none' | 'bayer' | 'bayer8';
   /**
    * **v1.4.13** — Mirror the palette so the gradient runs out and back
    * (`A → B → C → B → A`), giving a symmetric fill with the first color at
@@ -675,8 +693,10 @@ export const gradientRect = (opts: GradientRectOptions = {}): string => {
       }
 
       // Apply Bayer dithering by perturbing t with a threshold matrix
-      if (dither === 'bayer') {
-        const threshold = (BAYER_4x4[row & 3] as number[])[col & 3] as number;
+      if (dither === 'bayer' || dither === 'bayer8') {
+        const threshold = dither === 'bayer8'
+          ? (BAYER_8x8[row & 7] as number[])[col & 7] as number
+          : (BAYER_4x4[row & 3] as number[])[col & 3] as number;
         const step = 1 / Math.max(1, stops.length - 1);
         t = clamp(t + (threshold - 0.5) * step * 0.5, 0, 1);
       }

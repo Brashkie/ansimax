@@ -866,7 +866,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Radial gradients (in `gradientRect`)
 - [x] Diagonal gradients
 - [x] Arbitrary-angle gradients
-- [x] Bayer 4×4 dithering for smooth tonal transitions
+- [x] Bayer 4×4 dithering for smooth tonal transitions; **Bayer 8×8** (`dither: 'bayer8'`) for finer-grain banding control (v1.7.5)
 - [x] Single-stop UX (CSS-style behavior)
 - [x] **Animated gradients** — color flow over time with `animateGradient()` (v1.2.0)
 - [x] **Gradient interpolation curves** — `linear` / `ease-in` / `ease-out` / `ease-in-out` / `cubic-bezier` / custom (v1.2.0)
@@ -1008,7 +1008,7 @@ best portable method automatically.
 - [x] **Perceptual quantization** — `rgbTo256Perceptual` / `nearestPerceptual` via Oklab ΔE (kills banding vs RGB L2) (v1.7.0)
 - [x] **Perceptual color dithering** — `ditherColor` error-diffuses to a palette choosing by Oklab ΔE, across any of the 6 kernels (v1.7.4)
 - [ ] PNG/JPEG decode → pixel grid (feed into the universal renderers)
-- [ ] QR code generation (with size + ECC level options)
+- [~] QR code generation (with size + ECC level options) — Reed-Solomon ECC over GF(2^8) done (`reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`/`gfPow`); matrix/masking next (v1.7.5)
 - [ ] Bar code generation (Code 128, EAN-13)
 - [ ] *(detection-only, opt-in)* iTerm2 / Kitty encoders — caller-supplied, never the default
 
@@ -1104,12 +1104,27 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          29 test suites, 3200+ tests
+└── __tests__/          30 test suites, 3230+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.5 — Reed-Solomon (GF 2^8) + Bayer 8×8 dithering
+
+- 🧮 **`ecc` module** — Reed-Solomon error correction over GF(2^8): `reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`, `gfPow` (the math backbone for QR) — Phase 12; verified against the canonical QR vector
+- 🎞️ **Bayer 8×8** — `gradientRect({ dither: 'bayer8' })` for finer-grain banding control — Phase 2 improvement
+- 🧪 **+30 tests**
+
+```js
+import { reedSolomonEncode, gradientRect } from 'ansimax';
+
+reedSolomonEncode([0x10, 0x20, 0x0c, 0x56], 10);   // 10 ECC bytes
+gradientRect({ width: 60, height: 20, preset: 'viridis', dither: 'bayer8' });
+```
+
+Drop-in replacement for `1.7.4`.
 
 ### v1.7.4 — Perceptual color dithering + Stucki/Burkes kernels
 
@@ -2211,7 +2226,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3200+ tests across 29 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3230+ tests across 30 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 
