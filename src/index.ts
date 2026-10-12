@@ -154,6 +154,9 @@ export { renderImageAuto } from './images/index.js';
 export type { RenderMethod, RenderImageAutoOptions, RenderImageAutoResult } from './images/index.js';
 // v1.7.5 — Phase 12: Reed-Solomon error correction over GF(2^8)
 export { reedSolomonEncode, rsGeneratorPoly, gfMul, gfPow } from './ecc/index.js';
+// v1.7.6 — Phase 13: dependency ordering (topological sort)
+export { topoSort, tryTopoSort, CycleError } from './dag/index.js';
+export type { DagEdge } from './dag/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
@@ -354,6 +357,10 @@ import {
 } from './ecc/index.js';
 const eccNs = { reedSolomonEncode: _rsEnc, rsGeneratorPoly: _rsGen, gfMul: _gfMul, gfPow: _gfPow };
 
+// v1.7.6 — Phase 13 dependency-ordering namespace
+import { topoSort as _topo, tryTopoSort as _tryTopo } from './dag/index.js';
+const dagNs = { topoSort: _topo, tryTopoSort: _tryTopo };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -382,6 +389,8 @@ const ansimax = {
   fuzzy: fuzzyNs,
   // v1.7.5
   ecc: eccNs,
+  // v1.7.6
+  dag: dagNs,
 };
 export default ansimax;
 

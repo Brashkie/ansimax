@@ -943,7 +943,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Countdown timers
 - [x] Multi-spinner manager (stacked concurrent spinners)
 - [x] Hierarchical tasks (parent + subtasks rollup)
-- [x] **Live ETA estimation** (rolling average) (v1.6.0)
+- [x] **Live ETA estimation** — rolling average (v1.6.0); EMA smoothing (v1.6.5); least-squares **linear regression** smoothing (`smoothing: 'linear'`) (v1.7.6)
 - [x] **Live refresh diff renderer** (no flicker, only redraw changed lines) (v1.6.0)
 - [x] **Progress groups** (named groups with shared theme) (v1.6.1)
 - [x] **Throughput meters** (bytes/sec, ops/sec with auto-scaling units) (v1.6.0)
@@ -1012,7 +1012,8 @@ best portable method automatically.
 - [ ] Bar code generation (Code 128, EAN-13)
 - [ ] *(detection-only, opt-in)* iTerm2 / Kitty encoders — caller-supplied, never the default
 
-### 🔴 Phase 13 — Plugin system
+### 🟡 Phase 13 — Plugin system
+- [x] **Pipeline ordering** — `topoSort` / `tryTopoSort` (Kahn's algorithm): deterministic stage order + actionable cycle error naming the loop (v1.7.6)
 - [ ] Plugin API for custom components
 - [ ] Theme marketplace
 - [ ] Custom font registration via npm packages
@@ -1104,12 +1105,27 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          30 test suites, 3230+ tests
+└── __tests__/          31 test suites, 3265+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.6 — Topological sort (Phase 13) + linear-regression ETA
+
+- 🔗 **`dag` module** — `topoSort` / `tryTopoSort` (Kahn's algorithm): deterministic dependency ordering with an actionable `CycleError` naming the loop — Phase 13
+- 📈 **ETA linear smoothing** — `createETA({ smoothing: 'linear' })` fits a least-squares line over the window; rides through noisy mid-samples — Phase 7 improvement
+- 🧪 **+35 tests**
+
+```js
+import { topoSort, createETA } from 'ansimax';
+
+topoSort(['render', 'layout'], [{ before: 'layout', after: 'render' }]); // ['layout','render']
+createETA({ total: 1000, smoothing: 'linear' });
+```
+
+Drop-in replacement for `1.7.5`.
 
 ### v1.7.5 — Reed-Solomon (GF 2^8) + Bayer 8×8 dithering
 
@@ -2226,7 +2242,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3230+ tests across 30 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3265+ tests across 31 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

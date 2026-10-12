@@ -3,6 +3,56 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.6] — Topological sort (Phase 13) + linear-regression ETA
+
+Two things, zero breaking changes: a new Phase 13 capability (dependency
+ordering for a plugin/render pipeline) and an improvement to completed Phase 7
+(a third ETA smoothing mode).
+
+### Added — Dependency ordering via topological sort (Phase 13)
+
+A new `dag` module. Give it stages and their "run after" edges and it returns a
+linear order honouring every dependency, via Kahn's algorithm (`O(V+E)`). The
+value is the contract: a **deterministic** order (ties keep input order) and an
+**actionable cycle error** that names the offending stages.
+
+```js
+import { topoSort, tryTopoSort } from 'ansimax';
+
+topoSort(
+  ['render', 'layout', 'pack'],
+  [{ before: 'layout', after: 'render' }, { before: 'render', after: 'pack' }],
+);
+// → ['layout', 'render', 'pack']
+
+tryTopoSort(['x', 'y'], [{ before: 'x', after: 'y' }, { before: 'y', after: 'x' }]);
+// → null  (cycle)
+```
+
+- `topoSort(nodes, edges)` — throws `CycleError` (whose `.cycle` lists the loop
+  members; message carries the `ANSIMAX_PLUGIN_CYCLE` token) when no order
+  exists. Edges referencing unknown nodes, self-edges and duplicates are
+  ignored; duplicate node names are de-duped.
+- `tryTopoSort(nodes, edges)` — the non-throwing companion; returns `null` on a
+  cycle.
+- Also exposed as the `dag` namespace (`dag.topoSort`, `dag.tryTopoSort`).
+
+### Improved — Linear-regression ETA smoothing (Phase 7)
+
+`createETA` gains `smoothing: 'linear'` — a least-squares regression over the
+sample window whose fitted slope is the rate. Unlike `'window'` (which only
+looks at the first and last sample), it uses every sample, so a noisy middle
+reading can't swing the estimate while a sustained trend still comes through.
+`'window'` (default) and `'ema'` are unchanged.
+
+```js
+import { createETA } from 'ansimax';
+
+const eta = createETA({ total: 1000, smoothing: 'linear', window: 12 });
+```
+
+---
+
 ## [1.7.5] — Reed-Solomon (GF 2^8) + Bayer 8×8 dithering
 
 Two things, zero breaking changes: a new Phase 12 capability (Reed-Solomon error

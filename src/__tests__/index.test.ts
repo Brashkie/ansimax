@@ -1350,3 +1350,32 @@ describe('barrel coverage — v1.7.5 re-exports', () => {
     expect((ns.gfPow as typeof main.gfPow)(2, 8)).toBe(0x1d);
   });
 });
+
+describe('barrel coverage — v1.7.6 re-exports', () => {
+  it('exposes topoSort / tryTopoSort / CycleError from the main entry (Fase 13)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.topoSort).toBe('function');
+    expect(typeof main.tryTopoSort).toBe('function');
+    expect(typeof main.CycleError).toBe('function');
+    // Exercise so the re-export lines are covered.
+    expect(main.topoSort(['render', 'layout'], [{ before: 'layout', after: 'render' }]))
+      .toEqual(['layout', 'render']);
+    expect(main.tryTopoSort(['x', 'y'], [{ before: 'x', after: 'y' }, { before: 'y', after: 'x' }]))
+      .toBeNull();
+  });
+
+  it('exposes the dag namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { dag: Record<string, unknown> }).dag;
+    expect(typeof ns.topoSort).toBe('function');
+    expect(typeof ns.tryTopoSort).toBe('function');
+    expect((ns.topoSort as typeof main.topoSort)(['a', 'b'], [])).toEqual(['a', 'b']);
+  });
+
+  it('exposes createETA linear smoothing through the main entry (Fase 7)', async () => {
+    const main = await import('../index.js');
+    const eta = main.createETA({ total: 100, smoothing: 'linear' });
+    eta.update(10);
+    expect(eta.rate()).toBe(0); // one sample → 0
+  });
+});

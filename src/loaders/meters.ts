@@ -115,10 +115,14 @@ export interface ETAOptions {
    *   robust to short spikes but slow to react to sustained speed changes.
    * - `'ema'` — exponential moving average of the instantaneous rate;
    *   reacts faster to real speed changes while still filtering jitter.
+   * - `'linear'` — least-squares linear regression over the `window` samples;
+   *   the fitted slope is the rate. Uses every sample (not just the endpoints
+   *   like `'window'`), so it rides through jitter and noisy mid-samples while
+   *   still tracking a sustained trend. (v1.7.6)
    *
    * @since 1.6.5
    */
-  smoothing?: 'window' | 'ema';
+  smoothing?: 'window' | 'ema' | 'linear';
   /**
    * EMA smoothing factor in `(0,1]`, used when `smoothing: 'ema'`. Higher =
    * more responsive (weights recent samples more); lower = smoother. Default
@@ -186,7 +190,29 @@ export const createETA = (opts: ETAOptions): ETA => {
     return dv / dt;
   };
 
-  const rate = (): number => (mode === 'ema' ? emaRate : windowRate());
+  // Least-squares regression rate: fit value = a + b·t over the window and
+  // return the slope b (units/second). Uses every sample, so a noisy middle
+  // point can't swing the estimate the way the endpoint-only window rate can.
+  const linearRate = (): number => {
+    const n = samples.length;
+    if (n < 2) return 0;
+    const t0 = samples[0]!.t;
+    let sumT = 0, sumV = 0, sumTT = 0, sumTV = 0;
+    for (const s of samples) {
+      const t = (s.t - t0) / 1000; // seconds, relative for numeric stability
+      sumT += t;
+      sumV += s.value;
+      sumTT += t * t;
+      sumTV += t * s.value;
+    }
+    const denom = n * sumTT - sumT * sumT;
+    if (denom <= 0) return 0;         // all samples at the same instant
+    const slope = (n * sumTV - sumT * sumV) / denom;
+    return slope > 0 ? slope : 0;
+  };
+
+  const rate = (): number =>
+    mode === 'ema' ? emaRate : mode === 'linear' ? linearRate() : windowRate();
 
   return {
     update(value: number): void {

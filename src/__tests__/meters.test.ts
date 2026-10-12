@@ -674,3 +674,57 @@ describe('createStopwatch (v1.7.0)', () => {
     expect(main.loader.stopwatch).toBe(createStopwatch);
   });
 });
+
+describe('createETA linear-regression smoothing (v1.7.6)', () => {
+  const wait = (ms: number) => new Promise<void>((r) => setTimeout(() => r(), ms));
+
+  it('linear mode produces a positive rate and finite ETA on steady progress', async () => {
+    const eta = createETA({ total: 1000, smoothing: 'linear', window: 8 });
+    let v = 0;
+    for (let i = 0; i < 5; i++) { v += 50; eta.update(v); await wait(20); }
+    expect(eta.rate()).toBeGreaterThan(0);
+    expect(Number.isFinite(eta.remainingMs())).toBe(true);
+  });
+
+  it('linear rate is 0 before it has two samples', () => {
+    const eta = createETA({ total: 100, smoothing: 'linear' });
+    eta.update(10);
+    expect(eta.rate()).toBe(0);
+  });
+
+  it('linear rate is 0 when all samples share a timestamp (zero regression denominator)', () => {
+    // Freeze the clock so both samples land at the same instant → the
+    // regression denominator is 0 (no time spread to fit a slope over).
+    const spy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    try {
+      const eta = createETA({ total: 100, smoothing: 'linear' });
+      eta.update(10);
+      eta.update(50);
+      expect(eta.rate()).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('linear rate clamps to 0 on decreasing progress', async () => {
+    const eta = createETA({ total: 100, smoothing: 'linear' });
+    eta.update(100);
+    await wait(20);
+    eta.update(60);
+    await wait(20);
+    eta.update(20);
+    // Negative slope → clamped to 0 (no forward progress to estimate).
+    expect(eta.rate()).toBe(0);
+    expect(eta.remainingMs()).toBe(Infinity);
+  });
+
+  it('reset clears linear state', async () => {
+    const eta = createETA({ total: 100, smoothing: 'linear' });
+    eta.update(0);
+    await wait(20);
+    eta.update(40);
+    eta.reset();
+    expect(eta.rate()).toBe(0);
+    expect(eta.progress()).toBe(0);
+  });
+});

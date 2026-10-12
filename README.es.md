@@ -936,7 +936,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Cuentas regresivas
 - [x] Manager multi-spinner (spinners concurrentes apilados)
 - [x] Tareas jerárquicas (rollup padre + subtareas)
-- [x] **Estimación live de ETA** (rolling average) (v1.6.0)
+- [x] **Estimación live de ETA** — rolling average (v1.6.0); suavizado EMA (v1.6.5); suavizado por **regresión lineal** de mínimos cuadrados (`smoothing: 'linear'`) (v1.7.6)
 - [x] **Refresh live con diff renderer** (sin flicker, solo redibujar líneas cambiadas) (v1.6.0)
 - [x] **Grupos de progreso** (grupos con nombre y tema compartido) (v1.6.1)
 - [x] **Medidores de throughput** (bytes/s, ops/s con unidades auto-escaladas) (v1.6.0)
@@ -997,7 +997,8 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [~] Generación de códigos QR (con opciones de tamaño + nivel ECC) — corrección Reed-Solomon sobre GF(2^8) lista (`reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`/`gfPow`); matriz/máscaras siguen (v1.7.5)
 - [ ] Generación de códigos de barras (Code 128, EAN-13)
 
-### 🔴 Fase 13 — Sistema de plugins
+### 🟡 Fase 13 — Sistema de plugins
+- [x] **Ordenamiento del pipeline** — `topoSort` / `tryTopoSort` (algoritmo de Kahn): orden de etapas determinista + error de ciclo accionable que nombra el bucle (v1.7.6)
 - [ ] API de plugins para componentes personalizados
 - [ ] Marketplace de temas
 - [ ] Registro de fuentes personalizadas vía paquetes npm
@@ -1090,12 +1091,27 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          30 test suites, 3230+ tests
+└── __tests__/          31 test suites, 3265+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.6 — Orden topológico (Fase 13) + ETA por regresión lineal
+
+- 🔗 **Módulo `dag`** — `topoSort` / `tryTopoSort` (algoritmo de Kahn): orden de dependencias determinista con un `CycleError` accionable que nombra el bucle — Fase 13
+- 📈 **ETA suavizado lineal** — `createETA({ smoothing: 'linear' })` ajusta una recta de mínimos cuadrados sobre la ventana; aguanta muestras intermedias ruidosas — mejora de la Fase 7
+- 🧪 **+35 tests**
+
+```js
+import { topoSort, createETA } from 'ansimax';
+
+topoSort(['render', 'layout'], [{ before: 'layout', after: 'render' }]); // ['layout','render']
+createETA({ total: 1000, smoothing: 'linear' });
+```
+
+Reemplazo directo de `1.7.5`.
 
 ### v1.7.5 — Reed-Solomon (GF 2^8) + dithering Bayer 8×8
 
@@ -2159,7 +2175,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3230+ tests en 30 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3265+ tests en 31 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 
