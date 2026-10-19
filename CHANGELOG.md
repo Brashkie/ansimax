@@ -3,6 +3,54 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.7] — Intra-row damage diff (Phase 9) + hyphenated word wrap
+
+Two things, zero breaking changes: a new Phase 9 capability (column-level
+damage diffing with an ANSI byte-cost model) and an improvement to completed
+Phase 4 (hyphenated long-word wrapping).
+
+### Added — Intra-row diff with an ANSI byte-cost model (Phase 9)
+
+`diffLines` already says *which rows* changed. The new `diff` module goes
+finer: given the previous and next contents of one row, `diffRow` returns the
+minimal set of runs to rewrite — merging two changed runs when the unchanged
+gap between them is shorter than a cursor move (cheaper to overwrite than to
+jump). Cost-based interval merging, O(N) over the row width.
+
+```js
+import { diffRow, diffRowCost } from 'ansimax';
+
+diffRow('the quick brown fox', 'the slow  brown fox');
+// → [{ col: 4, text: 'slow ' }]
+
+diffRow('aXbbY', 'a_bb_', { moveCost: 7 });   // gap 2 < 7 → merged
+// → [{ col: 1, text: '_bb_' }]
+diffRow('aXbbY', 'a_bb_', { moveCost: 0 });   // never merge
+// → [{ col: 1, text: '_' }, { col: 4, text: '_' }]
+```
+
+- `diffRow(prev, next, { moveCost = 7 })` — equal rows → `[]`; a longer `next`
+  appends a tail run; a shorter `next` leaves the clear to the caller.
+- `diffRowCost(prev, next, opts)` — the byte cost those edits would incur under
+  the same model (one `moveCost` per run + one byte per cell).
+- Also exposed as the `diff` namespace (`diff.diffRow`, `diff.diffRowCost`).
+
+### Improved — Hyphenated word wrap (Phase 4)
+
+`wrapAnsi` / `wordWrap` take `{ hyphenate: true }`: an over-long word is broken
+with a trailing `-` on every chunk but the last, so each piece still fits
+`width` (the hyphen counts). Requires `width ≥ 2`; below that the default hard
+split is used. Default (off) is byte-for-byte unchanged.
+
+```js
+import { wrapAnsi } from 'ansimax';
+
+wrapAnsi('superlongword', 6, { hyphenate: true });
+// → ['super-', 'longw-', 'ord']
+```
+
+---
+
 ## [1.7.6] — Topological sort (Phase 13) + linear-regression ETA
 
 Two things, zero breaking changes: a new Phase 13 capability (dependency

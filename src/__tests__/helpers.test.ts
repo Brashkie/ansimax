@@ -404,6 +404,40 @@ describe('wordWrap long tokens', () => {
 });
 
 // ─────────────────────────────────────────────
+//  wrapAnsi — hyphenated long-word break (v1.7.7)
+// ─────────────────────────────────────────────
+describe('wrapAnsi hyphenation (v1.7.7)', () => {
+  it('breaks an over-long word with trailing hyphens, each line within width', () => {
+    const lines = wrapAnsi('superlongword', 6, { hyphenate: true });
+    expect(lines).toEqual(['super-', 'longw-', 'ord']);
+    for (const l of lines) expect(visibleLen(l)).toBeLessThanOrEqual(6);
+  });
+
+  it('reconstructs the original word when hyphens are stripped', () => {
+    const lines = wrapAnsi('supercalifragilistic', 8, { hyphenate: true });
+    const joined = lines.map((l) => (l.endsWith('-') ? l.slice(0, -1) : l)).join('');
+    expect(joined).toBe('supercalifragilistic');
+    for (const l of lines) expect(visibleLen(l)).toBeLessThanOrEqual(8);
+  });
+
+  it('is unchanged from the default hard split when hyphenate is off', () => {
+    expect(wrapAnsi('superlongword', 6)).toEqual(wrapAnsi('superlongword', 6, { hyphenate: false }));
+    expect(wrapAnsi('superlongword', 6, { hyphenate: true }))
+      .not.toEqual(wrapAnsi('superlongword', 6));
+  });
+
+  it('leaves normal-length words untouched', () => {
+    expect(wrapAnsi('the quick brown', 6, { hyphenate: true }))
+      .toEqual(wrapAnsi('the quick brown', 6));
+  });
+
+  it('falls back to the hard split when width < 2 (no room for a hyphen)', () => {
+    const lines = wrapAnsi('abc', 1, { hyphenate: true });
+    expect(lines).toEqual(['a', 'b', 'c']);
+  });
+});
+
+// ─────────────────────────────────────────────
 //  stripAnsi — extended sequences
 // ─────────────────────────────────────────────
 describe('stripAnsi extended', () => {

@@ -1379,3 +1379,29 @@ describe('barrel coverage — v1.7.6 re-exports', () => {
     expect(eta.rate()).toBe(0); // one sample → 0
   });
 });
+
+describe('barrel coverage — v1.7.7 re-exports', () => {
+  it('exposes diffRow / diffRowCost from the main entry (Fase 9)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.diffRow).toBe('function');
+    expect(typeof main.diffRowCost).toBe('function');
+    // Exercise so the re-export lines are covered.
+    expect(main.diffRow('the quick brown fox', 'the slow  brown fox'))
+      .toEqual([{ col: 4, text: 'slow ' }]);
+    expect(main.diffRowCost('aXbbY', 'a_bb_', { moveCost: 7 })).toBe(11);
+  });
+
+  it('exposes the diff namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { diff: Record<string, unknown> }).diff;
+    expect(typeof ns.diffRow).toBe('function');
+    expect(typeof ns.diffRowCost).toBe('function');
+    expect((ns.diffRow as typeof main.diffRow)('abc', 'abc')).toEqual([]);
+  });
+
+  it('exposes wrapAnsi hyphenation through the main entry (Fase 4)', async () => {
+    const main = await import('../index.js');
+    expect(main.wrapAnsi('superlongword', 6, { hyphenate: true }))
+      .toEqual(['super-', 'longw-', 'ord']);
+  });
+});

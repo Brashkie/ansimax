@@ -904,7 +904,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Sections (gradient headers with auto-width)
 - [x] Trees (collapsible, max-depth, cycle-safe)
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` with alignment + nesting (v1.3.0)
-- [x] **Balanced table wrap** — minimum-raggedness word wrap for even cell lines (v1.6.2)
+- [x] **Balanced table wrap** — minimum-raggedness word wrap for even cell lines (v1.6.2); **hyphenated wrap** for over-long words (`wrapAnsi(text, width, { hyphenate: true })`) (v1.7.7)
 - [x] **JSON/YAML pretty-printing** — colored, depth-limit, circular-safe (v1.3.0)
 - [x] **Grid system** — CSS Grid-inspired: `colSpan`, `rowSpan` (mark-and-pack), `flow`, `cellWidth`/`cellHeight`, and `gridAreas` template areas (v1.4.1–v1.4.4)
 - [x] **Markdown rendering** — headings (ATX + setext), lists (nested + task lists), code blocks, tables, blockquotes, inline styles, CommonMark escapes, autolinks, reference links, footnotes, HTML blocks (v1.4.0–v1.4.11)
@@ -964,7 +964,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Dirty-rectangle canvas (only redraw changed pixels)
 - [x] Bounded LRU caches (escape sequences, render cache, ANSI cache)
 - [x] Drift-corrected timing (animations stay locked to wall-clock)
-- [ ] **Diff renderer** (line-level damage tracking for full UIs)
+- [~] **Diff renderer** — line-level (`diffLines`, v1.6.0) plus **column-level** `diffRow` with an ANSI byte-cost merge model (`diffRow`, `diffRowCost`, v1.7.7)
 - [ ] **Virtual buffer** (compose UI without writing to stdout)
 - [ ] **Z-index / layering** (overlap panels with priority)
 - [ ] **Mouse event support** (click, hover, drag, scroll wheel)
@@ -1105,12 +1105,27 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          31 test suites, 3265+ tests
+└── __tests__/          32 test suites, 3300+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.7 — Intra-row damage diff (Phase 9) + hyphenated wrap
+
+- 🩹 **`diff` module** — `diffRow` / `diffRowCost`: column-level damage diff with an ANSI byte-cost merge (short unchanged gaps are overwritten instead of jumped), O(N) — Phase 9
+- ✂️ **Hyphenated wrap** — `wrapAnsi(text, width, { hyphenate: true })` breaks over-long words with a trailing `-` — Phase 4 improvement
+- 🧪 **+35 tests**
+
+```js
+import { diffRow, wrapAnsi } from 'ansimax';
+
+diffRow('the quick brown fox', 'the slow  brown fox'); // [{ col: 4, text: 'slow ' }]
+wrapAnsi('superlongword', 6, { hyphenate: true });     // ['super-','longw-','ord']
+```
+
+Drop-in replacement for `1.7.6`.
 
 ### v1.7.6 — Topological sort (Phase 13) + linear-regression ETA
 
@@ -2242,7 +2257,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3265+ tests across 31 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3300+ tests across 32 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

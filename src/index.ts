@@ -157,6 +157,9 @@ export { reedSolomonEncode, rsGeneratorPoly, gfMul, gfPow } from './ecc/index.js
 // v1.7.6 — Phase 13: dependency ordering (topological sort)
 export { topoSort, tryTopoSort, CycleError } from './dag/index.js';
 export type { DagEdge } from './dag/index.js';
+// v1.7.7 — Phase 9: intra-row damage diff (ANSI byte-cost model)
+export { diffRow, diffRowCost } from './diff/index.js';
+export type { RowEdit, DiffRowOptions } from './diff/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
@@ -361,6 +364,10 @@ const eccNs = { reedSolomonEncode: _rsEnc, rsGeneratorPoly: _rsGen, gfMul: _gfMu
 import { topoSort as _topo, tryTopoSort as _tryTopo } from './dag/index.js';
 const dagNs = { topoSort: _topo, tryTopoSort: _tryTopo };
 
+// v1.7.7 — Phase 9 intra-row diff namespace
+import { diffRow as _diffRow, diffRowCost as _diffRowCost } from './diff/index.js';
+const diffNs = { diffRow: _diffRow, diffRowCost: _diffRowCost };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -391,6 +398,8 @@ const ansimax = {
   ecc: eccNs,
   // v1.7.6
   dag: dagNs,
+  // v1.7.7
+  diff: diffNs,
 };
 export default ansimax;
 

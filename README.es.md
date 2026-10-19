@@ -895,6 +895,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Timelines con estados done/pending
 - [x] Menús interactivos (single + multi-select)
 - [x] Layout de columnas (overflow truncate/wrap)
+- [x] **Wrap balanceado** — word wrap de mínima irregularidad (v1.6.2); **wrap con guionado** para palabras largas (`wrapAnsi(text, width, { hyphenate: true })`) (v1.7.7)
 - [x] Secciones (cabeceras con gradiente, ancho automático)
 - [x] Árboles (colapsables, max-depth, cycle-safe)
 - [x] **Panels** — split layouts: `hsplit`, `vsplit` con alineación + anidamiento (v1.3.0)
@@ -957,7 +958,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Canvas dirty-rectangle (solo redibujar píxeles cambiados)
 - [x] Cachés LRU acotadas (escape sequences, render cache, ANSI cache)
 - [x] Timing con corrección de drift (animaciones permanecen pegadas al reloj)
-- [ ] **Diff renderer** (damage tracking a nivel de línea para UIs completas)
+- [~] **Diff renderer** — nivel de línea (`diffLines`, v1.6.0) más **nivel de columna** `diffRow` con modelo de costo en bytes ANSI (`diffRow`, `diffRowCost`, v1.7.7)
 - [ ] **Buffer virtual** (componer UI sin escribir a stdout)
 - [ ] **Z-index / layering** (overlapping de paneles con prioridad)
 - [ ] **Soporte de eventos de mouse** (click, hover, drag, scroll)
@@ -1091,12 +1092,27 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          31 test suites, 3265+ tests
+└── __tests__/          32 test suites, 3300+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.7.7 — Diff intra-línea (Fase 9) + wrap con guionado
+
+- 🩹 **Módulo `diff`** — `diffRow` / `diffRowCost`: diff de daño a nivel de columna con fusión por costo en bytes ANSI (los huecos cortos se sobrescriben en vez de saltar), O(N) — Fase 9
+- ✂️ **Wrap con guionado** — `wrapAnsi(text, width, { hyphenate: true })` corta palabras largas con un `-` final — mejora de la Fase 4
+- 🧪 **+35 tests**
+
+```js
+import { diffRow, wrapAnsi } from 'ansimax';
+
+diffRow('the quick brown fox', 'the slow  brown fox'); // [{ col: 4, text: 'slow ' }]
+wrapAnsi('superlongword', 6, { hyphenate: true });     // ['super-','longw-','ord']
+```
+
+Reemplazo directo de `1.7.6`.
 
 ### v1.7.6 — Orden topológico (Fase 13) + ETA por regresión lineal
 
@@ -2175,7 +2191,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3265+ tests en 31 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3300+ tests en 32 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

@@ -1115,8 +1115,18 @@ export const onResize = (
  * sequences within tokens are preserved verbatim. Visible width is
  * computed Unicode-correctly. Tokens longer than `width` are soft-broken
  * into chunks that respect ANSI boundaries.
+ *
+ * With `{ hyphenate: true }` (v1.7.7), an over-long word is broken with a
+ * trailing `-` on every chunk but the last, so each piece still fits `width`
+ * (the hyphen counts toward the width). Requires `width ≥ 2`; at `width < 2`
+ * hyphenation is skipped (there is no room for a hyphen) and the default hard
+ * split is used. The default (`hyphenate` off) is unchanged.
  */
-export const wrapAnsi = (text: string, width: number): string[] => {
+export const wrapAnsi = (
+  text: string,
+  width: number,
+  opts: { hyphenate?: boolean } = {},
+): string[] => {
   if (width <= 0) return [text];
   if (!text) return [];
 
@@ -1135,14 +1145,27 @@ export const wrapAnsi = (text: string, width: number): string[] => {
     let current = '';
     let currentWidth = 0;
 
+    const hyphenate = opts.hyphenate === true && width >= 2;
     const breakLong = (word: string): string[] => {
-      const chunks: string[] = [];
-      let i = 0;
       const wordLen = visibleLen(word);
-      while (i < wordLen) {
-        chunks.push(sliceAnsi(word, i, i + width));
-        i += width;
+      if (!hyphenate) {
+        const chunks: string[] = [];
+        let i = 0;
+        while (i < wordLen) {
+          chunks.push(sliceAnsi(word, i, i + width));
+          i += width;
+        }
+        return chunks;
       }
+      // Hyphenated: every chunk but the last takes `width - 1` cells plus a '-'.
+      const chunks: string[] = [];
+      const step = width - 1;
+      let i = 0;
+      while (wordLen - i > width) {
+        chunks.push(sliceAnsi(word, i, i + step) + '-');
+        i += step;
+      }
+      chunks.push(sliceAnsi(word, i, wordLen));
       return chunks;
     };
 
