@@ -1405,3 +1405,38 @@ describe('barrel coverage — v1.7.7 re-exports', () => {
       .toEqual(['super-', 'longw-', 'ord']);
   });
 });
+
+describe('barrel coverage — v1.8.0 re-exports', () => {
+  it('exposes the screen buffer API from the main entry (Fase 9)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.createScreenBuffer).toBe('function');
+    expect(typeof main.renderFrame).toBe('function');
+    expect(typeof main.renderFrameCost).toBe('function');
+    const b = main.createScreenBuffer(4, 1);
+    b.text(0, 0, 'abcd');
+    expect(main.renderFrame(['    '], b.rows())).toBe('\x1b[1;1Habcd');
+    expect(main.renderFrameCost(['abcd'], ['abcd'])).toBe(0);
+  });
+
+  it('exposes the pipeline API from the main entry (Fase 13)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.createPipeline).toBe('function');
+    const out = await main.createPipeline<number>()
+      .use({ name: 'x', run: (n: number) => n + 1 })
+      .run(1);
+    expect(out).toBe(2);
+  });
+
+  it('exposes buffer and pipeline namespaces on the default export', async () => {
+    const main = await import('../index.js');
+    const d = main.default as { buffer: Record<string, unknown>; pipeline: Record<string, unknown> };
+    expect(typeof d.buffer.renderFrame).toBe('function');
+    expect(typeof d.buffer.createScreenBuffer).toBe('function');
+    expect(typeof d.pipeline.create).toBe('function');
+  });
+
+  it('registers sierra-lite in the dither set (Fase 3)', async () => {
+    const main = await import('../index.js');
+    expect(main.DITHER_ALGORITHMS).toContain('sierra-lite');
+  });
+});

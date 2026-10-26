@@ -143,8 +143,9 @@ export interface FromImageOptions {
    * - `'sierra'` — balance of smoothness and speed (v1.6.2)
    * - `'stucki'` — JJN refinement, very smooth, slightly sharper (v1.7.4)
    * - `'burkes'` — Stucki's faster two-row cousin (v1.7.4)
+   * - `'sierra-lite'` — cheapest 3-tap kernel, fast, slightly grainier (v1.8.0)
    */
-  dither?: 'none' | 'floyd-steinberg' | 'atkinson' | 'jjn' | 'sierra' | 'stucki' | 'burkes';
+  dither?: 'none' | 'floyd-steinberg' | 'atkinson' | 'jjn' | 'sierra' | 'stucki' | 'burkes' | 'sierra-lite';
   /**
    * Edge detection mode. Renders edges as the brightest chars.
    * - `'none'` (default)

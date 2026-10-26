@@ -883,7 +883,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Conversor Imagen → ASCII** — `ascii.fromImage()` con mapeo de luminancia (v1.2.5)
 - [x] **Renderizado ASCII en color** — preserva colores de imagen con `color: true` (v1.2.5)
 - [x] **Dithering de imágenes** — error diffusion Floyd-Steinberg (v1.2.5)
-- [x] **6 algoritmos de dithering** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4)
+- [x] **7 algoritmos de dithering** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4); Sierra-Lite (v1.8.0)
 - [x] **ASCII optimizado para rostros** — histogram stretching para retratos (v1.2.5)
 - [x] **Soporte de fuentes figlet** — parser + renderer `.flf` (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Detección de bordes** — operador Sobel integrado en `fromImage` (v1.2.5, bonus)
@@ -958,8 +958,8 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Canvas dirty-rectangle (solo redibujar píxeles cambiados)
 - [x] Cachés LRU acotadas (escape sequences, render cache, ANSI cache)
 - [x] Timing con corrección de drift (animaciones permanecen pegadas al reloj)
-- [~] **Diff renderer** — nivel de línea (`diffLines`, v1.6.0) más **nivel de columna** `diffRow` con modelo de costo en bytes ANSI (`diffRow`, `diffRowCost`, v1.7.7)
-- [ ] **Buffer virtual** (componer UI sin escribir a stdout)
+- [x] **Diff renderer** — nivel de línea (`diffLines`, v1.6.0), **nivel de columna** `diffRow` con costo en bytes ANSI (v1.7.7), y **`renderFrame`** que emite el ANSI mínimo (cursor-move + runs) para una transición de frame completa (v1.8.0)
+- [x] **Buffer virtual** — `createScreenBuffer` compone el frame fuera de pantalla; `renderFrame` lo vuelca a stdout con damage-tracking (v1.8.0)
 - [ ] **Z-index / layering** (overlapping de paneles con prioridad)
 - [ ] **Soporte de eventos de mouse** (click, hover, drag, scroll)
 - [ ] **Abstracción de eventos de teclado** (flechas, modificadores, secuencias, dead keys)
@@ -1000,6 +1000,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 
 ### 🟡 Fase 13 — Sistema de plugins
 - [x] **Ordenamiento del pipeline** — `topoSort` / `tryTopoSort` (algoritmo de Kahn): orden de etapas determinista + error de ciclo accionable que nombra el bucle (v1.7.6)
+- [x] **Pipeline de plugins** — `createPipeline`: registra etapas con nombre y deps `after`, las ejecuta en orden de dependencias pasando el valor (sync o async) (v1.8.0)
 - [ ] API de plugins para componentes personalizados
 - [ ] Marketplace de temas
 - [ ] Registro de fuentes personalizadas vía paquetes npm
@@ -1092,12 +1093,38 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          32 test suites, 3300+ tests
+└── __tests__/          34 test suites, 3345+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.8.0 — Buffer de pantalla virtual, pipeline de plugins, dither Sierra-Lite
+
+Un minor grande. Dos fases cierran sobre las bases de 1.7.x, más un 7º kernel de dithering.
+
+- 🖥️ **Módulo `buffer`** — `createScreenBuffer` compone el frame fuera de pantalla; `renderFrame` / `renderFrameCost` emiten el ANSI mínimo (cursor-move + runs) para actualizarlo (usa `diffRow`) — Fase 9
+- 🔌 **Módulo `pipeline`** — `createPipeline`: etapas con nombre y deps `after`, ejecutadas en orden de dependencias pasando el valor, sync o async (usa `topoSort`) — Fase 13
+- 🎞️ **Dither Sierra-Lite** — el kernel de 3 taps más barato; el set ahora es 7 — mejora de la Fase 3
+- 🧪 **+45 tests**
+
+```js
+import { createScreenBuffer, renderFrame, createPipeline } from 'ansimax';
+
+const buf = createScreenBuffer(40, 10);
+buf.text(0, 0, 'health: 100');
+const prev = buf.rows();
+buf.text(8, 0, ' 90');
+process.stdout.write(renderFrame(prev, buf.rows())); // solo el run cambiado
+
+await createPipeline()
+  .use({ name: 'upper', after: ['trim'], run: (s) => s.toUpperCase() })
+  .use({ name: 'trim', run: (s) => s.trim() })
+  .run('  hi  ');                                     // 'HI'
+```
+
+Reemplazo directo de `1.7.7`.
 
 ### v1.7.7 — Diff intra-línea (Fase 9) + wrap con guionado
 
@@ -2191,7 +2218,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3300+ tests en 32 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3345+ tests en 34 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

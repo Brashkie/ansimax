@@ -237,6 +237,16 @@ const DIFFUSION_KERNELS: Record<string, DiffusionKernel> = {
       [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2],
     ],
   },
+  // Sierra Lite (Sierra-2-4A, 1990) — the cheapest error-diffusion kernel:
+  // just 3 taps over a power-of-two divisor. Fast, a touch grainier than the
+  // larger kernels — a good default for very large images. @since 1.8.0
+  'sierra-lite': {
+    divisor: 4,
+    taps: [
+      [1, 0, 2],
+      [-1, 1, 1], [0, 1, 1],
+    ],
+  },
 };
 
 /** Names of the available error-diffusion dithering algorithms. @since 1.6.2 */

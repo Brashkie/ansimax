@@ -888,7 +888,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Image → ASCII** converter — `ascii.fromImage()` with luminance mapping (v1.2.5)
 - [x] **Color ASCII** rendering — preserve image colors via `color: true` (v1.2.5)
 - [x] **Image dithering** — Floyd-Steinberg error diffusion (v1.2.5)
-- [x] **6 dithering algorithms** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4)
+- [x] **7 dithering algorithms** — Floyd-Steinberg, Atkinson, JJN, Sierra (v1.6.2); Stucki, Burkes (v1.7.4); Sierra-Lite (v1.8.0)
 - [x] **Face-optimized ASCII** — histogram stretching for portraits (v1.2.5)
 - [x] **Figlet font support** — `.flf` parser + renderer (`parseFiglet` + `ascii.figletText`) (v1.2.5)
 - [x] **Edge detection** — Sobel operator integrated in `fromImage` (v1.2.5, bonus)
@@ -964,8 +964,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Dirty-rectangle canvas (only redraw changed pixels)
 - [x] Bounded LRU caches (escape sequences, render cache, ANSI cache)
 - [x] Drift-corrected timing (animations stay locked to wall-clock)
-- [~] **Diff renderer** — line-level (`diffLines`, v1.6.0) plus **column-level** `diffRow` with an ANSI byte-cost merge model (`diffRow`, `diffRowCost`, v1.7.7)
-- [ ] **Virtual buffer** (compose UI without writing to stdout)
+- [x] **Diff renderer** — line-level (`diffLines`, v1.6.0), **column-level** `diffRow` with an ANSI byte-cost merge (v1.7.7), and **`renderFrame`** emitting the minimal cursor-move + run ANSI for a full frame transition (v1.8.0)
+- [x] **Virtual buffer** — `createScreenBuffer` composes a frame off-screen; `renderFrame` damage-tracks it to stdout (v1.8.0)
 - [ ] **Z-index / layering** (overlap panels with priority)
 - [ ] **Mouse event support** (click, hover, drag, scroll wheel)
 - [ ] **Keyboard event abstraction** (arrow keys, modifiers, key sequences, dead keys)
@@ -1014,7 +1014,7 @@ best portable method automatically.
 
 ### 🟡 Phase 13 — Plugin system
 - [x] **Pipeline ordering** — `topoSort` / `tryTopoSort` (Kahn's algorithm): deterministic stage order + actionable cycle error naming the loop (v1.7.6)
-- [ ] Plugin API for custom components
+- [x] **Plugin pipeline** — `createPipeline`: register named stages with `after` deps, run them in dependency order threading the value (sync or async) (v1.8.0)
 - [ ] Theme marketplace
 - [ ] Custom font registration via npm packages
 - [ ] Community animations registry
@@ -1105,12 +1105,38 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          32 test suites, 3300+ tests
+└── __tests__/          34 test suites, 3345+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.8.0 — Virtual screen buffer, plugin pipeline, Sierra-Lite dither
+
+A larger minor. Two phases close on 1.7.x foundations, plus a 7th dither kernel.
+
+- 🖥️ **`buffer` module** — `createScreenBuffer` composes a frame off-screen; `renderFrame` / `renderFrameCost` emit the minimal cursor-move + run ANSI to update it (consumes `diffRow`) — Phase 9
+- 🔌 **`pipeline` module** — `createPipeline`: named stages with `after` deps, run in dependency order threading the value, sync or async (consumes `topoSort`) — Phase 13
+- 🎞️ **Sierra-Lite dither** — cheapest 3-tap kernel; the set is now 7 — Phase 3 improvement
+- 🧪 **+45 tests**
+
+```js
+import { createScreenBuffer, renderFrame, createPipeline } from 'ansimax';
+
+const buf = createScreenBuffer(40, 10);
+buf.text(0, 0, 'health: 100');
+const prev = buf.rows();
+buf.text(8, 0, ' 90');
+process.stdout.write(renderFrame(prev, buf.rows())); // only the changed run
+
+await createPipeline()
+  .use({ name: 'upper', after: ['trim'], run: (s) => s.toUpperCase() })
+  .use({ name: 'trim', run: (s) => s.trim() })
+  .run('  hi  ');                                     // 'HI'
+```
+
+Drop-in replacement for `1.7.7`.
 
 ### v1.7.7 — Intra-row damage diff (Phase 9) + hyphenated wrap
 
@@ -2257,7 +2283,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3300+ tests across 32 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3345+ tests across 34 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

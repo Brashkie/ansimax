@@ -2623,6 +2623,28 @@ describe('dithering — Stucki + Burkes kernels (v1.7.4)', () => {
   });
 });
 
+describe('dithering — Sierra-Lite kernel (v1.8.0)', () => {
+  const grayGrid = () =>
+    Array.from({ length: 6 }, () =>
+      Array.from({ length: 12 }, () => ({ r: 128, g: 128, b: 128 })));
+
+  it('registers sierra-lite in DITHER_ALGORITHMS', () => {
+    expect(DITHER_ALGORITHMS).toContain('sierra-lite');
+  });
+
+  it('fromImage renders with sierra-lite', () => {
+    const out = ascii.fromImage(grayGrid(), { width: 12, dither: 'sierra-lite', ramp: 'binary' });
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('ditherColor accepts sierra-lite', () => {
+    const img = [Array.from({ length: 8 }, (_, i) => ({ r: i * 32, g: i * 32, b: i * 32 }))];
+    const out = ditherColor(img, [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }], { algorithm: 'sierra-lite' });
+    expect(out[0]).toHaveLength(8);
+  });
+});
+
 describe('ditherColor — perceptual color dithering (v1.7.4)', () => {
   const bw = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }];
   // 1×16 gray ramp.

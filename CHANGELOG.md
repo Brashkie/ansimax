@@ -3,6 +3,73 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — Virtual screen buffer, plugin pipeline, Sierra-Lite dither
+
+A larger minor release. Two phases close on the foundations laid in the 1.7.x
+line — the virtual screen buffer consumes the intra-row diff (v1.7.7), and the
+plugin pipeline consumes the topological sort (v1.7.6) — plus a seventh
+dithering kernel and a bandwidth-optimal frame renderer. All additive, zero
+breaking changes.
+
+### Added — Virtual screen buffer + minimal-ANSI frame diff (Phase 9)
+
+A new `buffer` module. Compose a frame off-screen in a grid of cells, then emit
+only the escape sequences needed to turn the last shown frame into the new one.
+
+```js
+import { createScreenBuffer, renderFrame } from 'ansimax';
+
+const buf = createScreenBuffer(40, 10);
+buf.text(0, 0, 'health: 100');
+const prev = buf.rows();
+buf.text(8, 0, ' 90');                 // damage one run
+process.stdout.write(renderFrame(prev, buf.rows()));
+// only the changed "100"→" 90" run is rewritten — a cursor move + 3 bytes,
+// not a full-screen redraw
+```
+
+- `renderFrame(prev, next, { moveCost, originRow, originCol })` — pure; returns
+  the minimal ANSI (a cursor move per changed run, via `diffRow`), `''` when
+  nothing changed. A grown frame's new rows are fully drawn; shrunk rows are
+  left for the caller to clear.
+- `renderFrameCost(prev, next, opts)` — the byte length that transition emits,
+  for asserting a damage-tracked redraw beats a full one.
+- `createScreenBuffer(width, height, fill?)` — mutable cell grid with `set`,
+  `text`, `clear`, `row`, `rows`, `toString`.
+- Also the `buffer` namespace.
+
+### Added — Ordered plugin pipeline (Phase 13)
+
+A new `pipeline` module: register named stages that declare which others they
+run *after*, then run them in dependency order (resolved by `topoSort`), each
+transforming the value the previous one returned.
+
+```js
+import { createPipeline } from 'ansimax';
+
+const p = createPipeline()
+  .use({ name: 'upper', after: ['trim'], run: (s) => s.toUpperCase() })
+  .use({ name: 'trim', run: (s) => s.trim() });   // any registration order
+
+await p.run('  hi  ');   // 'HI'
+p.order();               // ['trim', 'upper']
+```
+
+- `use(stage)` registers or replaces by name (chainable); `order()` resolves
+  the run sequence; `run(input)` threads the value through (awaiting async
+  stages); `stages()` lists registration order.
+- Unknown `after` references are ignored; a cycle throws `CycleError` naming
+  the loop. Also the `pipeline` namespace.
+
+### Improved — Sierra-Lite dithering kernel (Phase 3)
+
+`DITHER_ALGORITHMS` now also offers **`'sierra-lite'`** — the cheapest 3-tap
+error-diffusion kernel (divisor 4), fast and a touch grainier, a good default
+for very large images. The dither set is now 7. Usable in `fromImage({ dither })`
+and `ditherColor({ algorithm })`.
+
+---
+
 ## [1.7.7] — Intra-row damage diff (Phase 9) + hyphenated word wrap
 
 Two things, zero breaking changes: a new Phase 9 capability (column-level

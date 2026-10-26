@@ -160,6 +160,12 @@ export type { DagEdge } from './dag/index.js';
 // v1.7.7 — Phase 9: intra-row damage diff (ANSI byte-cost model)
 export { diffRow, diffRowCost } from './diff/index.js';
 export type { RowEdit, DiffRowOptions } from './diff/index.js';
+// v1.8.0 — Phase 9: virtual screen buffer + minimal-ANSI frame diff
+export { renderFrame, renderFrameCost, createScreenBuffer } from './buffer/index.js';
+export type { RenderFrameOptions, ScreenBuffer } from './buffer/index.js';
+// v1.8.0 — Phase 13: ordered plugin pipeline
+export { createPipeline } from './pipeline/index.js';
+export type { Stage, Pipeline } from './pipeline/index.js';
 export type { Canvas, CanvasRenderOptions, RenderOptions, GradientRectOptions, RGBA, Pixel, PixelGrid } from './images/index.js';
 
 // v1.3.0 — Phase 4 progress: Panels (split layouts) + JSON pretty-print
@@ -368,6 +374,17 @@ const dagNs = { topoSort: _topo, tryTopoSort: _tryTopo };
 import { diffRow as _diffRow, diffRowCost as _diffRowCost } from './diff/index.js';
 const diffNs = { diffRow: _diffRow, diffRowCost: _diffRowCost };
 
+// v1.8.0 — Phase 9 screen-buffer namespace
+import {
+  renderFrame as _renderFrame, renderFrameCost as _renderFrameCost,
+  createScreenBuffer as _createScreenBuffer,
+} from './buffer/index.js';
+const bufferNs = { renderFrame: _renderFrame, renderFrameCost: _renderFrameCost, createScreenBuffer: _createScreenBuffer };
+
+// v1.8.0 — Phase 13 pipeline namespace
+import { createPipeline as _createPipeline } from './pipeline/index.js';
+const pipelineNs = { create: _createPipeline };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -400,6 +417,9 @@ const ansimax = {
   dag: dagNs,
   // v1.7.7
   diff: diffNs,
+  // v1.8.0
+  buffer: bufferNs,
+  pipeline: pipelineNs,
 };
 export default ansimax;
 
