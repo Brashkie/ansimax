@@ -1440,3 +1440,25 @@ describe('barrel coverage — v1.8.0 re-exports', () => {
     expect(main.DITHER_ALGORITHMS).toContain('sierra-lite');
   });
 });
+
+describe('barrel coverage — v1.8.1 re-exports', () => {
+  it('exposes detectCapabilities from the main entry (Fase 8)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.detectCapabilities).toBe('function');
+    const caps = main.detectCapabilities();
+    expect(['none', 'basic', '256', 'truecolor']).toContain(caps.colorDepth);
+    expect(typeof caps.isTTY).toBe('boolean');
+  });
+
+  it('exposes compositeLayers from the main entry (Fase 9)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.compositeLayers).toBe('function');
+    expect(main.compositeLayers([{ content: ['ab'] }], 2, 1)).toEqual(['ab']);
+  });
+
+  it('exposes compositeLayers on the buffer namespace', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { buffer: Record<string, unknown> }).buffer;
+    expect(typeof ns.compositeLayers).toBe('function');
+  });
+});

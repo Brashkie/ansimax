@@ -162,3 +162,98 @@ export const createScreenBuffer = (
     },
   };
 };
+
+// ─────────────────────────────────────────────
+//  Z-index layer compositing — Phase 9 (v1.8.1)
+//
+//  Overlapping panels with priority: given several layers, each a block of
+//  text placed at (x, y) with a z-index, flatten them into one frame. Higher z
+//  paints on top; a transparent cell (by default a space) lets lower layers
+//  show through, so a small opaque popup can float over a full-screen
+//  background without erasing it. Stable: equal z keeps input order (painter's
+//  algorithm). Pure — returns the composed rows.
+// ─────────────────────────────────────────────
+
+/** One layer to composite. @since 1.8.1 */
+export interface Layer {
+  /** The layer's text block, one string per row (ANSI not width-accounted). */
+  content: string[];
+  /** 0-based column of the block's left edge. Default `0`. */
+  x?: number;
+  /** 0-based row of the block's top edge. Default `0`. */
+  y?: number;
+  /** Paint priority — higher sits on top. Ties keep array order. Default `0`. */
+  z?: number;
+}
+
+/** Options for {@link compositeLayers}. @since 1.8.1 */
+export interface CompositeOptions {
+  /**
+   * The cell treated as transparent — lower layers show through it. Default
+   * `' '` (space). Set `''` to make every cell opaque (a layer then fully
+   * occludes whatever is beneath its footprint).
+   */
+  transparent?: string;
+  /** Background fill for cells no layer covers. Default `' '`. */
+  fill?: string;
+}
+
+/**
+ * Flatten `layers` into a `width × height` frame by painting them bottom-to-top
+ * in z order (ties keep array order). Each layer's cells are placed at its
+ * `(x, y)`; a transparent cell (default a space) lets the layer below show
+ * through, so popups and panels overlap without erasing each other. Cells
+ * outside the frame are clipped. Returns the composed rows.
+ *
+ * @example
+ * ```js
+ * import { compositeLayers } from 'ansimax';
+ *
+ * const bg   = { content: ['..........', '..........', '..........'], z: 0 };
+ * const card = { content: ['+--+', '|hi|', '+--+'], x: 3, y: 0, z: 1 };
+ * compositeLayers([bg, card], 10, 3);
+ * // ['...+--+...', '...|hi|...', '...+--+...']
+ * ```
+ *
+ * @since 1.8.1
+ */
+export const compositeLayers = (
+  layers: Layer[],
+  width: number,
+  height: number,
+  opts: CompositeOptions = {},
+): string[] => {
+  const w = Math.max(0, Math.floor(width));
+  const h = Math.max(0, Math.floor(height));
+  const transparent = opts.transparent !== undefined ? [...opts.transparent][0] : ' ';
+  const fillCh = opts.fill !== undefined ? ([...opts.fill][0] ?? ' ') : ' ';
+  if (w === 0 || h === 0) return [];
+
+  const grid: string[][] = Array.from({ length: h }, () => new Array<string>(w).fill(fillCh));
+
+  // Stable sort by z ascending: lower layers first, so higher z overwrites.
+  const ordered = layers
+    .map((layer, i) => ({ layer, i }))
+    .sort((a, b) => (a.layer.z ?? 0) - (b.layer.z ?? 0) || a.i - b.i);
+
+  for (const { layer } of ordered) {
+    const ox = Math.floor(layer.x ?? 0);
+    const oy = Math.floor(layer.y ?? 0);
+    const rows = Array.isArray(layer.content) ? layer.content : [];
+    for (let r = 0; r < rows.length; r++) {
+      const ry = oy + r;
+      if (ry < 0 || ry >= h) continue;
+      const cells = [...(rows[r] as string)];
+      const target = grid[ry] as string[];
+      for (let c = 0; c < cells.length; c++) {
+        const cx = ox + c;
+        if (cx < 0 || cx >= w) continue;
+        const ch = cells[c] as string;
+        if (ch === transparent) continue; // see-through — keep what's below
+        target[cx] = ch;
+      }
+    }
+  }
+
+  return grid.map((row) => row.join(''));
+};

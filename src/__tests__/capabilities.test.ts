@@ -2,6 +2,7 @@ import {
   detectImageProtocol, supportsInlineImages,
   supportsKittyGraphics, supportsITermImages, supportsSixel,
   cellAspectRatio, aspectScale, DEFAULT_CELL_ASPECT,
+  detectCapabilities,
 } from '../utils/capabilities.js';
 
 // Helper: run a function with a specific env, restoring afterward.
@@ -177,5 +178,96 @@ describe('aspectScale (v1.7.1)', () => {
   it('falls back for a non-finite ratio', () => {
     expect(aspectScale(NaN)).toEqual({ sx: 1, sy: 2 });
     expect(aspectScale(Infinity)).toEqual({ sx: 1, sy: 2 });
+  });
+});
+
+describe('detectCapabilities (v1.8.1)', () => {
+  // Full save/restore of every env var detectCapabilities reads, so the
+  // ambient CI environment can't skew assertions.
+  const KEYS = [
+    'NO_COLOR', 'FORCE_COLOR', 'TERM', 'COLORTERM', 'TERM_PROGRAM', 'WT_SESSION',
+    'CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'BUILDKITE', 'DRONE',
+    'TRAVIS', 'APPVEYOR', 'TEAMCITY_VERSION', 'KITTY_WINDOW_ID', 'ITERM_SESSION_ID',
+  ];
+  const withEnv2 = <T>(vars: Record<string, string | undefined>, fn: () => T): T => {
+    const saved: Record<string, string | undefined> = {};
+    for (const k of KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    try { return fn(); } finally {
+      for (const k of KEYS) {
+        if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+      }
+    }
+  };
+
+  it('returns the full capability shape', () => {
+    withEnv2({ TERM: 'xterm' }, () => {
+      const caps = detectCapabilities();
+      expect(Object.keys(caps).sort()).toEqual([
+        'cellAspect', 'ciProvider', 'colorDepth', 'forceColor', 'imageProtocol',
+        'isCI', 'isTTY', 'isWindowsTerminal', 'noColor', 'program',
+      ]);
+    });
+  });
+
+  it('infers truecolor from COLORTERM / known programs / Windows Terminal', () => {
+    withEnv2({ COLORTERM: 'truecolor' }, () => expect(detectCapabilities().colorDepth).toBe('truecolor'));
+    withEnv2({ TERM_PROGRAM: 'vscode' }, () => {
+      const c = detectCapabilities();
+      expect(c.colorDepth).toBe('truecolor');
+      expect(c.program).toBe('vscode');
+    });
+    withEnv2({ WT_SESSION: 'abc' }, () => {
+      const c = detectCapabilities();
+      expect(c.colorDepth).toBe('truecolor');
+      expect(c.isWindowsTerminal).toBe(true);
+    });
+    // truecolor advertised through the TERM string itself
+    withEnv2({ TERM: 'xterm-truecolor' }, () => expect(detectCapabilities().colorDepth).toBe('truecolor'));
+    withEnv2({ TERM: 'konsole-24bit' }, () => expect(detectCapabilities().colorDepth).toBe('truecolor'));
+  });
+
+  it('infers 256 / basic / none from TERM', () => {
+    withEnv2({ TERM: 'xterm-256color' }, () => expect(detectCapabilities().colorDepth).toBe('256'));
+    withEnv2({ TERM: 'xterm' }, () => expect(detectCapabilities().colorDepth).toBe('basic'));
+    withEnv2({ TERM: '' }, () => expect(detectCapabilities().colorDepth).toBe('none'));
+  });
+
+  it('honors NO_COLOR and FORCE_COLOR', () => {
+    withEnv2({ NO_COLOR: '1', COLORTERM: 'truecolor' }, () => {
+      const c = detectCapabilities();
+      expect(c.noColor).toBe(true);
+      expect(c.colorDepth).toBe('none');
+    });
+    withEnv2({ FORCE_COLOR: '1', TERM: 'dumb' }, () => {
+      const c = detectCapabilities();
+      expect(c.forceColor).toBe(true);
+      expect(c.colorDepth).toBe('basic');
+    });
+  });
+
+  it('detects CI providers (specific and generic)', () => {
+    withEnv2({ GITHUB_ACTIONS: 'true' }, () => {
+      const c = detectCapabilities();
+      expect(c.isCI).toBe(true);
+      expect(c.ciProvider).toBe('github');
+    });
+    withEnv2({ GITLAB_CI: 'true' }, () => expect(detectCapabilities().ciProvider).toBe('gitlab'));
+    withEnv2({ CI: '1' }, () => expect(detectCapabilities().ciProvider).toBe('unknown'));
+    withEnv2({ TERM: 'xterm' }, () => {
+      const c = detectCapabilities();
+      expect(c.isCI).toBe(false);
+      expect(c.ciProvider).toBeNull();
+    });
+  });
+
+  it('reports a numeric cell aspect and a valid image protocol', () => {
+    withEnv2({ TERM: 'xterm' }, () => {
+      const c = detectCapabilities();
+      expect(typeof c.cellAspect).toBe('number');
+      expect(['kitty', 'iterm', 'sixel', 'none']).toContain(c.imageProtocol);
+    });
   });
 });

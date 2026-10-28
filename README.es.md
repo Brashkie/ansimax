@@ -951,7 +951,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Detección de Windows Terminal (`WT_SESSION`)
 - [x] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ) (v1.6.5)
 - [x] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty) (v1.6.4)
-- [ ] **Base de datos de capacidades de terminal** (flags xterm completos + probes de versión)
+- [x] **Base de datos de capacidades de terminal** — `detectCapabilities()` un snapshot consolidado (TTY, CI + proveedor, colorDepth, programa, Windows Terminal, protocolo de imagen, aspecto de celda); solo env, sin efectos secundarios (v1.8.1)
 - [x] **Detección de métricas de fuente** — relación de aspecto de celda (`cellAspectRatio`, `aspectScale`) para layouts sub-celda pixel-accurate; sobreescribible, por defecto el casi-universal 0.5 (v1.7.1)
 
 ### 🟡 Fase 9 — Renderizado avanzado
@@ -960,7 +960,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Timing con corrección de drift (animaciones permanecen pegadas al reloj)
 - [x] **Diff renderer** — nivel de línea (`diffLines`, v1.6.0), **nivel de columna** `diffRow` con costo en bytes ANSI (v1.7.7), y **`renderFrame`** que emite el ANSI mínimo (cursor-move + runs) para una transición de frame completa (v1.8.0)
 - [x] **Buffer virtual** — `createScreenBuffer` compone el frame fuera de pantalla; `renderFrame` lo vuelca a stdout con damage-tracking (v1.8.0)
-- [ ] **Z-index / layering** (overlapping de paneles con prioridad)
+- [x] **Z-index / layering** — `compositeLayers` aplana capas por prioridad z con transparencia por celda (popups sobre un fondo) (v1.8.1)
 - [ ] **Soporte de eventos de mouse** (click, hover, drag, scroll)
 - [ ] **Abstracción de eventos de teclado** (flechas, modificadores, secuencias, dead keys)
 - [ ] **Framework TUI completo** (componentes reactivos — equivalente a Textual para Node)
@@ -1093,12 +1093,28 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          34 test suites, 3345+ tests
+└── __tests__/          34 test suites, 3370+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.8.1 — Base de capacidades (Fase 8) + layering z-index (Fase 9)
+
+- 🧭 **`detectCapabilities()`** — un snapshot consolidado y sin efectos secundarios (TTY, CI + proveedor, colorDepth, programa, Windows Terminal, protocolo de imagen, aspecto de celda) — Fase 8
+- 🗂️ **`compositeLayers()`** — aplana capas superpuestas por prioridad z con transparencia por celda (popups sobre un fondo) — Fase 9
+- 📓 **Showcase actualizado** — ejemplos copy-paste de charts, fuzzy, buffer + capas, pipeline y detección de capacidades
+- 🧪 **+25 tests**
+
+```js
+import { detectCapabilities, compositeLayers } from 'ansimax';
+
+detectCapabilities().colorDepth;   // 'none' | 'basic' | '256' | 'truecolor'
+compositeLayers([bg, popup], 40, 12);
+```
+
+Reemplazo directo de `1.8.0`.
 
 ### v1.8.0 — Buffer de pantalla virtual, pipeline de plugins, dither Sierra-Lite
 
@@ -2218,7 +2234,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3345+ tests en 34 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3370+ tests en 34 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

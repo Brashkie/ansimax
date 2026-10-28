@@ -188,3 +188,117 @@ export const aspectScale = (ratio: number = cellAspectRatio()): AspectScale => {
   const r = Number.isFinite(ratio) && ratio > 0 ? ratio : DEFAULT_CELL_ASPECT;
   return { sx: 1, sy: 1 / r };
 };
+
+// ─────────────────────────────────────────────
+//  Terminal capability database — Phase 8 (v1.8.1)
+//
+//  One consolidated, synchronous snapshot of what the current terminal can do.
+//  It folds the individual probes above (image protocol, cell aspect ratio)
+//  together with the env-var signals ansimax already uses elsewhere (NO_COLOR/
+//  FORCE_COLOR, CI providers, terminal program, Windows Terminal, TTY), so a
+//  caller can branch on one object instead of calling six functions. Env-only
+//  and side-effect-free — no terminal queries, safe in pipes and CI.
+// ─────────────────────────────────────────────
+
+/** Rough color depth a terminal advertises through its environment. */
+export type ColorDepth = 'none' | 'basic' | '256' | 'truecolor';
+
+/** A consolidated snapshot of terminal capabilities. @since 1.8.1 */
+export interface TerminalCapabilities {
+  /** stdout is an interactive TTY (not a pipe/file/CI log). */
+  isTTY: boolean;
+  /** Running under a detected CI provider. */
+  isCI: boolean;
+  /** The CI provider name when known (`'github'`, `'gitlab'`, …), else `null`. */
+  ciProvider: string | null;
+  /** Color depth inferred from the environment. */
+  colorDepth: ColorDepth;
+  /** Color is forced on via `FORCE_COLOR` (and not disabled by `NO_COLOR`). */
+  forceColor: boolean;
+  /** Color is disabled via `NO_COLOR`. */
+  noColor: boolean;
+  /** The `TERM_PROGRAM` value lower-cased (`'iterm.app'`, `'vscode'`, …) or `null`. */
+  program: string | null;
+  /** Running inside Windows Terminal (`WT_SESSION`). */
+  isWindowsTerminal: boolean;
+  /** Best inline-image protocol the terminal advertises (detection only). */
+  imageProtocol: ImageProtocol;
+  /** Cell aspect ratio `cell_width / cell_height` (see {@link cellAspectRatio}). */
+  cellAspect: number;
+}
+
+// Env var → CI provider name. Checked in order; first hit wins.
+const CI_PROVIDERS: ReadonlyArray<readonly [string, string]> = [
+  ['GITHUB_ACTIONS', 'github'],
+  ['GITLAB_CI', 'gitlab'],
+  ['CIRCLECI', 'circle'],
+  ['BUILDKITE', 'buildkite'],
+  ['DRONE', 'drone'],
+  ['TRAVIS', 'travis'],
+  ['APPVEYOR', 'appveyor'],
+  ['TEAMCITY_VERSION', 'teamcity'],
+];
+
+const detectCiProvider = (): string | null => {
+  for (const [key, name] of CI_PROVIDERS) {
+    if (readEnv(key) !== undefined) return name;
+  }
+  // Generic CI flag (set by most providers) with no specific match.
+  return readEnv('CI') !== undefined ? 'unknown' : null;
+};
+
+const detectColorDepth = (noColor: boolean, forceColor: boolean): ColorDepth => {
+  if (noColor) return 'none';
+  const term = (readEnv('TERM') ?? '').toLowerCase();
+  const colorTerm = (readEnv('COLORTERM') ?? '').toLowerCase();
+  const program = (readEnv('TERM_PROGRAM') ?? '').toLowerCase();
+  if (colorTerm === 'truecolor' || colorTerm === '24bit') return 'truecolor';
+  if (program === 'iterm.app' || program === 'vscode' || program === 'wezterm'
+      || program === 'hyper' || program === 'ghostty') return 'truecolor';
+  if (readEnv('WT_SESSION') !== undefined) return 'truecolor';
+  if (term.includes('truecolor') || term.includes('24bit')) return 'truecolor';
+  if (term.includes('256')) return '256';
+  if (term === 'dumb') return forceColor ? 'basic' : 'none';
+  if (term === '' && !forceColor) return 'none';
+  return 'basic';
+};
+
+/**
+ * Take a single consolidated snapshot of the terminal's capabilities — the
+ * Phase 8 "capability database". Reads only environment variables and the
+ * existing probes, so it is synchronous and safe everywhere (pipes, CI,
+ * non-TTY); nothing is written to the terminal.
+ *
+ * @example
+ * ```js
+ * import { detectCapabilities } from 'ansimax';
+ *
+ * const caps = detectCapabilities();
+ * if (caps.colorDepth === 'truecolor') useRichGradient();
+ * if (!caps.isTTY) usePlainOutput();
+ * ```
+ *
+ * @since 1.8.1
+ */
+export const detectCapabilities = (): TerminalCapabilities => {
+  const noColor = readEnv('NO_COLOR') !== undefined;
+  const forceColor = !noColor && readEnv('FORCE_COLOR') !== undefined;
+  const ciProvider = detectCiProvider();
+  const program = readEnv('TERM_PROGRAM');
+  // stdout.isTTY is undefined when not a TTY (pipe/file/CI).
+  /* istanbul ignore next — process.stdout is always present in Node */
+  const isTTY = process?.stdout?.isTTY === true;
+
+  return {
+    isTTY,
+    isCI: ciProvider !== null,
+    ciProvider,
+    colorDepth: detectColorDepth(noColor, forceColor),
+    forceColor,
+    noColor,
+    program: program ? program.toLowerCase() : null,
+    isWindowsTerminal: readEnv('WT_SESSION') !== undefined,
+    imageProtocol: detectImageProtocol(),
+    cellAspect: cellAspectRatio(),
+  };
+};

@@ -656,6 +656,89 @@ obj.self = obj;
 console.log(json.pretty(obj));   // → "self": [Circular]
 ```
 
+### Inline Charts (v1.6.6 · v1.7.1)
+
+```js
+import { sparkline, bar, histogram, lineChart } from 'ansimax';
+
+// Sparkline — one block char per value, auto-scaled
+console.log(sparkline([1, 5, 2, 8, 3, 7, 9, 4]));   // ▁▅▂▇▃▆█▄
+
+// Bar — a 0..1 fraction to a filled bar (not an absolute value)
+console.log(bar(0.66, { width: 20 }));
+
+// Histogram — labelled rows, scaled to the max value
+console.log(histogram([
+  { label: 'GET',  value: 1240 },
+  { label: 'POST', value: 430 },
+  { label: 'PUT',  value: 85 },
+]));
+
+// Braille line chart — 8× sub-pixel, optional Wu anti-aliasing
+const wave = Array.from({ length: 60 }, (_, i) => Math.sin(i / 6));
+console.log(lineChart(wave, { width: 40, height: 8, antialias: true }));
+```
+
+### Fuzzy Matching (v1.7.2)
+
+```js
+import { fuzzySearch, fuzzyDistance } from 'ansimax';
+
+// Typo-tolerant ranking (Myers bit-parallel Levenshtein)
+const cmds = ['commit', 'config', 'checkout', 'clone', 'clean'];
+console.log(fuzzySearch('comit', cmds).map((r) => r.value));   // ['commit']
+
+// Raw edit distance to the best-matching substring
+console.log(fuzzyDistance('confg', 'config file'));            // 1
+```
+
+### Virtual Buffer & Layers (v1.8.0 · v1.8.1)
+
+```js
+import { createScreenBuffer, renderFrame, compositeLayers } from 'ansimax';
+
+// Compose a frame off-screen, then emit only the changed cells
+const buf = createScreenBuffer(20, 3);
+buf.text(0, 0, 'health: 100');
+const prev = buf.rows();
+buf.text(8, 0, ' 90');
+process.stdout.write(renderFrame(prev, buf.rows()));   // only the changed run
+
+// Overlap panels by z-index — a space is transparent, so lower layers show
+const bg   = { content: ['..........', '..........', '..........'], z: 0 };
+const card = { content: ['+--+', '|hi|', '+--+'], x: 3, y: 0, z: 1 };
+console.log(compositeLayers([bg, card], 10, 3).join('\n'));
+```
+
+### Plugin Pipeline (v1.8.0)
+
+```js
+import { createPipeline } from 'ansimax';
+
+// Named stages ordered by their `after` deps (register in any order)
+const p = createPipeline()
+  .use({ name: 'upper', after: ['trim'], run: (s) => s.toUpperCase() })
+  .use({ name: 'trim', run: (s) => s.trim() });
+
+console.log(await p.run('  hi  '));   // 'HI'
+console.log(p.order());               // ['trim', 'upper']
+```
+
+### Capability Detection (v1.8.1)
+
+```js
+import { detectCapabilities } from 'ansimax';
+
+// One consolidated, side-effect-free snapshot of the terminal
+const caps = detectCapabilities();
+console.log(caps.colorDepth);   // 'none' | 'basic' | '256' | 'truecolor'
+console.log(caps.isTTY, caps.isCI, caps.ciProvider);
+
+if (caps.colorDepth === 'truecolor') {
+  // ...use rich 24-bit gradients
+}
+```
+
 ---
 
 ## 📖 Documentation
@@ -957,7 +1040,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Windows Terminal detection (`WT_SESSION`)
 - [x] **Unicode width detection** (CJK halfwidth/fullwidth, emoji clusters, ZWJ sequences) (v1.6.5)
 - [x] **Image protocol detection** — *detection only*, not an encoder: reports which protocol the terminal advertises so callers can plug in their own; ansimax itself renders via the universal path (v1.6.4)
-- [ ] **Terminal capability database** (full xterm capability flags + version probes)
+- [x] **Terminal capability database** — `detectCapabilities()` one consolidated snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect); env-only, side-effect-free (v1.8.1)
 - [x] **Font metrics detection** — cell aspect ratio (`cellAspectRatio`, `aspectScale`) for pixel-accurate sub-cell layouts; overridable, defaults to the near-universal 0.5 (v1.7.1)
 
 ### 🟡 Phase 9 — Advanced rendering
@@ -966,7 +1049,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Drift-corrected timing (animations stay locked to wall-clock)
 - [x] **Diff renderer** — line-level (`diffLines`, v1.6.0), **column-level** `diffRow` with an ANSI byte-cost merge (v1.7.7), and **`renderFrame`** emitting the minimal cursor-move + run ANSI for a full frame transition (v1.8.0)
 - [x] **Virtual buffer** — `createScreenBuffer` composes a frame off-screen; `renderFrame` damage-tracks it to stdout (v1.8.0)
-- [ ] **Z-index / layering** (overlap panels with priority)
+- [x] **Z-index / layering** — `compositeLayers` flattens layers by z priority with per-cell transparency (popups over a background) (v1.8.1)
 - [ ] **Mouse event support** (click, hover, drag, scroll wheel)
 - [ ] **Keyboard event abstraction** (arrow keys, modifiers, key sequences, dead keys)
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
@@ -1105,12 +1188,28 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          34 test suites, 3345+ tests
+└── __tests__/          34 test suites, 3370+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.8.1 — Capability database (Phase 8) + z-index layering (Phase 9)
+
+- 🧭 **`detectCapabilities()`** — one consolidated, side-effect-free snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect) — Phase 8
+- 🗂️ **`compositeLayers()`** — flatten overlapping layers by z priority with per-cell transparency (popups over a background) — Phase 9
+- 📓 **Showcase refreshed** — copy-paste examples for charts, fuzzy, buffer + layers, pipeline, and capability detection
+- 🧪 **+25 tests**
+
+```js
+import { detectCapabilities, compositeLayers } from 'ansimax';
+
+detectCapabilities().colorDepth;   // 'none' | 'basic' | '256' | 'truecolor'
+compositeLayers([bg, popup], 40, 12);
+```
+
+Drop-in replacement for `1.8.0`.
 
 ### v1.8.0 — Virtual screen buffer, plugin pipeline, Sierra-Lite dither
 
@@ -2283,7 +2382,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3345+ tests across 34 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3370+ tests across 34 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

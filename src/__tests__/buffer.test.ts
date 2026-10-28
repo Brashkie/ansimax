@@ -1,4 +1,4 @@
-import { createScreenBuffer, renderFrame, renderFrameCost } from '../buffer/index.js';
+import { createScreenBuffer, renderFrame, renderFrameCost, compositeLayers } from '../buffer/index.js';
 
 describe('createScreenBuffer (v1.8.0)', () => {
   it('starts filled with the fill char and reports its dimensions', () => {
@@ -103,5 +103,57 @@ describe('renderFrame (v1.8.0)', () => {
     // At moveCost 0 they stay separate (two cursor moves).
     const sep = renderFrame(['aXbcdY'], ['a_bcd_'], { moveCost: 0 });
     expect(sep).toBe('\x1b[1;2H_\x1b[1;6H_');
+  });
+});
+
+describe('compositeLayers (v1.8.1)', () => {
+  it('paints a floating layer over a background', () => {
+    const bg = { content: ['..........', '..........', '..........'], z: 0 };
+    const card = { content: ['+--+', '|hi|', '+--+'], x: 3, y: 0, z: 1 };
+    expect(compositeLayers([bg, card], 10, 3)).toEqual([
+      '...+--+...',
+      '...|hi|...',
+      '...+--+...',
+    ]);
+  });
+
+  it('higher z wins regardless of array order', () => {
+    const a = { content: ['AAA'], z: 5 };
+    const b = { content: ['BBB'], z: 1 };
+    expect(compositeLayers([a, b], 3, 1)).toEqual(['AAA']);
+  });
+
+  it('treats a space as transparent — lower layers show through', () => {
+    const base = { content: ['#####'], z: 0 };
+    const top = { content: ['X X'], x: 1, z: 1 };
+    expect(compositeLayers([base, top], 5, 1)).toEqual(['#X#X#']);
+  });
+
+  it('transparent:"" makes every cell opaque', () => {
+    const base = { content: ['#####'], z: 0 };
+    const top = { content: ['X X'], x: 1, z: 1 };
+    expect(compositeLayers([base, top], 5, 1, { transparent: '' })).toEqual(['#X X#']);
+  });
+
+  it('clips layers to the frame (negative x, overflow y)', () => {
+    expect(compositeLayers([{ content: ['ABCDEFG'], x: -2, y: 0 }], 4, 1)).toEqual(['CDEF']);
+    expect(compositeLayers([{ content: ['a', 'b', 'c'] }, { content: ['Z'], y: 9 }], 1, 2))
+      .toEqual(['a', 'b']);
+  });
+
+  it('breaks z ties by array order (painter order)', () => {
+    expect(compositeLayers([{ content: ['11'] }, { content: ['22'] }], 2, 1)).toEqual(['22']);
+  });
+
+  it('uses a custom fill for uncovered cells', () => {
+    expect(compositeLayers([{ content: ['X'], x: 2 }], 4, 1, { fill: '.' })).toEqual(['..X.']);
+  });
+
+  it('returns [] for zero dimensions', () => {
+    expect(compositeLayers([{ content: ['x'] }], 0, 0)).toEqual([]);
+  });
+
+  it('defaults x/y/z to 0', () => {
+    expect(compositeLayers([{ content: ['ab'] }], 2, 1)).toEqual(['ab']);
   });
 });

@@ -163,6 +163,9 @@ export type { RowEdit, DiffRowOptions } from './diff/index.js';
 // v1.8.0 — Phase 9: virtual screen buffer + minimal-ANSI frame diff
 export { renderFrame, renderFrameCost, createScreenBuffer } from './buffer/index.js';
 export type { RenderFrameOptions, ScreenBuffer } from './buffer/index.js';
+// v1.8.1 — Phase 9: z-index layer compositing
+export { compositeLayers } from './buffer/index.js';
+export type { Layer, CompositeOptions } from './buffer/index.js';
 // v1.8.0 — Phase 13: ordered plugin pipeline
 export { createPipeline } from './pipeline/index.js';
 export type { Stage, Pipeline } from './pipeline/index.js';
@@ -247,6 +250,9 @@ export {
 export type {
   CellAspectOptions, AspectScale,
 } from './utils/capabilities.js';
+// v1.8.1 — Phase 8: consolidated terminal capability database
+export { detectCapabilities } from './utils/capabilities.js';
+export type { TerminalCapabilities, ColorDepth } from './utils/capabilities.js';
 export {
   termSize, hexToRgb, rgbToHex, stripAnsi, visibleLen, clamp, lerpColor,
   isHexColor, truncateAnsi, repeatVisible, padEnd, padStart, padBoth, center, wordWrap, lerp, rgbTo256,
@@ -377,9 +383,12 @@ const diffNs = { diffRow: _diffRow, diffRowCost: _diffRowCost };
 // v1.8.0 — Phase 9 screen-buffer namespace
 import {
   renderFrame as _renderFrame, renderFrameCost as _renderFrameCost,
-  createScreenBuffer as _createScreenBuffer,
+  createScreenBuffer as _createScreenBuffer, compositeLayers as _compositeLayers,
 } from './buffer/index.js';
-const bufferNs = { renderFrame: _renderFrame, renderFrameCost: _renderFrameCost, createScreenBuffer: _createScreenBuffer };
+const bufferNs = {
+  renderFrame: _renderFrame, renderFrameCost: _renderFrameCost,
+  createScreenBuffer: _createScreenBuffer, compositeLayers: _compositeLayers,
+};
 
 // v1.8.0 — Phase 13 pipeline namespace
 import { createPipeline as _createPipeline } from './pipeline/index.js';

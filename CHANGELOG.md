@@ -3,6 +3,53 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.8.1] — Capability database (Phase 8) + z-index layering (Phase 9)
+
+Two phase advances, plus a refreshed README showcase. Zero breaking changes.
+
+### Added — Terminal capability database (Phase 8)
+
+`detectCapabilities()` returns one consolidated, side-effect-free snapshot of
+what the terminal can do — so a caller branches on one object instead of
+calling six probes.
+
+```js
+import { detectCapabilities } from 'ansimax';
+
+const caps = detectCapabilities();
+// { isTTY, isCI, ciProvider, colorDepth, forceColor, noColor,
+//   program, isWindowsTerminal, imageProtocol, cellAspect }
+if (caps.colorDepth === 'truecolor') useRichGradient();
+```
+
+Folds together the existing probes (image protocol, cell aspect) and the env
+signals ansimax already uses (`NO_COLOR`/`FORCE_COLOR`, CI providers, terminal
+program, `WT_SESSION`, TTY). Env-only — no terminal queries, safe in pipes/CI.
+
+### Added — Z-index layer compositing (Phase 9)
+
+`compositeLayers(layers, width, height, opts?)` flattens overlapping layers by
+z priority — higher paints on top, a transparent cell (a space by default)
+lets lower layers show through — so a popup can float over a background without
+erasing it. Painter's algorithm, ties keep array order, cells clipped to frame.
+
+```js
+import { compositeLayers } from 'ansimax';
+
+const bg   = { content: ['..........', '..........', '..........'], z: 0 };
+const card = { content: ['+--+', '|hi|', '+--+'], x: 3, y: 0, z: 1 };
+compositeLayers([bg, card], 10, 3);
+// ['...+--+...', '...|hi|...', '...+--+...']
+```
+
+### Docs
+
+- **README showcase expanded** — added copy-paste examples for inline charts,
+  fuzzy matching, the virtual buffer + z-layers, the plugin pipeline, and
+  capability detection, all against verified current signatures.
+
+---
+
 ## [1.8.0] — Virtual screen buffer, plugin pipeline, Sierra-Lite dither
 
 A larger minor release. Two phases close on the foundations laid in the 1.7.x
