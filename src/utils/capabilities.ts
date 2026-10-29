@@ -225,6 +225,10 @@ export interface TerminalCapabilities {
   imageProtocol: ImageProtocol;
   /** Cell aspect ratio `cell_width / cell_height` (see {@link cellAspectRatio}). */
   cellAspect: number;
+  /** Terminal width in columns (`process.stdout.columns`), or `80` when unknown. */
+  columns: number;
+  /** Terminal height in rows (`process.stdout.rows`), or `24` when unknown. */
+  rows: number;
 }
 
 // Env var → CI provider name. Checked in order; first hit wins.
@@ -287,7 +291,14 @@ export const detectCapabilities = (): TerminalCapabilities => {
   const program = readEnv('TERM_PROGRAM');
   // stdout.isTTY is undefined when not a TTY (pipe/file/CI).
   /* istanbul ignore next — process.stdout is always present in Node */
-  const isTTY = process?.stdout?.isTTY === true;
+  const out = process?.stdout;
+  const isTTY = out?.isTTY === true;
+  // Terminal size, with the classic 80×24 fallback when stdout can't report it
+  // (pipes, non-TTY, CI). Non-finite / non-positive values degrade to the default.
+  const cols = out?.columns;
+  const rws = out?.rows;
+  const columns = Number.isFinite(cols) && (cols as number) > 0 ? (cols as number) : 80;
+  const rows = Number.isFinite(rws) && (rws as number) > 0 ? (rws as number) : 24;
 
   return {
     isTTY,
@@ -300,5 +311,7 @@ export const detectCapabilities = (): TerminalCapabilities => {
     isWindowsTerminal: readEnv('WT_SESSION') !== undefined,
     imageProtocol: detectImageProtocol(),
     cellAspect: cellAspectRatio(),
+    columns,
+    rows,
   };
 };

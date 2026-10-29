@@ -206,8 +206,8 @@ describe('detectCapabilities (v1.8.1)', () => {
     withEnv2({ TERM: 'xterm' }, () => {
       const caps = detectCapabilities();
       expect(Object.keys(caps).sort()).toEqual([
-        'cellAspect', 'ciProvider', 'colorDepth', 'forceColor', 'imageProtocol',
-        'isCI', 'isTTY', 'isWindowsTerminal', 'noColor', 'program',
+        'cellAspect', 'ciProvider', 'colorDepth', 'columns', 'forceColor', 'imageProtocol',
+        'isCI', 'isTTY', 'isWindowsTerminal', 'noColor', 'program', 'rows',
       ]);
     });
   });
@@ -269,5 +269,18 @@ describe('detectCapabilities (v1.8.1)', () => {
       expect(typeof c.cellAspect).toBe('number');
       expect(['kitty', 'iterm', 'sixel', 'none']).toContain(c.imageProtocol);
     });
+  });
+
+  it('reports positive terminal columns and rows (with 80×24 fallback)', () => {
+    const c = detectCapabilities();
+    expect(typeof c.columns).toBe('number');
+    expect(typeof c.rows).toBe('number');
+    expect(c.columns).toBeGreaterThan(0);
+    expect(c.rows).toBeGreaterThan(0);
+    // In a non-TTY test runner stdout has no size → the classic fallback.
+    if (process.stdout.columns === undefined) {
+      expect(c.columns).toBe(80);
+      expect(c.rows).toBe(24);
+    }
   });
 });

@@ -3,6 +3,57 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — Input parsing (Phase 9) + Phase 8 complete
+
+A larger minor. **Phase 8 — Capability detection is now complete**, and Phase 9
+gains the input layer: keyboard and mouse sequence parsing. Zero breaking
+changes.
+
+### Added — Keyboard & mouse input parsing (Phase 9)
+
+A new `input` module. A TTY in raw mode delivers keystrokes and clicks as
+escape sequences; `parseKey` and `parseMouse` decode them into structured
+events — as **pure functions**, so they're fully testable off a TTY and the
+caller owns the I/O loop.
+
+```js
+import { parseKey, parseMouse } from 'ansimax';
+
+parseKey('\x1b[A');     // { name: 'up',    ctrl: false, meta: false, shift: false, sequence: '\x1b[A' }
+parseKey('\x1b[1;5C');  // { name: 'right', ctrl: true,  ... }   (Ctrl+Right)
+parseKey('\x03');       // { name: 'c',     ctrl: true,  ... }   (Ctrl+C)
+
+parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', ... }
+parseMouse('\x1b[<64;3;3M');  // { x: 3,  y: 3, button: 'none', action: 'wheel', wheel: 'up' }
+```
+
+- `parseKey(seq)` → `KeyEvent { name, ctrl, meta, shift, sequence }`. Handles
+  printables, Ctrl-letter codes, Alt/Meta-prefixed keys, arrows + navigation +
+  function keys (CSI and SS3 forms), and xterm modified sequences (`\x1b[1;5C`).
+  Unknown input → `{ name: 'unknown' }`.
+- `parseMouse(seq)` → `MouseEvent { x, y, button, action, wheel, ctrl, meta,
+  shift }` for the SGR protocol (`\x1b[<b;x;yM|m`), or `null` when it isn't one.
+- Also the `input` namespace.
+
+### Improved — Terminal size closes Phase 8
+
+`detectCapabilities()` now also reports `columns` and `rows` (from
+`process.stdout`, with the classic 80×24 fallback when unknown). With that, the
+**capability database is complete and Phase 8 is done**.
+
+```js
+import { detectCapabilities } from 'ansimax';
+
+const { columns, rows } = detectCapabilities();   // e.g. 120 × 30
+```
+
+### Docs
+
+- **README showcase** — added a Keyboard & Mouse Input block and the terminal
+  size field, verified copy-paste against current signatures.
+
+---
+
 ## [1.8.1] — Capability database (Phase 8) + z-index layering (Phase 9)
 
 Two phase advances, plus a refreshed README showcase. Zero breaking changes.

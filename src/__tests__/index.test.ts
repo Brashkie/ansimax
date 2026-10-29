@@ -1462,3 +1462,28 @@ describe('barrel coverage — v1.8.1 re-exports', () => {
     expect(typeof ns.compositeLayers).toBe('function');
   });
 });
+
+describe('barrel coverage — v1.9.0 re-exports', () => {
+  it('exposes parseKey / parseMouse from the main entry (Fase 9)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.parseKey).toBe('function');
+    expect(typeof main.parseMouse).toBe('function');
+    expect(main.parseKey('\x1b[1;5C')).toMatchObject({ name: 'right', ctrl: true });
+    expect(main.parseMouse('\x1b[<0;10;5M')).toMatchObject({ x: 10, y: 5, button: 'left', action: 'down' });
+    expect(main.parseMouse('q')).toBeNull();
+  });
+
+  it('exposes the input namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { input: Record<string, unknown> }).input;
+    expect(typeof ns.parseKey).toBe('function');
+    expect(typeof ns.parseMouse).toBe('function');
+  });
+
+  it('detectCapabilities reports terminal columns/rows (Fase 8 complete)', async () => {
+    const main = await import('../index.js');
+    const caps = main.detectCapabilities();
+    expect(caps.columns).toBeGreaterThan(0);
+    expect(caps.rows).toBeGreaterThan(0);
+  });
+});

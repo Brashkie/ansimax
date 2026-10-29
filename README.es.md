@@ -942,7 +942,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Grupos de progreso** (grupos con nombre y tema compartido) (v1.6.1)
 - [x] **Medidores de throughput** (bytes/s, ops/s con unidades auto-escaladas) (v1.6.0)
 
-### 🟡 Fase 8 — Detección de capacidades
+### ✅ Fase 8 — Detección de capacidades
 - [x] Detección de TTY (auto-desactivar en pipes/CI)
 - [x] Soporte de env `NO_COLOR` / `FORCE_COLOR`
 - [x] Detección de profundidad de color (16 / 256 / truecolor)
@@ -951,7 +951,7 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] Detección de Windows Terminal (`WT_SESSION`)
 - [x] **Detección de ancho Unicode** (CJK halfwidth/fullwidth, clusters de emoji, ZWJ) (v1.6.5)
 - [x] **Detección de protocolos de imagen** (Sixel, imágenes inline de iTerm, protocolo de Kitty) (v1.6.4)
-- [x] **Base de datos de capacidades de terminal** — `detectCapabilities()` un snapshot consolidado (TTY, CI + proveedor, colorDepth, programa, Windows Terminal, protocolo de imagen, aspecto de celda); solo env, sin efectos secundarios (v1.8.1)
+- [x] **Base de datos de capacidades de terminal** — `detectCapabilities()` un snapshot consolidado (TTY, CI + proveedor, colorDepth, programa, Windows Terminal, protocolo de imagen, aspecto de celda, **columns/rows** v1.9.0); solo env, sin efectos secundarios (v1.8.1)
 - [x] **Detección de métricas de fuente** — relación de aspecto de celda (`cellAspectRatio`, `aspectScale`) para layouts sub-celda pixel-accurate; sobreescribible, por defecto el casi-universal 0.5 (v1.7.1)
 
 ### 🟡 Fase 9 — Renderizado avanzado
@@ -961,8 +961,8 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Diff renderer** — nivel de línea (`diffLines`, v1.6.0), **nivel de columna** `diffRow` con costo en bytes ANSI (v1.7.7), y **`renderFrame`** que emite el ANSI mínimo (cursor-move + runs) para una transición de frame completa (v1.8.0)
 - [x] **Buffer virtual** — `createScreenBuffer` compone el frame fuera de pantalla; `renderFrame` lo vuelca a stdout con damage-tracking (v1.8.0)
 - [x] **Z-index / layering** — `compositeLayers` aplana capas por prioridad z con transparencia por celda (popups sobre un fondo) (v1.8.1)
-- [ ] **Soporte de eventos de mouse** (click, hover, drag, scroll)
-- [ ] **Abstracción de eventos de teclado** (flechas, modificadores, secuencias, dead keys)
+- [x] **Soporte de eventos de mouse** — `parseMouse` decodifica el protocolo SGR (botón, drag, rueda, modificadores, coords 1-based) (v1.9.0)
+- [x] **Abstracción de eventos de teclado** — `parseKey` normaliza flechas, modificadores (Ctrl/Alt/Shift), teclas de función/navegación y códigos Ctrl-letra en `{ name, ctrl, meta, shift }` (v1.9.0)
 - [ ] **Framework TUI completo** (componentes reactivos — equivalente a Textual para Node)
 
 ### 🔴 Fase 10 — Charts de terminal
@@ -1093,12 +1093,28 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          34 test suites, 3370+ tests
+└── __tests__/          35 test suites, 3410+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.9.0 — Parsing de input (Fase 9) + Fase 8 completada
+
+- ⌨️ **Módulo `input`** — `parseKey` / `parseMouse`: parsers puros que convierten secuencias de escape crudas en eventos estructurados de teclado/mouse (flechas, modificadores, teclas de función, mouse SGR) — Fase 9
+- 📐 **Tamaño del terminal** — `detectCapabilities()` ahora reporta `columns`/`rows` (fallback 80×24) — **Fase 8 completada** ✅
+- 📓 **Showcase** — añadido un ejemplo de teclado y mouse
+- 🧪 **+40 tests**
+
+```js
+import { parseKey, parseMouse } from 'ansimax';
+
+parseKey('\x1b[1;5C');        // { name: 'right', ctrl: true, ... }  (Ctrl+Right)
+parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', ... }
+```
+
+Reemplazo directo de `1.8.1`.
 
 ### v1.8.1 — Base de capacidades (Fase 8) + layering z-index (Fase 9)
 
@@ -2234,7 +2250,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3370+ tests en 34 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3410+ tests en 35 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

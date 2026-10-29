@@ -166,6 +166,9 @@ export type { RenderFrameOptions, ScreenBuffer } from './buffer/index.js';
 // v1.8.1 — Phase 9: z-index layer compositing
 export { compositeLayers } from './buffer/index.js';
 export type { Layer, CompositeOptions } from './buffer/index.js';
+// v1.9.0 — Phase 9: keyboard & mouse input parsing
+export { parseKey, parseMouse } from './input/index.js';
+export type { KeyEvent, MouseEvent, MouseButton, MouseAction } from './input/index.js';
 // v1.8.0 — Phase 13: ordered plugin pipeline
 export { createPipeline } from './pipeline/index.js';
 export type { Stage, Pipeline } from './pipeline/index.js';
@@ -394,6 +397,10 @@ const bufferNs = {
 import { createPipeline as _createPipeline } from './pipeline/index.js';
 const pipelineNs = { create: _createPipeline };
 
+// v1.9.0 — Phase 9 input namespace
+import { parseKey as _parseKey, parseMouse as _parseMouse } from './input/index.js';
+const inputNs = { parseKey: _parseKey, parseMouse: _parseMouse };
+
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {
   create: _createLogger,
@@ -429,6 +436,8 @@ const ansimax = {
   // v1.8.0
   buffer: bufferNs,
   pipeline: pipelineNs,
+  // v1.9.0
+  input: inputNs,
 };
 export default ansimax;
 

@@ -737,6 +737,31 @@ console.log(caps.isTTY, caps.isCI, caps.ciProvider);
 if (caps.colorDepth === 'truecolor') {
   // ...use rich 24-bit gradients
 }
+
+// Terminal size (with the classic 80×24 fallback)
+console.log(`${caps.columns}×${caps.rows}`);
+```
+
+### Keyboard & Mouse Input (v1.9.0)
+
+```js
+import { parseKey, parseMouse } from 'ansimax';
+
+// Decode raw terminal input sequences into structured events (pure functions)
+parseKey('\x1b[A');     // { name: 'up',    ctrl: false, meta: false, shift: false, ... }
+parseKey('\x1b[1;5C');  // { name: 'right', ctrl: true,  ... }   (Ctrl+Right)
+parseKey('\x03');       // { name: 'c',     ctrl: true,  ... }   (Ctrl+C)
+
+parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', ... }
+parseMouse('\x1b[<64;3;3M');  // { x: 3,  y: 3, button: 'none', action: 'wheel', wheel: 'up' }
+
+// Wire it to stdin in raw mode for a real key loop:
+//   process.stdin.setRawMode(true);
+//   process.stdin.on('data', (buf) => {
+//     const s = buf.toString();
+//     const key = parseKey(s);
+//     if (key.name === 'c' && key.ctrl) process.exit();  // Ctrl+C
+//   });
 ```
 
 ---
@@ -1031,7 +1056,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Progress groups** (named groups with shared theme) (v1.6.1)
 - [x] **Throughput meters** (bytes/sec, ops/sec with auto-scaling units) (v1.6.0)
 
-### 🟡 Phase 8 — Capability detection
+### ✅ Phase 8 — Capability detection
 - [x] TTY detection (auto-disable in pipes/CI)
 - [x] `NO_COLOR` / `FORCE_COLOR` env support
 - [x] Color depth detection (16 / 256 / truecolor)
@@ -1040,7 +1065,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Windows Terminal detection (`WT_SESSION`)
 - [x] **Unicode width detection** (CJK halfwidth/fullwidth, emoji clusters, ZWJ sequences) (v1.6.5)
 - [x] **Image protocol detection** — *detection only*, not an encoder: reports which protocol the terminal advertises so callers can plug in their own; ansimax itself renders via the universal path (v1.6.4)
-- [x] **Terminal capability database** — `detectCapabilities()` one consolidated snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect); env-only, side-effect-free (v1.8.1)
+- [x] **Terminal capability database** — `detectCapabilities()` one consolidated snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect, **columns/rows** v1.9.0); env-only, side-effect-free (v1.8.1)
 - [x] **Font metrics detection** — cell aspect ratio (`cellAspectRatio`, `aspectScale`) for pixel-accurate sub-cell layouts; overridable, defaults to the near-universal 0.5 (v1.7.1)
 
 ### 🟡 Phase 9 — Advanced rendering
@@ -1050,8 +1075,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Diff renderer** — line-level (`diffLines`, v1.6.0), **column-level** `diffRow` with an ANSI byte-cost merge (v1.7.7), and **`renderFrame`** emitting the minimal cursor-move + run ANSI for a full frame transition (v1.8.0)
 - [x] **Virtual buffer** — `createScreenBuffer` composes a frame off-screen; `renderFrame` damage-tracks it to stdout (v1.8.0)
 - [x] **Z-index / layering** — `compositeLayers` flattens layers by z priority with per-cell transparency (popups over a background) (v1.8.1)
-- [ ] **Mouse event support** (click, hover, drag, scroll wheel)
-- [ ] **Keyboard event abstraction** (arrow keys, modifiers, key sequences, dead keys)
+- [x] **Mouse event support** — `parseMouse` decodes the SGR protocol (button, drag, wheel, modifiers, 1-based coords) (v1.9.0)
+- [x] **Keyboard event abstraction** — `parseKey` normalizes arrows, modifiers (Ctrl/Alt/Shift), function/navigation keys, and Ctrl-letter codes into `{ name, ctrl, meta, shift }` (v1.9.0)
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
 
 ### 🔴 Phase 10 — Terminal charts
@@ -1188,12 +1213,28 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          34 test suites, 3370+ tests
+└── __tests__/          35 test suites, 3410+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.9.0 — Input parsing (Phase 9) + Phase 8 complete
+
+- ⌨️ **`input` module** — `parseKey` / `parseMouse`: pure parsers that turn raw escape sequences into structured key/mouse events (arrows, modifiers, function keys, SGR mouse) — Phase 9
+- 📐 **Terminal size** — `detectCapabilities()` now reports `columns`/`rows` (80×24 fallback) — **Phase 8 complete** ✅
+- 📓 **Showcase** — added a Keyboard & Mouse Input example
+- 🧪 **+40 tests**
+
+```js
+import { parseKey, parseMouse } from 'ansimax';
+
+parseKey('\x1b[1;5C');        // { name: 'right', ctrl: true, ... }  (Ctrl+Right)
+parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', ... }
+```
+
+Drop-in replacement for `1.8.1`.
 
 ### v1.8.1 — Capability database (Phase 8) + z-index layering (Phase 9)
 
@@ -2382,7 +2423,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3370+ tests across 34 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3410+ tests across 35 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 
