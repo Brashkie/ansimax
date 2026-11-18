@@ -100,6 +100,47 @@ export const detectImageProtocol = (): ImageProtocol => {
 export const supportsInlineImages = (): boolean =>
   detectImageProtocol() !== 'none';
 
+/**
+ * Detect OSC 8 hyperlink support — the escape that lets a terminal render
+ * `text` as a clickable link to a URL (`\x1b]8;;URL\x1b\\text\x1b]8;;\x1b\\`).
+ *
+ * Env-only, like the rest of this module (no terminal query). Signals, in
+ * order: `FORCE_HYPERLINK` (any truthy value forces on); DomTerm; Windows
+ * Terminal (`WT_SESSION`); Kitty (`KITTY_WINDOW_ID` or `TERM` containing
+ * `kitty`); VTE ≥ 0.50.0 (`VTE_VERSION >= 5000`, i.e. GNOME Terminal / Tilix /
+ * Terminator); and known `TERM_PROGRAM`s (iTerm2, WezTerm, VS Code, Hyper,
+ * Ghostty). Everything else is treated as unsupported.
+ *
+ * @example
+ * ```js
+ * import { supportsHyperlinks } from 'ansimax';
+ *
+ * const label = supportsHyperlinks()
+ *   ? '\x1b]8;;https://example.com\x1b\\example\x1b]8;;\x1b\\'
+ *   : 'https://example.com';
+ * ```
+ *
+ * @since 1.9.1
+ */
+export const supportsHyperlinks = (): boolean => {
+  const force = readEnv('FORCE_HYPERLINK');
+  if (force !== undefined && force !== '' && force !== '0'
+      && force.toLowerCase() !== 'false') return true;
+  if (readEnv('DOMTERM') !== undefined) return true;
+  if (readEnv('WT_SESSION') !== undefined) return true;
+  if (readEnv('KITTY_WINDOW_ID') !== undefined) return true;
+  const term = (readEnv('TERM') ?? '').toLowerCase();
+  if (term.includes('kitty')) return true;
+  const vte = readEnv('VTE_VERSION');
+  if (vte !== undefined) {
+    const v = Number.parseInt(vte, 10);
+    if (Number.isFinite(v) && v >= 5000) return true;
+  }
+  const program = (readEnv('TERM_PROGRAM') ?? '').toLowerCase();
+  return program === 'iterm.app' || program === 'wezterm' || program === 'vscode'
+    || program === 'hyper' || program === 'ghostty';
+};
+
 // ─────────────────────────────────────────────
 //  Font cell aspect ratio — Phase 8 (v1.7.1)
 //
@@ -223,6 +264,8 @@ export interface TerminalCapabilities {
   isWindowsTerminal: boolean;
   /** Best inline-image protocol the terminal advertises (detection only). */
   imageProtocol: ImageProtocol;
+  /** OSC 8 clickable-hyperlink support (see {@link supportsHyperlinks}). @since 1.9.1 */
+  hyperlinks: boolean;
   /** Cell aspect ratio `cell_width / cell_height` (see {@link cellAspectRatio}). */
   cellAspect: number;
   /** Terminal width in columns (`process.stdout.columns`), or `80` when unknown. */
@@ -310,6 +353,7 @@ export const detectCapabilities = (): TerminalCapabilities => {
     program: program ? program.toLowerCase() : null,
     isWindowsTerminal: readEnv('WT_SESSION') !== undefined,
     imageProtocol: detectImageProtocol(),
+    hyperlinks: supportsHyperlinks(),
     cellAspect: cellAspectRatio(),
     columns,
     rows,

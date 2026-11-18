@@ -3,6 +3,49 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.1] — Keybinding matcher + hyperlink detection
+
+A small, additive release polishing the Phase 8 and Phase 9 layers. Zero
+breaking changes.
+
+### Added — `matchKey` keybinding matcher (Phase 9)
+
+Pairs with `parseKey`: test a decoded key event against a human-written
+keybinding string, so an app can map shortcuts without hand-comparing modifier
+flags.
+
+```js
+import { parseKey, matchKey } from 'ansimax';
+
+const key = parseKey(chunk);
+if (matchKey(key, 'ctrl+c'))    quit();
+if (matchKey(key, 'shift+tab'))  focusPrev();
+if (matchKey(key, 'alt+enter'))  submit();
+```
+
+- `matchKey(event, binding)` → `boolean`. Case-insensitive. Modifier aliases:
+  `ctrl`/`control`/`ctl`, `alt`/`meta`/`option`/`opt`, `shift`. Key aliases:
+  `esc`→`escape`, `del`→`delete`, `pgup`→`pageup`, `enter`/`ret`→`return`, …
+- Exact on all three modifiers: `'up'` matches only an unmodified Up; `'shift+up'`
+  only a shifted Up. Use `'+'` for the plus key. A binding with no key part never
+  matches.
+- Also exposed on the `input` namespace.
+
+### Added — OSC 8 hyperlink detection (Phase 8)
+
+```js
+import { supportsHyperlinks, detectCapabilities } from 'ansimax';
+
+supportsHyperlinks();                 // true on iTerm2, WezTerm, VS Code, kitty, …
+detectCapabilities().hyperlinks;      // same flag, folded into the snapshot
+```
+
+- `supportsHyperlinks()` → `boolean`. Env-only (no terminal query), matching the
+  rest of the module. Signals: `FORCE_HYPERLINK` override, DomTerm, Windows
+  Terminal, kitty, VTE ≥ 0.50.0 (`VTE_VERSION`), and known `TERM_PROGRAM`s
+  (iTerm2, WezTerm, VS Code, Hyper, Ghostty).
+- `TerminalCapabilities` gains a `hyperlinks: boolean` field.
+
 ## [1.9.0] — Input parsing (Phase 9) + Phase 8 complete
 
 A larger minor. **Phase 8 — Capability detection is now complete**, and Phase 9

@@ -740,12 +740,15 @@ if (caps.colorDepth === 'truecolor') {
 
 // Terminal size (with the classic 80×24 fallback)
 console.log(`${caps.columns}×${caps.rows}`);
+
+// OSC 8 clickable-hyperlink support (v1.9.1)
+console.log(caps.hyperlinks);   // true on iTerm2, WezTerm, VS Code, kitty, …
 ```
 
-### Keyboard & Mouse Input (v1.9.0)
+### Keyboard & Mouse Input (v1.9.0, matcher v1.9.1)
 
 ```js
-import { parseKey, parseMouse } from 'ansimax';
+import { parseKey, parseMouse, matchKey } from 'ansimax';
 
 // Decode raw terminal input sequences into structured events (pure functions)
 parseKey('\x1b[A');     // { name: 'up',    ctrl: false, meta: false, shift: false, ... }
@@ -755,12 +758,16 @@ parseKey('\x03');       // { name: 'c',     ctrl: true,  ... }   (Ctrl+C)
 parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', ... }
 parseMouse('\x1b[<64;3;3M');  // { x: 3,  y: 3, button: 'none', action: 'wheel', wheel: 'up' }
 
+// Match a decoded key against a keybinding string — no manual flag checks
+matchKey(parseKey('\x03'),     'ctrl+c');    // true
+matchKey(parseKey('\x1b[1;2A'), 'shift+up');  // true
+matchKey(parseKey('q'),        'ctrl+q');    // false
+
 // Wire it to stdin in raw mode for a real key loop:
 //   process.stdin.setRawMode(true);
 //   process.stdin.on('data', (buf) => {
-//     const s = buf.toString();
-//     const key = parseKey(s);
-//     if (key.name === 'c' && key.ctrl) process.exit();  // Ctrl+C
+//     const key = parseKey(buf.toString());
+//     if (matchKey(key, 'ctrl+c')) process.exit();  // Ctrl+C
 //   });
 ```
 
@@ -1065,7 +1072,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] Windows Terminal detection (`WT_SESSION`)
 - [x] **Unicode width detection** (CJK halfwidth/fullwidth, emoji clusters, ZWJ sequences) (v1.6.5)
 - [x] **Image protocol detection** — *detection only*, not an encoder: reports which protocol the terminal advertises so callers can plug in their own; ansimax itself renders via the universal path (v1.6.4)
-- [x] **Terminal capability database** — `detectCapabilities()` one consolidated snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect, **columns/rows** v1.9.0); env-only, side-effect-free (v1.8.1)
+- [x] **Terminal capability database** — `detectCapabilities()` one consolidated snapshot (TTY, CI + provider, colorDepth, program, Windows Terminal, image protocol, cell aspect, **columns/rows** v1.9.0, **hyperlinks** v1.9.1); env-only, side-effect-free (v1.8.1)
+- [x] **Hyperlink detection** — `supportsHyperlinks()` reports OSC 8 clickable-link support (iTerm2, WezTerm, VS Code, kitty, VTE ≥ 0.50, Windows Terminal); env-only (v1.9.1)
 - [x] **Font metrics detection** — cell aspect ratio (`cellAspectRatio`, `aspectScale`) for pixel-accurate sub-cell layouts; overridable, defaults to the near-universal 0.5 (v1.7.1)
 
 ### 🟡 Phase 9 — Advanced rendering
@@ -1076,7 +1084,7 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Virtual buffer** — `createScreenBuffer` composes a frame off-screen; `renderFrame` damage-tracks it to stdout (v1.8.0)
 - [x] **Z-index / layering** — `compositeLayers` flattens layers by z priority with per-cell transparency (popups over a background) (v1.8.1)
 - [x] **Mouse event support** — `parseMouse` decodes the SGR protocol (button, drag, wheel, modifiers, 1-based coords) (v1.9.0)
-- [x] **Keyboard event abstraction** — `parseKey` normalizes arrows, modifiers (Ctrl/Alt/Shift), function/navigation keys, and Ctrl-letter codes into `{ name, ctrl, meta, shift }` (v1.9.0)
+- [x] **Keyboard event abstraction** — `parseKey` normalizes arrows, modifiers (Ctrl/Alt/Shift), function/navigation keys, and Ctrl-letter codes into `{ name, ctrl, meta, shift }` (v1.9.0); **`matchKey`** tests an event against a keybinding string like `'ctrl+c'` / `'shift+tab'` (v1.9.1)
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
 
 ### 🔴 Phase 10 — Terminal charts
@@ -1213,12 +1221,28 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          35 test suites, 3410+ tests
+└── __tests__/          35 test suites, 3425+ tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.9.1 — Keybinding matcher + hyperlink detection
+
+- ⌨️ **`matchKey`** — tests a decoded key event against a keybinding string
+  (`'ctrl+c'`, `'shift+tab'`, `'alt+enter'`); modifier/key aliases, exact on
+  modifiers — Phase 9
+- 🔗 **`supportsHyperlinks`** — env-only OSC 8 clickable-link detection; also
+  folded into `detectCapabilities()` as a `hyperlinks` flag — Phase 8
+- 🧪 **+15 tests**
+
+```js
+import { parseKey, matchKey, supportsHyperlinks } from 'ansimax';
+
+matchKey(parseKey('\x03'), 'ctrl+c');   // true   (Ctrl+C)
+supportsHyperlinks();                    // true on iTerm2, WezTerm, VS Code, kitty, …
+```
 
 ### v1.9.0 — Input parsing (Phase 9) + Phase 8 complete
 
@@ -2423,7 +2447,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3410+ tests across 35 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3425+ tests across 35 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

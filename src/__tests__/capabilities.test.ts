@@ -2,7 +2,7 @@ import {
   detectImageProtocol, supportsInlineImages,
   supportsKittyGraphics, supportsITermImages, supportsSixel,
   cellAspectRatio, aspectScale, DEFAULT_CELL_ASPECT,
-  detectCapabilities,
+  detectCapabilities, supportsHyperlinks,
 } from '../utils/capabilities.js';
 
 // Helper: run a function with a specific env, restoring afterward.
@@ -188,6 +188,7 @@ describe('detectCapabilities (v1.8.1)', () => {
     'NO_COLOR', 'FORCE_COLOR', 'TERM', 'COLORTERM', 'TERM_PROGRAM', 'WT_SESSION',
     'CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'BUILDKITE', 'DRONE',
     'TRAVIS', 'APPVEYOR', 'TEAMCITY_VERSION', 'KITTY_WINDOW_ID', 'ITERM_SESSION_ID',
+    'FORCE_HYPERLINK', 'DOMTERM', 'VTE_VERSION',
   ];
   const withEnv2 = <T>(vars: Record<string, string | undefined>, fn: () => T): T => {
     const saved: Record<string, string | undefined> = {};
@@ -206,8 +207,8 @@ describe('detectCapabilities (v1.8.1)', () => {
     withEnv2({ TERM: 'xterm' }, () => {
       const caps = detectCapabilities();
       expect(Object.keys(caps).sort()).toEqual([
-        'cellAspect', 'ciProvider', 'colorDepth', 'columns', 'forceColor', 'imageProtocol',
-        'isCI', 'isTTY', 'isWindowsTerminal', 'noColor', 'program', 'rows',
+        'cellAspect', 'ciProvider', 'colorDepth', 'columns', 'forceColor', 'hyperlinks',
+        'imageProtocol', 'isCI', 'isTTY', 'isWindowsTerminal', 'noColor', 'program', 'rows',
       ]);
     });
   });
@@ -282,5 +283,56 @@ describe('detectCapabilities (v1.8.1)', () => {
       expect(c.columns).toBe(80);
       expect(c.rows).toBe(24);
     }
+  });
+
+  it('reports the hyperlinks flag from the environment', () => {
+    expect(withEnv2({ TERM_PROGRAM: 'iTerm.app' }, () => detectCapabilities().hyperlinks)).toBe(true);
+    expect(withEnv2({ TERM: 'xterm-256color' }, () => detectCapabilities().hyperlinks)).toBe(false);
+  });
+});
+
+describe('supportsHyperlinks (v1.9.1)', () => {
+  const KEYS = ['FORCE_HYPERLINK', 'DOMTERM', 'WT_SESSION', 'KITTY_WINDOW_ID', 'TERM', 'VTE_VERSION', 'TERM_PROGRAM'];
+  const withEnv3 = <T>(vars: Record<string, string | undefined>, fn: () => T): T => {
+    const saved: Record<string, string | undefined> = {};
+    for (const k of KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    try { return fn(); } finally {
+      for (const k of KEYS) {
+        if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+      }
+    }
+  };
+
+  it('detects supporting terminals', () => {
+    expect(withEnv3({ TERM_PROGRAM: 'iTerm.app' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ TERM_PROGRAM: 'vscode' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ TERM_PROGRAM: 'WezTerm' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ WT_SESSION: 'abc' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ DOMTERM: '1' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ KITTY_WINDOW_ID: '1' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ TERM: 'xterm-kitty' }, supportsHyperlinks)).toBe(true);
+  });
+
+  it('detects VTE ≥ 0.50.0 by version and rejects older VTE', () => {
+    expect(withEnv3({ VTE_VERSION: '6003' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ VTE_VERSION: '5000' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ VTE_VERSION: '4800' }, supportsHyperlinks)).toBe(false);
+    expect(withEnv3({ VTE_VERSION: 'nope' }, supportsHyperlinks)).toBe(false);
+  });
+
+  it('honors FORCE_HYPERLINK as an explicit override', () => {
+    expect(withEnv3({ FORCE_HYPERLINK: '1' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ FORCE_HYPERLINK: 'true' }, supportsHyperlinks)).toBe(true);
+    expect(withEnv3({ FORCE_HYPERLINK: '0' }, supportsHyperlinks)).toBe(false);
+    expect(withEnv3({ FORCE_HYPERLINK: 'false' }, supportsHyperlinks)).toBe(false);
+    expect(withEnv3({ FORCE_HYPERLINK: '' }, supportsHyperlinks)).toBe(false);
+  });
+
+  it('returns false for an unremarkable terminal', () => {
+    expect(withEnv3({ TERM: 'xterm-256color' }, supportsHyperlinks)).toBe(false);
+    expect(withEnv3({}, supportsHyperlinks)).toBe(false);
   });
 });

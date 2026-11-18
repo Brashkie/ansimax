@@ -218,3 +218,55 @@ export const parseMouse = (sequence: string): MouseEvent | null => {
 
   return { x, y, button, action, wheel, ctrl, meta, shift };
 };
+
+// Short aliases accepted in a keybinding's key part → canonical KeyEvent name.
+const KEY_ALIAS: Record<string, string> = {
+  esc: 'escape', del: 'delete', ins: 'insert',
+  pgup: 'pageup', pgdn: 'pagedown', pgdown: 'pagedown',
+  enter: 'return', ret: 'return', cr: 'return',
+  spacebar: 'space', bs: 'backspace', bksp: 'backspace',
+};
+const isCtrlToken = (p: string): boolean => p === 'ctrl' || p === 'control' || p === 'ctl';
+const isMetaToken = (p: string): boolean => p === 'alt' || p === 'meta' || p === 'option' || p === 'opt';
+
+/**
+ * Test whether a parsed {@link KeyEvent} matches a human-written keybinding
+ * string like `'ctrl+c'`, `'shift+tab'`, `'alt+x'`, `'ctrl+shift+up'`, or a
+ * bare key (`'up'`, `'enter'`, `'q'`). Case-insensitive. Modifier aliases:
+ * `ctrl`/`control`/`ctl`, `alt`/`meta`/`option`/`opt`, `shift`. Key aliases:
+ * `esc`→`escape`, `del`→`delete`, `pgup`→`pageup`, `enter`/`ret`→`return`, etc.
+ *
+ * The match is exact on all three modifiers: `'up'` matches only an Up with no
+ * modifiers, while `'shift+up'` matches only a shifted Up. Use `'+'` for the
+ * plus key. A binding with no key part (just modifiers) never matches.
+ *
+ * @example
+ * ```js
+ * import { parseKey, matchKey } from 'ansimax';
+ *
+ * const key = parseKey(chunk);
+ * if (matchKey(key, 'ctrl+c')) quit();
+ * if (matchKey(key, 'shift+tab')) focusPrev();
+ * ```
+ *
+ * @since 1.9.1
+ */
+export const matchKey = (event: KeyEvent, binding: string): boolean => {
+  if (!event || typeof binding !== 'string') return false;
+  const b = binding.trim().toLowerCase();
+  if (b === '') return false;
+  const parts = b === '+' ? ['+'] : b.split('+').map((s) => s.trim()).filter((s) => s !== '');
+
+  let wantCtrl = false, wantMeta = false, wantShift = false;
+  const names: string[] = [];
+  for (const p of parts) {
+    if (isCtrlToken(p)) wantCtrl = true;
+    else if (isMetaToken(p)) wantMeta = true;
+    else if (p === 'shift') wantShift = true;
+    else names.push(KEY_ALIAS[p] ?? p);
+  }
+  if (names.length !== 1) return false;
+
+  return event.name.toLowerCase() === names[0]
+    && event.ctrl === wantCtrl && event.meta === wantMeta && event.shift === wantShift;
+};

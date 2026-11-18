@@ -169,6 +169,8 @@ export type { Layer, CompositeOptions } from './buffer/index.js';
 // v1.9.0 — Phase 9: keyboard & mouse input parsing
 export { parseKey, parseMouse } from './input/index.js';
 export type { KeyEvent, MouseEvent, MouseButton, MouseAction } from './input/index.js';
+// v1.9.1 — Phase 9: keybinding matcher
+export { matchKey } from './input/index.js';
 // v1.8.0 — Phase 13: ordered plugin pipeline
 export { createPipeline } from './pipeline/index.js';
 export type { Stage, Pipeline } from './pipeline/index.js';
@@ -246,6 +248,8 @@ export {
   supportsKittyGraphics, supportsITermImages, supportsSixel,
 } from './utils/capabilities.js';
 export type { ImageProtocol } from './utils/capabilities.js';
+// v1.9.1 — Phase 8: OSC 8 hyperlink detection
+export { supportsHyperlinks } from './utils/capabilities.js';
 // v1.7.1 — Phase 8: font cell aspect ratio
 export {
   cellAspectRatio, aspectScale, DEFAULT_CELL_ASPECT,
@@ -398,8 +402,8 @@ import { createPipeline as _createPipeline } from './pipeline/index.js';
 const pipelineNs = { create: _createPipeline };
 
 // v1.9.0 — Phase 9 input namespace
-import { parseKey as _parseKey, parseMouse as _parseMouse } from './input/index.js';
-const inputNs = { parseKey: _parseKey, parseMouse: _parseMouse };
+import { parseKey as _parseKey, parseMouse as _parseMouse, matchKey as _matchKey } from './input/index.js';
+const inputNs = { parseKey: _parseKey, parseMouse: _parseMouse, matchKey: _matchKey };
 
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {

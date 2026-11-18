@@ -1,4 +1,5 @@
-import { parseKey, parseMouse } from '../input/index.js';
+import { parseKey, parseMouse, matchKey } from '../input/index.js';
+import type { KeyEvent } from '../input/index.js';
 
 describe('parseKey — printable & control (v1.9.0)', () => {
   it('passes through printable characters with no modifiers', () => {
@@ -120,5 +121,53 @@ describe('parseMouse (v1.9.0)', () => {
     expect(parseMouse('q')).toBeNull();
     expect(parseMouse('\x1b[A')).toBeNull();
     expect(parseMouse('')).toBeNull();
+  });
+});
+
+describe('matchKey (v1.9.1)', () => {
+  it('matches modified keys against a binding string', () => {
+    expect(matchKey(parseKey('\x03'), 'ctrl+c')).toBe(true);
+    expect(matchKey(parseKey('\x03'), 'Ctrl+C')).toBe(true);     // case-insensitive
+    expect(matchKey(parseKey('\x03'), 'control+c')).toBe(true);  // modifier alias
+    expect(matchKey(parseKey('\x1b[1;2A'), 'shift+up')).toBe(true);
+    expect(matchKey(parseKey('\x1b[Z'), 'shift+tab')).toBe(true);
+    expect(matchKey(parseKey('\x1b[1;6A'), 'ctrl+shift+up')).toBe(true);
+    expect(matchKey(parseKey('\x1ba'), 'alt+a')).toBe(true);
+    expect(matchKey(parseKey('\x1ba'), 'meta+a')).toBe(true);    // alt === meta
+  });
+
+  it('matches bare keys and key aliases', () => {
+    expect(matchKey(parseKey('q'), 'q')).toBe(true);
+    expect(matchKey(parseKey('\x1b[A'), 'up')).toBe(true);
+    expect(matchKey(parseKey('\x1bOP'), 'f1')).toBe(true);
+    expect(matchKey(parseKey('\x1b'), 'esc')).toBe(true);           // esc → escape
+    expect(matchKey(parseKey('\x1b[3;5~'), 'ctrl+del')).toBe(true); // del → delete
+    expect(matchKey(parseKey(' '), 'space')).toBe(true);
+  });
+
+  it('is exact on modifiers and rejects mismatches', () => {
+    expect(matchKey(parseKey('q'), 'ctrl+q')).toBe(false);         // ctrl not held
+    expect(matchKey(parseKey('\x03'), 'c')).toBe(false);           // ctrl IS held
+    expect(matchKey(parseKey('\x1b[A'), 'shift+up')).toBe(false);  // shift not held
+    expect(matchKey(parseKey('\x1b[1;2A'), 'up')).toBe(false);     // shift held
+  });
+
+  it('rejects empty or key-less bindings', () => {
+    expect(matchKey(parseKey('q'), '')).toBe(false);
+    expect(matchKey(parseKey('q'), '   ')).toBe(false);
+    expect(matchKey(parseKey('\x03'), 'ctrl+shift')).toBe(false);  // no key part
+  });
+
+  it('matches the literal plus key', () => {
+    expect(matchKey(parseKey('+'), '+')).toBe(true);
+    expect(matchKey(parseKey('+'), 'q')).toBe(false);
+  });
+
+  it('rejects malformed arguments defensively (JS callers)', () => {
+    const key = parseKey('q');
+    expect(matchKey(undefined as unknown as KeyEvent, 'q')).toBe(false);
+    expect(matchKey(null as unknown as KeyEvent, 'q')).toBe(false);
+    expect(matchKey(key, undefined as unknown as string)).toBe(false);
+    expect(matchKey(key, 42 as unknown as string)).toBe(false);
   });
 });

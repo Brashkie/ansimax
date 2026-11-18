@@ -1487,3 +1487,21 @@ describe('barrel coverage — v1.9.0 re-exports', () => {
     expect(caps.rows).toBeGreaterThan(0);
   });
 });
+
+describe('barrel coverage — v1.9.1 re-exports', () => {
+  it('exposes matchKey from the main entry and input namespace (Fase 9)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.matchKey).toBe('function');
+    expect(main.matchKey(main.parseKey('\x03'), 'ctrl+c')).toBe(true);
+    expect(main.matchKey(main.parseKey('q'), 'ctrl+c')).toBe(false);
+    const ns = (main.default as { input: Record<string, (...a: unknown[]) => unknown> }).input;
+    expect(typeof ns.matchKey).toBe('function');
+  });
+
+  it('exposes supportsHyperlinks and the hyperlinks capability (Fase 8)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.supportsHyperlinks).toBe('function');
+    expect(typeof main.supportsHyperlinks()).toBe('boolean');
+    expect(typeof main.detectCapabilities().hyperlinks).toBe('boolean');
+  });
+});
