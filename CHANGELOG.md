@@ -3,6 +3,85 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.2] — Tooling: Biome, tag-driven releases, trusted publishing
+
+Infrastructure only — **no runtime code changed**, the public API is identical
+and `dist/` output is byte-for-byte equivalent. All 3,328 tests stay green.
+
+### Changed — Biome replaces ESLint + Prettier
+
+One Rust-powered tool instead of six dev dependencies, with the same command
+locally (`npm run ci`) and in CI.
+
+- Added `biome.json`, tuned for this codebase. Rules that fight the domain are
+  off: `noControlCharactersInRegex` (ansimax *is* ANSI escape sequences),
+  `noRedundantUseStrict` (a `'use strict'` in `colors.test.ts` is load-bearing),
+  `noNonNullAssertion`, `useLiteralKeys`, `useTemplate`, `useExponentiationOperator`.
+- The **formatter is configured but disabled** — enabling it would reformat
+  almost every file at once. Flip `formatter.enabled` when you want that commit.
+- Removed `eslint`, `@typescript-eslint/*`, `eslint-config-prettier`,
+  `eslint-plugin-prettier` and `prettier` from devDependencies, plus the stale
+  `.eslintrc.json`, `.prettierrc`, `.prettierignore`, `tsconfig.eslint.json`
+  and their extension-less duplicates (`eslintrc.cjs`, `prettierrc.json`, …).
+- Scripts: `lint`, `lint:fix`, `check`, `check:fix`, `ci` now run Biome.
+- The CI lint job no longer uses `continue-on-error` — lint is a real gate.
+- Biome's safe fixes were applied: 9 `import` → `import type` conversions,
+  a clearer `/ {2}/` regex, and `WalkVisitor` as a type alias.
+
+### Fixed — releases never published
+
+Two independent faults, both fixed by collapsing release + publish into one
+tag-driven workflow:
+
+1. `publish.yml` listened for `release: published`, but that release was
+   created by `release.yml` using the default `GITHUB_TOKEN` — and GitHub
+   **does not trigger workflows from events raised by that token**. The publish
+   job simply never ran. Chaining the two could not have worked.
+2. It authenticated with an `NPM_TOKEN` secret, which 2FA blocks.
+
+`release.yml` now verifies the tag matches `package.json`, runs lint +
+typecheck + tests + build, publishes to npm, and opens the GitHub Release.
+`publish.yml` is gone.
+
+### Changed — publishing moved into the tag workflow
+
+`release.yml` publishes to npm using the `NPM_TOKEN` repository secret. npm
+revoked all classic tokens on 2025-12-09, so this must be a **granular access
+token** with *Bypass 2FA* enabled; write tokens are capped at 90 days, so an
+`E401` on release normally means the token expired. Releases carry a signed
+**provenance attestation** (`--provenance`, which needs the `id-token: write`
+permission). Prereleases (`-alpha`/`-beta`/`-rc`/`-next`) publish under the
+`next` dist-tag instead of `latest`.
+
+Swapping to [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
+(OIDC) later removes the secret and the 90-day renewal entirely — the steps
+are documented at the top of `release.yml`.
+
+Release flow:
+
+```bash
+npm version patch          # bumps package.json + creates the tag
+git push --follow-tags     # publishes
+```
+
+### Fixed — docs
+
+- `README.md` badges: npm version and downloads are now live shields (the old
+  one was pinned at `v1.7.0`), plus CI status and provenance.
+- Testing tables were frozen at v1.3.0 (“2,000+ tests, 27 suites”) — now the
+  verified 3,328 tests across 35 suites, in both languages.
+- Broken link to `CONTRIBUTING.md` (it lives in `.github/`).
+- Removed a reference to `media/figlet_fonts.png`, which does not exist.
+- New **Development / Releasing** section in both READMEs.
+
+### Changed — misc
+
+- `.npmignore` documented the wrong `files` whitelist and tried to exclude
+  `examples/` and `docs/`, which `files` publishes anyway — corrected, and it
+  still shields `dist/` from npm's `.gitignore` fallback.
+- VS Code now recommends `biomejs.biome`; husky `pre-commit` runs `npm run ci`.
+- Dependabot groups `@biomejs/biome` instead of the ESLint family.
+
 ## [1.9.1] — Keybinding matcher + hyperlink detection
 
 A small, additive release polishing the Phase 8 and Phase 9 layers. Zero

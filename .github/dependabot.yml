@@ -28,12 +28,9 @@ updates:
           - '@types/*'
           - 'ts-jest'
           - 'tsup'
-      eslint:
+      biome:
         patterns:
-          - 'eslint'
-          - 'eslint-*'
-          - '@typescript-eslint/*'
-          - 'prettier'
+          - '@biomejs/biome'
       jest:
         patterns:
           - 'jest'

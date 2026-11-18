@@ -1,4 +1,4 @@
-import { easings, resolveEasingByName, EasingFunction } from '../utils/easing.js';
+import { easings, resolveEasingByName, type EasingFunction } from '../utils/easing.js';
 import { steps, stepStart, stepEnd, smoothStep, smootherStep, cubicBezier } from '../utils/easing.js';
 
 describe('easings library (v1.3.5)', () => {

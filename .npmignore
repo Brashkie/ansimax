@@ -1,9 +1,16 @@
 # ─────────────────────────────────────────────
 #  .npmignore — files NOT included in the npm tarball
 #
-#  Note: package.json `"files": ["dist", "README.md",
-#  "README.es.md", "LICENSE"]` is the source of truth.
-#  This file is a safety net in case "files" is removed.
+#  SOURCE OF TRUTH is package.json "files":
+#      ["dist", "examples", "docs", "README.md",
+#       "README.es.md", "CHANGELOG.md", "LICENSE"]
+#  "files" is a whitelist and it WINS over this file. Anything it lists
+#  ships even if a rule below matches it — so `examples/` and `docs/` are
+#  published on purpose. This file only prunes paths *inside* those
+#  directories, and keeps npm from falling back to .gitignore (which
+#  ignores dist/ — the one directory the package must ship).
+#
+#  Verify before releasing:  npm pack --dry-run
 # ─────────────────────────────────────────────
 
 # ─────────────────────────────────────────────
@@ -13,10 +20,10 @@ src/
 tests/
 __tests__/
 test/
-examples/
 demo/
 scripts/
-easing.test.ts
+examples/**/*.test.ts
+examples/node_modules/
 
 # ─────────────────────────────────────────────
 #  Config files
@@ -32,9 +39,8 @@ easing.test.ts
 tsconfig*.json
 jest.config.*
 tsup.config.*
-.eslintrc*
-.prettierrc*
-.prettierignore
+biome.json
+biome.jsonc
 .editorconfig
 .gitignore
 .gitattributes
@@ -49,7 +55,6 @@ tsup.config.*
 !LICENSE
 !LICENSE.md
 
-docs/
 docs-site/
 .readme/
 
@@ -80,7 +85,7 @@ coverage/
 .cache/
 .parcel-cache/
 .turbo/
-.eslintcache
+.biome-cache
 
 # ─────────────────────────────────────────────
 #  Logs and runtime

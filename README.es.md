@@ -6,14 +6,17 @@
 
 _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles • Componentes • Temas_
 
+[![npm](https://img.shields.io/npm/v/ansimax.svg?style=flat-square&color=cb3837)](https://www.npmjs.com/package/ansimax)
+[![Downloads](https://img.shields.io/npm/dm/ansimax.svg?style=flat-square&color=cb3837)](https://www.npmjs.com/package/ansimax)
+[![CI](https://img.shields.io/github/actions/workflow/status/Brashkie/ansimax/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Brashkie/ansimax/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-[![npm](https://img.shields.io/badge/npm-v1.7.0-cb3837.svg?style=flat-square)](https://www.npmjs.com/package/ansimax)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3000%2B%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3328%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
-[![ESM%20%2B%20CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
+[![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
+[![Provenance](https://img.shields.io/badge/npm-provenance%20firmada-2ea44f.svg?style=flat-square)](https://docs.npmjs.com/trusted-publishers/)
 
 [English](README.md) · **Español**
 
@@ -114,7 +117,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3000+ tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,328 tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -404,8 +407,6 @@ console.log(ascii.fromImage(pixels, {
 ```
 
 ### Fuentes Figlet (v1.2.5)
-
-<img src="media/figlet_fonts.png" alt="Vista previa de fuentes figlet" />
 
 ```js
 import { readFileSync } from 'node:fs';
@@ -1049,12 +1050,12 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr todos los 3000+ tests
+npm test              # Correr los 3,328 tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
 
-Cobertura (a v1.3.0):
+Cobertura (a v1.9.2):
 
 | Métrica | Score |
 |---|:-:|
@@ -1062,10 +1063,58 @@ Cobertura (a v1.3.0):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Tests totales** | **2,000+** |
-| **Test suites** | 27 |
-| **Matrix CI** | Node 18, 20, 22, latest |
+| **Tests totales** | **3,328** |
+| **Test suites** | 35 |
+| **Matrix CI** | Node 18, 20, 22 |
 | **Plataformas probadas** | Linux, macOS, Windows |
+
+---
+
+## 🧰 Desarrollo
+
+Ansimax usa [Biome](https://biomejs.dev) para linting — una sola herramienta en
+Rust en lugar de ESLint + Prettier, y el mismo comando en local y en CI.
+
+```bash
+npm ci                # Instalar (cero deps de runtime, solo dev)
+
+npm run lint          # Lint con Biome
+npm run lint:fix      # Lint aplicando fixes seguros
+npm run ci            # Exactamente lo que corre el CI
+npm run typecheck     # tsc --noEmit
+npm test              # Jest
+npm run build         # tsup → dist/ (CJS + ESM + .d.ts)
+```
+
+El **formatter de Biome está desactivado a propósito** en `biome.json`:
+activarlo reformatearía casi todos los archivos de golpe. La configuración ya
+está puesta (2 espacios, comillas simples, punto y coma, 100 columnas) — cambia
+`formatter.enabled` a `true` y corre `npm run format` cuando quieras dar el salto.
+
+### Publicar una versión
+
+Las releases se **disparan por tag** — nada se publica desde una laptop:
+
+```bash
+npm version patch          # sube package.json + crea el tag v*
+git push --follow-tags     # ← esto publica
+```
+
+Hacer push de un tag `v*.*.*` ejecuta [`release.yml`](.github/workflows/release.yml),
+que verifica que el tag coincida con `package.json`, corre lint + typecheck +
+tests + build, publica en npm y abre el GitHub Release.
+
+El publish se autentica con el secret `NPM_TOKEN` del repositorio. Como npm
+revocó todos los tokens classic el 2025-12-09, tiene que ser un **granular
+access token** con *Bypass 2FA* activado — y los tokens de escritura caducan a
+los **90 días**, así que un `E401` al publicar casi siempre significa que el
+token venció. Cada release sigue llevando una **attestation de provenance**
+firmada (`--provenance`) que enlaza el paquete con el commit y el workflow
+exactos que lo construyeron.
+
+Se pueden eliminar los tokens pasando a
+[npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC):
+sin secret y sin caducidad. Ver los comentarios al inicio de `release.yml`.
 
 ---
 
@@ -1094,12 +1143,29 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          35 test suites, 3425+ tests
+└── __tests__/          35 test suites, 3,328 tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.9.2 — Biome, releases por tag, trusted publishing
+
+Solo infraestructura — **no cambió código de runtime** y la API pública es
+idéntica. Los 3,328 tests siguen verdes.
+
+- 🧹 **Biome reemplaza ESLint + Prettier** — una sola herramienta, seis dev
+  deps menos, `npm run ci` en local y en CI; el lint ahora sí bloquea
+- 🏷️ **Las releases se disparan por tag** — `npm version patch && git push
+  --follow-tags` publica; la cadena release → publish anterior nunca podía
+  dispararse, porque GitHub no lanza workflows desde eventos del `GITHUB_TOKEN`
+- 🔐 **El publish ahora vive en el workflow del tag** — se autentica con el
+  secret `NPM_TOKEN` (token granular, *Bypass 2FA*) y lleva una attestation de
+  provenance firmada; pasar a OIDC es cambiar una línea
+- 📖 **Docs** — badges de npm/CI en vivo, conteos de tests corregidos (las
+  tablas seguían en v1.3.0), link a `CONTRIBUTING.md` arreglado, imagen
+  inexistente eliminada y nueva sección de Desarrollo / Publicar
 
 ### v1.9.1 — Matcher de atajos + detección de hyperlinks
 
@@ -2267,7 +2333,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3425+ tests en 35 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3,328 tests en 35 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

@@ -430,9 +430,7 @@ export const measureTree = (
 //  circular references throw a clear error instead of stack overflow.
 // ─────────────────────────────────────────────
 
-export interface WalkVisitor {
-  (node: TreeData, depth: number, isLast: boolean): void;
-}
+export type WalkVisitor = (node: TreeData, depth: number, isLast: boolean) => void
 
 /**
  * Depth-first walk over the tree, calling `visitor` for each node.

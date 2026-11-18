@@ -136,7 +136,7 @@ describe('json.pretty: objects (v1.3.0)', () => {
     const out = stripAnsi(pretty({ a: 1 }, { indent: 0 }));
     // Still has newlines, just no leading spaces
     expect(out).toContain('"a"');
-    expect(out).not.toMatch(/  /); // no double spaces
+    expect(out).not.toMatch(/ {2}/); // no double spaces
   });
 });
 

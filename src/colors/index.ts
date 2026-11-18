@@ -18,7 +18,7 @@ import {
   stripAnsi as stripAnsiFromUtils,
   type ColorLevel,
 } from '../utils/ansi.js';
-import { hexToRgb, lerpColor, RGB, gradientColor, rgbToHex, type ColorSpace } from '../utils/helpers.js';
+import { hexToRgb, lerpColor, type RGB, gradientColor, rgbToHex, type ColorSpace } from '../utils/helpers.js';
 
 export type { ColorLevel };
 

@@ -25,7 +25,7 @@ import { fromImage as asciiFromImage } from '../ascii/image.js';
 // v1.6.1 — resolve named gradient presets for gradientRect
 import { presetStops as resolvePresetStops } from '../colors/index.js';
 import {
-  hexToRgb, clamp, lerpColor, RGB,
+  hexToRgb, clamp, lerpColor, type RGB,
   // v1.3.7 — consolidated helpers (formerly inlined here)
   isFiniteNumber, clampInt,
   // v1.4.6 — consolidated hex validation

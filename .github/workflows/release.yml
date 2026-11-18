@@ -1,51 +1,124 @@
 name: Release
 
+# ─────────────────────────────────────────────────────────────────────
+#  Tag-driven release: push a v* tag and this workflow publishes to npm
+#  and opens the GitHub Release. One workflow does both, on purpose.
+#
+#      npm version patch          # bumps package.json + creates the tag
+#      git push --follow-tags     # ← this publishes
+#
+#  Why one workflow instead of release.yml -> publish.yml:
+#  GitHub does NOT trigger workflows from events created with the default
+#  GITHUB_TOKEN. The old publish.yml listened for `release: published`,
+#  but that release was created by this workflow's token, so publish.yml
+#  never ran. Chaining them silently cannot work.
+#
+#  AUTHENTICATION — repository secret `NPM_TOKEN`
+#
+#  npm permanently revoked all classic tokens on 2025-12-09, so this must
+#  be a GRANULAR ACCESS TOKEN:
+#      npmjs.com -> Access Tokens -> Generate New Token -> Granular
+#        Packages:    ansimax (Read and write)
+#        Bypass 2FA:  ENABLED   <- without this, 2FA blocks the publish
+#        Expiration:  90 days max for write tokens
+#  Then: GitHub repo -> Settings -> Secrets and variables -> Actions ->
+#        New repository secret -> name: NPM_TOKEN
+#
+#  Write tokens expire after at most 90 days — when a release suddenly
+#  fails with ENEEDAUTH/E401, the token expired. Regenerate and update the
+#  secret.
+#
+#  To drop tokens entirely later: delete the `env: NODE_AUTH_TOKEN` block
+#  and the `--provenance` flag from the publish step, then configure
+#  npmjs.com -> ansimax -> Settings -> Trusted Publisher -> GitHub Actions
+#  (user Brashkie, repo ansimax, workflow release.yml). OIDC then needs no
+#  secret and never expires.
+# ─────────────────────────────────────────────────────────────────────
+
 on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the GitHub Release
+  id-token: write # REQUIRED for npm Trusted Publishing (OIDC)
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
-    name: Create GitHub Release
+    name: Publish to npm + GitHub Release
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # full history for the changelog diff
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
-          cache: 'npm'
+          node-version: '24.x' # Trusted Publishing needs Node >= 22.14
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted Publishing requires npm CLI >= 11.5.1.
+      - name: Ensure modern npm
+        run: |
+          npm install -g npm@latest
+          echo "npm $(npm --version) / node $(node --version)"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
-
-      - name: Run tests
-        run: npm test
-
       - name: Extract version
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      # Guard: a mistyped tag must never publish the wrong version.
+      - name: Verify tag matches package.json
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ steps.version.outputs.VERSION }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✓ Version match: $PKG_VERSION"
+
+      - name: Lint (Biome)
+        run: npm run ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
 
       - name: Detect prerelease
         id: prerelease
         run: |
           if [[ "${{ steps.version.outputs.VERSION }}" =~ -(alpha|beta|rc|next) ]]; then
             echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "NPM_TAG=next" >> $GITHUB_OUTPUT
           else
             echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "NPM_TAG=latest" >> $GITHUB_OUTPUT
           fi
+
+      # Authenticates with the NPM_TOKEN repository secret. `id-token: write`
+      # above is still required so npm can attach the provenance attestation.
+      - name: Publish to npm
+        run: npm publish --access public --provenance --tag ${{ steps.prerelease.outputs.NPM_TAG }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Generate changelog
         id: changelog
@@ -80,6 +153,8 @@ jobs:
             npm install ansimax@${{ steps.version.outputs.VERSION }}
             ```
 
+            Published from CI with [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) — this release carries a provenance attestation.
+
             ## Documentation
 
             See the [README](https://github.com/Brashkie/ansimax#readme) for usage examples and full API reference.
@@ -88,3 +163,11 @@ jobs:
           generate_release_notes: true
           files: |
             dist/**
+
+      - name: Summary
+        run: |
+          echo "### 🎉 Published ansimax@${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**npm:** https://www.npmjs.com/package/ansimax" >> $GITHUB_STEP_SUMMARY
+          echo "**dist-tag:** \`${{ steps.prerelease.outputs.NPM_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Install:** \`npm install ansimax@${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY

@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & Format
+    name: Lint (Biome)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,13 +28,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Check formatting (Prettier)
-        run: npm run format:check
-        continue-on-error: true
+      # Biome replaces ESLint + Prettier. This is a real gate now — it no
+      # longer runs with continue-on-error, so a lint error fails the build.
+      # The formatter is configured but disabled in biome.json, so `biome ci`
+      # checks lint rules only.
+      - name: Biome
+        run: npm run ci
 
   typecheck:
     name: TypeScript Type Check

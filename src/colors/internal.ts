@@ -16,7 +16,7 @@ import {
   supportsColor, supportsColorLevel,
   type ColorLevel,
 } from '../utils/ansi.js';
-import { hexToRgb, RGB, isHexColor } from '../utils/helpers.js';
+import { hexToRgb, type RGB, isHexColor } from '../utils/helpers.js';
 
 export type ColorFn = (text: string) => string;
 

@@ -1,10 +1,13 @@
 {
   "recommendations": [
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
+    "biomejs.biome",
     "ms-vscode.vscode-typescript-next",
     "streetsidesoftware.code-spell-checker",
     "usernamehw.errorlens",
     "eamodio.gitlens"
+  ],
+  "unwantedRecommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
   ]
 }

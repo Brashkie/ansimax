@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-npm run lint
-npm run format:check
+# Biome (lint) + TypeScript. Formatting is handled by Biome too, but the
+# formatter is disabled in biome.json — see CONTRIBUTING.md.
+npm run ci
 npm run typecheck

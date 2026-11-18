@@ -4,13 +4,12 @@
   "typescript.preferences.includePackageJsonAutoImports": "on",
   "typescript.tsc.autoDetect": "off",
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "biomejs.biome"
   },
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.biome": "explicit"
   },
-  "eslint.validate": ["typescript"],
   "cSpell.words": [
     "lerp",
     "lerpColor",
@@ -28,12 +27,17 @@
     "brightWhite",
     "nocolor",
     "tsup",
-    "tsconfig"
+    "tsconfig",
+    "biome",
+    "biomejs"
   ],
   "files.exclude": {
     "dist": false,
     "dist-test": false,
     "coverage": false
   },
-  "explorer.excludeGitIgnore": false
+  "explorer.excludeGitIgnore": false,
+  "[json]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  }
 }

@@ -114,9 +114,7 @@ $RECYCLE.BIN/
 .nuxt/
 .svelte-kit/
 .turbo/
-.eslintcache
-.stylelintcache
-.prettier-cache
+.biome-cache
 
 # ─────────────────────────────────────────────
 #  Optional npm cache directory
@@ -148,5 +146,7 @@ docs-site/.cache/
 
 # Local CLI test output
 .test-output/
-# Never commit npm credentials
+# Never commit npm credentials.
+# Note: releases publish from CI via npm Trusted Publishing (OIDC), so no
+# token is ever stored here or in repository secrets.
 .npmrc

@@ -1,7 +1,0 @@
-node_modules
-dist
-coverage
-*.min.js
-*.md
-CHANGELOG.md
-LICENSE

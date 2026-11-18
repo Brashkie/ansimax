@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────
 
 import { center, termSize } from '../utils/helpers.js';
-import { type ColorFn } from '../colors/index.js';
+import type { ColorFn } from '../colors/index.js';
 import { BLOCK, SMALL, FONTS, renderFont, ensureString, type RenderOptions } from './fonts.js';
 import type { BannerOptions, FontName } from './types.js';
 

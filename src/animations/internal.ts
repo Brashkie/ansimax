@@ -15,7 +15,7 @@ import {
   supportsColor,
   hideCursor, showCursor,
 } from '../utils/ansi.js';
-import { hexToRgb, RGB } from '../utils/helpers.js';
+import { hexToRgb, type RGB } from '../utils/helpers.js';
 
 // ─────────────────────────────────────────────
 //  Single-responsibility predicates

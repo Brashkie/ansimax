@@ -15,7 +15,7 @@ import {
   getTerminalWidth,
   createOutputBuffer,
 } from '../utils/ansi.js';
-import { hexToRgb, lerpColor, RGB } from '../utils/helpers.js';
+import { hexToRgb, lerpColor, type RGB } from '../utils/helpers.js';
 import {
   isAborted,
   shouldSkip, shouldSkipColor,
