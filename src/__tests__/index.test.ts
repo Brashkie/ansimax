@@ -1505,3 +1505,25 @@ describe('barrel coverage — v1.9.1 re-exports', () => {
     expect(typeof main.detectCapabilities().hyperlinks).toBe('boolean');
   });
 });
+
+describe('barrel coverage — v1.9.3 re-exports', () => {
+  it('exposes splitSequences, parseKeys and createKeymap from the main entry', async () => {
+    const main = await import('../index.js');
+
+    expect(main.splitSequences('\x1b[A\x1b[B')).toEqual(['\x1b[A', '\x1b[B']);
+    expect(main.parseKeys('\x1b[A\x03').map((k) => k.name)).toEqual(['up', 'c']);
+
+    let hit = 0;
+    const keys = main.createKeymap().bind('ctrl+c', () => hit++);
+    expect(keys.handle(main.parseKey('\x03'))).toBe(true);
+    expect(hit).toBe(1);
+  });
+
+  it('exposes them on the input namespace too', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { input: Record<string, unknown> }).input;
+    expect(typeof ns.splitSequences).toBe('function');
+    expect(typeof ns.parseKeys).toBe('function');
+    expect(typeof ns.createKeymap).toBe('function');
+  });
+});

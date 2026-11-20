@@ -171,6 +171,9 @@ export { parseKey, parseMouse } from './input/index.js';
 export type { KeyEvent, MouseEvent, MouseButton, MouseAction } from './input/index.js';
 // v1.9.1 — Phase 9: keybinding matcher
 export { matchKey } from './input/index.js';
+// v1.9.3 — Phase 9: chunk splitting + keymap dispatcher
+export { splitSequences, parseKeys, createKeymap } from './input/index.js';
+export type { KeyHandler, Keymap } from './input/index.js';
 // v1.8.0 — Phase 13: ordered plugin pipeline
 export { createPipeline } from './pipeline/index.js';
 export type { Stage, Pipeline } from './pipeline/index.js';
@@ -402,8 +405,14 @@ import { createPipeline as _createPipeline } from './pipeline/index.js';
 const pipelineNs = { create: _createPipeline };
 
 // v1.9.0 — Phase 9 input namespace
-import { parseKey as _parseKey, parseMouse as _parseMouse, matchKey as _matchKey } from './input/index.js';
-const inputNs = { parseKey: _parseKey, parseMouse: _parseMouse, matchKey: _matchKey };
+import {
+  parseKey as _parseKey, parseMouse as _parseMouse, matchKey as _matchKey,
+  splitSequences as _splitSequences, parseKeys as _parseKeys, createKeymap as _createKeymap,
+} from './input/index.js';
+const inputNs = {
+  parseKey: _parseKey, parseMouse: _parseMouse, matchKey: _matchKey,
+  splitSequences: _splitSequences, parseKeys: _parseKeys, createKeymap: _createKeymap,
+};
 
 // v1.4.12 — logger namespace, mirroring the other feature namespaces
 const loggerNs = {

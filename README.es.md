@@ -12,7 +12,7 @@ _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3328%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3354%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,328 tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,354 tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -965,6 +965,8 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Z-index / layering** — `compositeLayers` aplana capas por prioridad z con transparencia por celda (popups sobre un fondo) (v1.8.1)
 - [x] **Soporte de eventos de mouse** — `parseMouse` decodifica el protocolo SGR (botón, drag, rueda, modificadores, coords 1-based) (v1.9.0)
 - [x] **Abstracción de eventos de teclado** — `parseKey` normaliza flechas, modificadores (Ctrl/Alt/Shift), teclas de función/navegación y códigos Ctrl-letra en `{ name, ctrl, meta, shift }` (v1.9.0); **`matchKey`** compara un evento contra un atajo tipo `'ctrl+c'` / `'shift+tab'` (v1.9.1)
+- [x] **Decodificación de chunks multi-secuencia** — `splitSequences` tokeniza un chunk crudo de stdin sin pérdida (los reportes de mouse y los code points astrales quedan enteros); `parseKeys` decodifica todas las teclas que contiene (v1.9.3)
+- [x] **Dispatcher de atajos** — `createKeymap()` asocia atajos a handlers, con dedup canónico y match exacto de modificadores; `handle` devuelve `false` para que las teclas no mapeadas pasen como texto (v1.9.3)
 - [ ] **Framework TUI completo** (componentes reactivos — equivalente a Textual para Node)
 
 ### 🔴 Fase 10 — Charts de terminal
@@ -1050,7 +1052,7 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr los 3,328 tests
+npm test              # Correr los 3,354 tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
@@ -1063,7 +1065,7 @@ Cobertura (a v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Tests totales** | **3,328** |
+| **Tests totales** | **3,354** |
 | **Test suites** | 35 |
 | **Matrix CI** | Node 18, 20, 22 |
 | **Plataformas probadas** | Linux, macOS, Windows |
@@ -1143,17 +1145,40 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          35 test suites, 3,328 tests
+└── __tests__/          35 test suites, 3,354 tests
 ```
 
 ---
 
 ## 📝 Changelog
 
+### v1.9.3 — Decodificación de chunks + dispatcher de atajos
+
+Solo aditivo; nada existente cambió de comportamiento. 3,354 tests verdes.
+
+- ⌨️ **`parseKeys` / `splitSequences`** — un solo evento `data` de stdin suele
+  traer varias teclas; `parseKey` procesa exactamente una, así que un chunk
+  completo devolvía `'unknown'`. El splitter no pierde nada, mantiene enteros
+  los reportes de mouse SGR y nunca parte un emoji en mitades surrogate — Fase 9
+- 🗺️ **`createKeymap()`** — asocia atajos a handlers en vez de una cadena de
+  `if (matchKey(...))`; dedup canónico (`'shift+ctrl+up'` ≡ `'Ctrl+Shift+Up'`),
+  match exacto de modificadores, y `handle` devuelve `false` para que las teclas
+  no mapeadas pasen como texto — primer ladrillo de la capa TUI
+- 🧪 **+26 tests**
+
+```js
+import { parseKeys, createKeymap } from 'ansimax';
+
+parseKeys('\x1b[A\x03').map((k) => k.name);  // ['up', 'c']
+
+const keys = createKeymap().bind(['ctrl+c', 'q'], () => process.exit());
+keys.handle(parseKeys('\x03')[0]);  // true
+```
+
 ### v1.9.2 — Biome, releases por tag, trusted publishing
 
 Solo infraestructura — **no cambió código de runtime** y la API pública es
-idéntica. Los 3,328 tests siguen verdes.
+idéntica. Los 3,354 tests siguen verdes.
 
 - 🧹 **Biome reemplaza ESLint + Prettier** — una sola herramienta, seis dev
   deps menos, `npm run ci` en local y en CI; el lint ahora sí bloquea
@@ -2333,7 +2358,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3,328 tests en 35 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3,354 tests en 35 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

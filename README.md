@@ -12,7 +12,7 @@ _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • C
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3328%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3354%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax replaces a stack of popular Node.js libraries with **one coherent, typed
 | TypeScript-first (strict mode) | partial | partial | ✅ | partial | partial | ✅ | partial | partial | ✅ |
 | **Zero runtime dependencies** | ✅ | — | — | — | — | — | — | — | ✅ |
 | ESM + CJS dual export | partial | partial | ✅ | ✅ | partial | ✅ | partial | partial | ✅ |
-| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (3,328 tests)** |
+| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (3,354 tests)** |
 
 > Comparison reflects what each library officially supports at time of writing. Some libraries can be combined to approach ansimax's feature set, but at the cost of bundle size, version-skew bugs, and inconsistent APIs.
 
@@ -746,7 +746,7 @@ console.log(`${caps.columns}×${caps.rows}`);
 console.log(caps.hyperlinks);   // true on iTerm2, WezTerm, VS Code, kitty, …
 ```
 
-### Keyboard & Mouse Input (v1.9.0, matcher v1.9.1)
+### Keyboard & Mouse Input (v1.9.0 — matcher v1.9.1, keymap v1.9.3)
 
 ```js
 import { parseKey, parseMouse, matchKey } from 'ansimax';
@@ -760,15 +760,54 @@ parseMouse('\x1b[<0;10;5M');  // { x: 10, y: 5, button: 'left', action: 'down', 
 parseMouse('\x1b[<64;3;3M');  // { x: 3,  y: 3, button: 'none', action: 'wheel', wheel: 'up' }
 
 // Match a decoded key against a keybinding string — no manual flag checks
-matchKey(parseKey('\x03'),     'ctrl+c');    // true
+matchKey(parseKey('\x03'),      'ctrl+c');    // true
 matchKey(parseKey('\x1b[1;2A'), 'shift+up');  // true
-matchKey(parseKey('q'),        'ctrl+q');    // false
+matchKey(parseKey('q'),         'ctrl+q');    // false
+```
 
-// Wire it to stdin in raw mode for a real key loop:
+One `data` event often carries several keypresses — a held arrow key, a fast
+typist, a paste. `parseKey` decodes exactly one sequence, so `parseKeys` splits
+the chunk first:
+
+```js
+import { parseKeys, splitSequences, parseKey, parseMouse } from 'ansimax';
+
+parseKeys('\x1b[A\x03').map((k) => k.name);  // ['up', 'c']
+parseKeys('hi').map((k) => k.name);          // ['h', 'i']
+
+// splitSequences is the raw tokenizer — lossless, and it keeps mouse
+// reports and astral-plane emoji in one piece
+splitSequences('\x1b[A\x1b[B');     // ['\x1b[A', '\x1b[B']
+splitSequences('a\x1b[<0;10;5M');   // ['a', '\x1b[<0;10;5M']
+
+// Keyboard and mouse from the same chunk
+for (const seq of splitSequences('\x1b[A\x1b[<0;10;5M')) {
+  const event = parseMouse(seq) || parseKey(seq);
+  console.log(event);
+}
+```
+
+`createKeymap` binds shortcuts to handlers, so there is no `if (matchKey(...))`
+chain to maintain. Bindings are stored canonically — `'shift+ctrl+up'` and
+`'Ctrl+Shift+Up'` are one binding — and `handle` returns `false` when nothing
+matched, which is the hook for treating the key as text:
+
+```js
+import { createKeymap, parseKeys } from 'ansimax';
+
+const keys = createKeymap()
+  .bind(['ctrl+c', 'q'], () => process.exit())
+  .bind('shift+tab', () => console.log('focus previous'))
+  .bind('tab', () => console.log('focus next'));
+
+keys.bindings();  // ['ctrl+c', 'q', 'shift+tab', 'tab']
+
+// A real raw-mode key loop:
 //   process.stdin.setRawMode(true);
 //   process.stdin.on('data', (buf) => {
-//     const key = parseKey(buf.toString());
-//     if (matchKey(key, 'ctrl+c')) process.exit();  // Ctrl+C
+//     for (const key of parseKeys(buf.toString())) {
+//       if (!keys.handle(key)) insertText(key.sequence);
+//     }
 //   });
 ```
 
@@ -1086,6 +1125,8 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Z-index / layering** — `compositeLayers` flattens layers by z priority with per-cell transparency (popups over a background) (v1.8.1)
 - [x] **Mouse event support** — `parseMouse` decodes the SGR protocol (button, drag, wheel, modifiers, 1-based coords) (v1.9.0)
 - [x] **Keyboard event abstraction** — `parseKey` normalizes arrows, modifiers (Ctrl/Alt/Shift), function/navigation keys, and Ctrl-letter codes into `{ name, ctrl, meta, shift }` (v1.9.0); **`matchKey`** tests an event against a keybinding string like `'ctrl+c'` / `'shift+tab'` (v1.9.1)
+- [x] **Multi-sequence chunk decoding** — `splitSequences` tokenizes one raw stdin chunk losslessly (mouse reports and astral-plane code points stay whole); `parseKeys` decodes every key in it (v1.9.3)
+- [x] **Keymap dispatcher** — `createKeymap()` binds shortcuts to handlers with canonical dedup and exact modifier matching; `handle` returns `false` so unmatched keys fall through as text (v1.9.3)
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
 
 ### 🔴 Phase 10 — Terminal charts
@@ -1177,7 +1218,7 @@ yet, so this is deliberately not rushed).
 ## 🧪 Testing
 
 ```bash
-npm test              # Run all 3,328 tests
+npm test              # Run all 3,354 tests
 npm run test:watch    # Watch mode
 npm run test:coverage # Coverage report
 ```
@@ -1190,7 +1231,7 @@ Coverage (as of v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Total tests** | **3,328** |
+| **Total tests** | **3,354** |
 | **Test suites** | 35 |
 | **CI matrix** | Node 18, 20, 22 |
 | **Platforms tested** | Linux, macOS, Windows |
@@ -1269,17 +1310,40 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          35 test suites, 3,328 tests
+└── __tests__/          35 test suites, 3,354 tests
 ```
 
 ---
 
 ## 📝 Changelog
 
+### v1.9.3 — Chunk decoding + keymap dispatcher
+
+Additive only; nothing existing changed behavior. 3,354 tests green.
+
+- ⌨️ **`parseKeys` / `splitSequences`** — one stdin `data` event often carries
+  several keypresses; `parseKey` handles exactly one, so a whole chunk used to
+  come back as `'unknown'`. The splitter is lossless, keeps SGR mouse reports
+  whole and never breaks an emoji into surrogate halves — Phase 9
+- 🗺️ **`createKeymap()`** — bind shortcuts to handlers instead of an
+  `if (matchKey(...))` chain; canonical dedup (`'shift+ctrl+up'` ≡
+  `'Ctrl+Shift+Up'`), exact modifier matching, and `handle` returns `false` so
+  unmatched keys fall through as text — first brick of the TUI layer
+- 🧪 **+26 tests**
+
+```js
+import { parseKeys, createKeymap } from 'ansimax';
+
+parseKeys('\x1b[A\x03').map((k) => k.name);  // ['up', 'c']
+
+const keys = createKeymap().bind(['ctrl+c', 'q'], () => process.exit());
+keys.handle(parseKeys('\x03')[0]);  // true
+```
+
 ### v1.9.2 — Biome, tag-driven releases, trusted publishing
 
 Infrastructure only — **no runtime code changed** and the public API is
-identical. All 3,328 tests stay green.
+identical. All 3,354 tests stay green.
 
 - 🧹 **Biome replaces ESLint + Prettier** — one tool, six fewer dev deps,
   `npm run ci` locally and in CI; lint is now a real gate
@@ -2512,7 +2576,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3,328 tests across 35 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3,354 tests across 35 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

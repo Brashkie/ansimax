@@ -3,6 +3,77 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.3] — Chunk decoding + keymap dispatcher (Phase 9)
+
+Additive only; the public API is unchanged and every existing function behaves
+identically. 3,354 tests green.
+
+### Added — `splitSequences` / `parseKeys` (Phase 9 improvement)
+
+`parseKey` decodes exactly one sequence, but a single stdin `data` event often
+carries several — a held arrow key, a fast typist, a paste, or a mouse report
+arriving mid-typing. Feeding it a whole chunk returned `'unknown'`.
+
+```js
+import { parseKeys, splitSequences, parseKey, parseMouse } from 'ansimax';
+
+parseKeys('\x1b[A\x03').map((k) => k.name);  // ['up', 'c']
+splitSequences('\x1b[A\x1b[B');              // ['\x1b[A', '\x1b[B']
+
+// Keyboard and mouse out of the same chunk
+for (const seq of splitSequences(chunk)) {
+  const event = parseMouse(seq) || parseKey(seq);
+}
+```
+
+- `splitSequences(chunk)` → `string[]`. Lossless: joining the result always
+  reproduces the input (verified over 20,000 random chunks). Recognizes CSI up
+  to its final byte (0x40–0x7E), so SGR mouse reports stay whole; SS3; Alt
+  prefixes; a lone trailing `\x1b`; and otherwise one **code point** at a time,
+  so astral-plane emoji are never split into surrogate halves. A sequence
+  truncated at the chunk boundary is returned intact rather than dropped.
+- `parseKeys(chunk)` → `KeyEvent[]`, i.e. `splitSequences` + `parseKey`.
+- Non-string or empty input returns `[]`.
+
+### Added — `createKeymap` (Phase 9 advance)
+
+The first building block of the reactive TUI layer: bind shortcuts to handlers
+instead of maintaining an `if (matchKey(...))` chain.
+
+```js
+import { createKeymap, parseKeys } from 'ansimax';
+
+const keys = createKeymap()
+  .bind(['ctrl+c', 'q'], () => process.exit())
+  .bind('shift+tab', focusPrev)
+  .bind('tab', focusNext);
+
+process.stdin.on('data', (buf) => {
+  for (const key of parseKeys(buf.toString())) {
+    if (!keys.handle(key)) insertText(key.sequence);
+  }
+});
+```
+
+- `createKeymap(initial?)` → `Keymap` with chainable `bind`/`unbind`, plus
+  `handle(event)` and `bindings()`.
+- `bind` takes one binding or an array of them, in `matchKey` syntax.
+- Bindings are stored in **canonical form**, so `'shift+ctrl+up'`,
+  `'Ctrl+Shift+Up'` and `'ctrl+shift+up'` are one binding rather than three
+  silent duplicates; aliases are folded too (`'ESC'` → `escape`, `'Alt+A'` →
+  `meta+a`). `bindings()` reports the canonical strings in registration order.
+- `handle` tries bindings in registration order, runs the first match and
+  returns `true`. `false` means nothing matched — the hook for treating the
+  keypress as text input.
+- Matching is exact on all three modifiers: `'up'` fires only on an unmodified
+  Up, never on Shift+Up.
+- An invalid binding (no key part, e.g. `'ctrl+shift'`) throws a `TypeError`
+  tagged `ANSIMAX_KEYMAP_BINDING`, and a non-function handler throws
+  `ANSIMAX_KEYMAP_HANDLER` — a typo'd shortcut that never fires is hard to
+  notice otherwise.
+
+Remaining Phase 9 item: the full reactive component framework.
+
 ## [1.9.2] — Tooling: Biome, tag-driven releases, trusted publishing
 
 Infrastructure only — **no runtime code changed**, the public API is identical

@@ -270,3 +270,268 @@ export const matchKey = (event: KeyEvent, binding: string): boolean => {
   return event.name.toLowerCase() === names[0]
     && event.ctrl === wantCtrl && event.meta === wantMeta && event.shift === wantShift;
 };
+
+// ─────────────────────────────────────────────
+//  Chunk splitting (v1.9.3)
+// ─────────────────────────────────────────────
+
+// A CSI sequence ends at the first "final byte" in the range 0x40–0x7E (@ … ~).
+// Parameter bytes (0x30–0x3F, which includes the `<` of SGR mouse reports) and
+// intermediate bytes (0x20–0x2F) come before it.
+const isFinalByte = (ch: string): boolean => {
+  const n = ch.codePointAt(0) ?? 0;
+  return n >= 0x40 && n <= 0x7e;
+};
+
+/**
+ * Split one raw stdin chunk into individual terminal sequences.
+ *
+ * A single `data` event often carries several keypresses — held arrow keys,
+ * a fast typist, a paste, or a mouse report arriving mid-typing — and
+ * {@link parseKey} expects exactly one sequence, so feeding it a whole chunk
+ * yields `'unknown'`. This splits the chunk first, losslessly: joining the
+ * result always reproduces the input.
+ *
+ * Recognizes CSI (`\x1b[…` up to its final byte, so SGR mouse reports stay
+ * whole), SS3 (`\x1bO` + one char), Alt-prefixed keys (`\x1b` + one char),
+ * a lone trailing `\x1b`, and otherwise one code point at a time (so an
+ * astral-plane emoji is never split into surrogate halves). A truncated
+ * sequence at the end of the chunk is returned as-is rather than dropped.
+ *
+ * @example
+ * ```js
+ * import { splitSequences, parseKey, parseMouse } from 'ansimax';
+ *
+ * splitSequences('\x1b[A\x1b[B');   // ['\x1b[A', '\x1b[B']
+ * splitSequences('hi\r');            // ['h', 'i', '\r']
+ *
+ * // Keyboard and mouse from the same chunk:
+ * for (const seq of splitSequences(chunk)) {
+ *   const event = parseMouse(seq) ?? parseKey(seq);
+ *   handle(event);
+ * }
+ * ```
+ *
+ * @since 1.9.3
+ */
+export const splitSequences = (chunk: string): string[] => {
+  if (typeof chunk !== 'string' || chunk === '') return [];
+
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < chunk.length) {
+    // Plain key: consume one whole code point.
+    if (chunk[i] !== '\x1b') {
+      const cp = String.fromCodePoint(chunk.codePointAt(i) ?? 0);
+      out.push(cp);
+      i += cp.length;
+      continue;
+    }
+
+    const next = chunk[i + 1];
+
+    // Lone ESC at the very end of the chunk.
+    if (next === undefined) {
+      out.push('\x1b');
+      i += 1;
+      continue;
+    }
+
+    // CSI — run to the final byte, keeping mouse reports in one piece.
+    if (next === '[') {
+      let j = i + 2;
+      while (j < chunk.length && !isFinalByte(chunk[j] as string)) j++;
+      if (j < chunk.length) {
+        out.push(chunk.slice(i, j + 1));
+        i = j + 1;
+      } else {
+        out.push(chunk.slice(i)); // truncated: hand it back intact
+        i = chunk.length;
+      }
+      continue;
+    }
+
+    // SS3 — ESC O plus exactly one character.
+    if (next === 'O') {
+      if (i + 2 < chunk.length) {
+        out.push(chunk.slice(i, i + 3));
+        i += 3;
+      } else {
+        out.push(chunk.slice(i)); // truncated
+        i = chunk.length;
+      }
+      continue;
+    }
+
+    // ESC ESC — the first one is a standalone Escape.
+    if (next === '\x1b') {
+      out.push('\x1b');
+      i += 1;
+      continue;
+    }
+
+    // Alt/Meta-prefixed key.
+    const cp = String.fromCodePoint(chunk.codePointAt(i + 1) ?? 0);
+    out.push(`\x1b${cp}`);
+    i += 1 + cp.length;
+  }
+
+  return out;
+};
+
+/**
+ * Decode a raw stdin chunk into every {@link KeyEvent} it contains —
+ * {@link splitSequences} followed by {@link parseKey} on each piece.
+ *
+ * This is the function to wire to a raw-mode `data` listener; `parseKey`
+ * alone only handles a chunk that holds exactly one sequence.
+ *
+ * @example
+ * ```js
+ * import { parseKeys, matchKey } from 'ansimax';
+ *
+ * process.stdin.setRawMode(true);
+ * process.stdin.on('data', (buf) => {
+ *   for (const key of parseKeys(buf.toString())) {
+ *     if (matchKey(key, 'ctrl+c')) process.exit();
+ *   }
+ * });
+ * ```
+ *
+ * @since 1.9.3
+ */
+export const parseKeys = (chunk: string): KeyEvent[] =>
+  splitSequences(chunk).map(parseKey);
+
+// ─────────────────────────────────────────────
+//  Keymap (v1.9.3)
+// ─────────────────────────────────────────────
+
+/** Called with the event that matched a binding. @since 1.9.3 */
+export type KeyHandler = (event: KeyEvent) => void;
+
+/** A set of keybindings that dispatches {@link KeyEvent}s. @since 1.9.3 */
+export interface Keymap {
+  /** Register a handler for one binding or several. Chainable. */
+  bind(binding: string | string[], handler: KeyHandler): Keymap;
+  /** Remove one binding or several. Chainable. */
+  unbind(binding: string | string[]): Keymap;
+  /** Dispatch an event; `true` when a handler ran. */
+  handle(event: KeyEvent): boolean;
+  /** Registered bindings in canonical form, in registration order. */
+  bindings(): string[];
+}
+
+// Canonical form so 'shift+ctrl+up', 'Ctrl+Shift+Up' and 'ctrl+shift+up' all
+// land in the same slot instead of silently registering three times.
+// Returns null when the binding has no single key part.
+const normalizeBinding = (binding: string): string | null => {
+  if (typeof binding !== 'string') return null;
+  const b = binding.trim().toLowerCase();
+  if (b === '') return null;
+  const parts = b === '+' ? ['+'] : b.split('+').map((s) => s.trim()).filter((s) => s !== '');
+
+  let wantCtrl = false, wantMeta = false, wantShift = false;
+  const names: string[] = [];
+  for (const p of parts) {
+    if (isCtrlToken(p)) wantCtrl = true;
+    else if (isMetaToken(p)) wantMeta = true;
+    else if (p === 'shift') wantShift = true;
+    else names.push(KEY_ALIAS[p] ?? p);
+  }
+  if (names.length !== 1) return null;
+
+  const mods: string[] = [];
+  if (wantCtrl) mods.push('ctrl');
+  if (wantMeta) mods.push('meta');
+  if (wantShift) mods.push('shift');
+  return [...mods, names[0]].join('+');
+};
+
+/**
+ * Create a keymap: bind shortcut strings to handlers and dispatch key events
+ * at them, instead of hand-writing `if (matchKey(...))` chains.
+ *
+ * Bindings use the {@link matchKey} syntax and are stored in canonical form,
+ * so `'shift+ctrl+up'` and `'Ctrl+Shift+Up'` are the same binding and the
+ * second `bind` replaces the first. Matching is exact on all three modifiers:
+ * `'up'` fires only on an unmodified Up. {@link Keymap.handle} tries bindings
+ * in registration order, runs the first match and returns `true`; `false`
+ * means nothing matched, which is the hook for treating the key as text.
+ *
+ * An invalid binding (no key part, such as `'ctrl+shift'`) throws a
+ * `TypeError` rather than failing silently, since a typo'd shortcut that
+ * never fires is hard to notice.
+ *
+ * @example
+ * ```js
+ * import { createKeymap, parseKeys } from 'ansimax';
+ *
+ * const keys = createKeymap()
+ *   .bind(['ctrl+c', 'q'], () => process.exit())
+ *   .bind('shift+tab', focusPrev)
+ *   .bind('tab', focusNext);
+ *
+ * process.stdin.on('data', (buf) => {
+ *   for (const key of parseKeys(buf.toString())) {
+ *     if (!keys.handle(key)) insertText(key.sequence);
+ *   }
+ * });
+ * ```
+ *
+ * @since 1.9.3
+ */
+export const createKeymap = (initial?: Record<string, KeyHandler>): Keymap => {
+  const map = new Map<string, KeyHandler>();
+
+  const resolve = (binding: string): string => {
+    const key = normalizeBinding(binding);
+    if (key === null) {
+      throw new TypeError(
+        `ANSIMAX_KEYMAP_BINDING: invalid keybinding ${JSON.stringify(binding)} — it needs exactly one key part, e.g. 'ctrl+c'`,
+      );
+    }
+    return key;
+  };
+
+  const keymap: Keymap = {
+    bind(binding, handler) {
+      if (typeof handler !== 'function') {
+        throw new TypeError('ANSIMAX_KEYMAP_HANDLER: handler must be a function');
+      }
+      for (const b of Array.isArray(binding) ? binding : [binding]) {
+        map.set(resolve(b), handler);
+      }
+      return keymap;
+    },
+
+    unbind(binding) {
+      for (const b of Array.isArray(binding) ? binding : [binding]) {
+        map.delete(resolve(b));
+      }
+      return keymap;
+    },
+
+    handle(event) {
+      if (!event) return false;
+      for (const [binding, handler] of map) {
+        if (matchKey(event, binding)) {
+          handler(event);
+          return true;
+        }
+      }
+      return false;
+    },
+
+    bindings() {
+      return [...map.keys()];
+    },
+  };
+
+  if (initial) {
+    for (const [binding, handler] of Object.entries(initial)) keymap.bind(binding, handler);
+  }
+
+  return keymap;
+};
