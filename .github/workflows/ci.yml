@@ -144,3 +144,50 @@ jobs:
 
       - name: Verify package can be packed
         run: npm pack --dry-run
+
+  bench:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Informational on purpose. bench/baseline.json is recorded on a
+      # developer machine, and absolute timings differ enough between that and
+      # a shared CI runner that `--check` would fail on noise rather than on
+      # real regressions. The numbers land in the job summary and as an
+      # artifact so a change in shape is visible; run `npm run bench -- --check`
+      # locally against your own baseline to gate a specific optimization.
+      - name: Run benchmarks
+        run: |
+          npm run bench | tee bench-result.txt
+          {
+            echo '### Benchmarks'
+            echo '```'
+            cat bench-result.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload benchmark JSON
+        run: npm run bench -- --json > bench-result.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: |
+            bench-result.txt
+            bench-result.json
+          retention-days: 30

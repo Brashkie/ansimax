@@ -12,7 +12,7 @@ _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • C
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3354%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3364%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax replaces a stack of popular Node.js libraries with **one coherent, typed
 | TypeScript-first (strict mode) | partial | partial | ✅ | partial | partial | ✅ | partial | partial | ✅ |
 | **Zero runtime dependencies** | ✅ | — | — | — | — | — | — | — | ✅ |
 | ESM + CJS dual export | partial | partial | ✅ | ✅ | partial | ✅ | partial | partial | ✅ |
-| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (3,354 tests)** |
+| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (3,364 tests)** |
 
 > Comparison reflects what each library officially supports at time of writing. Some libraries can be combined to approach ansimax's feature set, but at the cost of bundle size, version-skew bugs, and inconsistent APIs.
 
@@ -1218,7 +1218,7 @@ yet, so this is deliberately not rushed).
 ## 🧪 Testing
 
 ```bash
-npm test              # Run all 3,354 tests
+npm test              # Run all 3,364 tests
 npm run test:watch    # Watch mode
 npm run test:coverage # Coverage report
 ```
@@ -1231,7 +1231,7 @@ Coverage (as of v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Total tests** | **3,354** |
+| **Total tests** | **3,364** |
 | **Test suites** | 35 |
 | **CI matrix** | Node 18, 20, 22 |
 | **Platforms tested** | Linux, macOS, Windows |
@@ -1252,7 +1252,31 @@ npm run ci            # Exactly what CI runs
 npm run typecheck     # tsc --noEmit
 npm test              # Jest
 npm run build         # tsup → dist/ (CJS + ESM + .d.ts)
+npm run bench         # Benchmark the hot paths
 ```
+
+### Benchmarks
+
+Performance is a design goal, so it is measured rather than assumed:
+
+```bash
+npm run bench                  # table of µs/op and ops/sec
+npm run bench -- --save        # record bench/baseline.json
+npm run bench -- --check       # fail on a regression beyond 1.5x
+npm run bench -- --filter=wrap # just one area
+```
+
+Zero dependencies, like the library. The harness enforces the two rules that
+make a JavaScript timing meaningful: results are **consumed**, or V8 deletes
+the work being measured, and inputs are **rotated** across 16 variants, or V8
+hoists a pure call out of the loop and you time one call amortized over N
+iterations. Both of those produced badly wrong numbers while v1.9.4 was being
+measured.
+
+CI publishes the table to the job summary and the JSON as an artifact, but
+does not gate on it — `bench/baseline.json` is recorded on a developer machine
+and a shared runner's absolute timings differ enough that `--check` would fail
+on noise. Gate locally against your own baseline.
 
 The Biome **formatter is intentionally disabled** in `biome.json`: enabling it
 would reformat nearly every file at once. The settings are already there
@@ -1310,16 +1334,39 @@ ansimax/
 │   ├── utils/          ANSI primitives + helpers
 │   └── configure.ts    Global config + subscribers
 ├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          35 test suites, 3,354 tests
+└── __tests__/          35 test suites, 3,364 tests
 ```
 
 ---
 
 ## 📝 Changelog
 
+### v1.9.4 — Width fast paths: `wrapAnsi` 168x faster
+
+Pure optimization — **no API change, no behavioral change**. Every width and
+wrap is byte-identical to v1.9.3, verified by 39,663 direct comparisons between
+the two builds before the suite was run. 3,364 tests green.
+
+`visibleLen` was the hot spot of the entire library, and `Intl.Segmenter` was
+96% of its cost: 7.8 of 8.2 µs doing ICU grapheme segmentation to establish
+that eleven Latin letters are one cell each. Printable ASCII — and ASCII
+wrapped in escapes, the common case here — now takes an exact shortcut, and
+`wrapAnsi` stopped measuring every unsplit word twice.
+
+```
+wrapAnsi/1kb-80          2110.489 → 12.567 µs   167.9x
+balancedWrap/1kb-80      2314.826 → 30.573 µs    75.7x
+visibleLen/ascii-1kb      427.416 →  2.944 µs   145.2x
+wrapAnsi/colored-1kb     2327.029 → 106.072 µs    21.9x
+visibleLen/colored-1kb    502.462 → 77.062 µs     6.5x
+```
+
+CJK and emoji are unchanged by design — they need real grapheme segmentation.
+No case regressed. Also adds `npm run bench`, a zero-dependency harness.
+
 ### v1.9.3 — Chunk decoding + keymap dispatcher
 
-Additive only; nothing existing changed behavior. 3,354 tests green.
+Additive only; nothing existing changed behavior. 3,364 tests green.
 
 - ⌨️ **`parseKeys` / `splitSequences`** — one stdin `data` event often carries
   several keypresses; `parseKey` handles exactly one, so a whole chunk used to
@@ -1343,7 +1390,7 @@ keys.handle(parseKeys('\x03')[0]);  // true
 ### v1.9.2 — Biome, tag-driven releases, trusted publishing
 
 Infrastructure only — **no runtime code changed** and the public API is
-identical. All 3,354 tests stay green.
+identical. All 3,364 tests stay green.
 
 - 🧹 **Biome replaces ESLint + Prettier** — one tool, six fewer dev deps,
   `npm run ci` locally and in CI; lint is now a real gate
@@ -2576,7 +2623,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3,354 tests across 35 suites, all green, ~98% coverage
+- 🧪 **Tests** — 3,364 tests across 35 suites, all green, ~98% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

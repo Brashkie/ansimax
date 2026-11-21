@@ -2062,3 +2062,80 @@ describe('gradientColorSpline — Catmull-Rom (v1.7.0)', () => {
     expect(() => gradientColorSpline([], 0.5)).toThrow();
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.9.4 — width fast paths
+//
+//  visibleLen gained two shortcuts that skip Intl.Segmenter (which was ~96%
+//  of its cost), and charWidth one that skips the regex tables. These cover
+//  every branch and, more importantly, pin the results so an optimization
+//  can never silently change a width.
+// ─────────────────────────────────────────────
+describe('visibleLen fast paths (v1.9.4)', () => {
+  it('takes the ASCII shortcut and still agrees with the exact width', () => {
+    for (const s of ['a', 'abc', 'consectetur', ' ', '   ', '~!@#$%^&*()_+', 'a'.repeat(1000)]) {
+      expect(visibleLen(s)).toBe(s.length);
+    }
+  });
+
+  it('takes the shortcut for ASCII wrapped in ANSI escapes', () => {
+    expect(visibleLen('\x1b[31mred\x1b[0m')).toBe(3);
+    expect(visibleLen('\x1b[1;32mbold green\x1b[0m')).toBe(10);
+    expect(visibleLen('pre\x1b[0mpost')).toBe(7);
+  });
+
+  it('falls through to the exact path for control characters', () => {
+    // Below U+0020, so the ASCII scan rejects it — the exact path returns 1.
+    expect(visibleLen('\t')).toBe(1);
+    expect(visibleLen('\x7f')).toBe(1);
+    expect(visibleLen('a\tb')).toBe(3);
+  });
+
+  it('falls through to the exact path for non-ASCII', () => {
+    expect(visibleLen('日本語')).toBe(6);        // wide: 2 cells each
+    expect(visibleLen('café')).toBe(4);
+    expect(visibleLen('ñ')).toBe(1);
+    expect(visibleLen('é')).toBe(1);       // combining mark adds 0
+    expect(visibleLen('😀')).toBe(2);
+    expect(visibleLen('a‍b')).toBe(2);      // ZWJ adds 0
+  });
+
+  it('handles mixed ASCII, ANSI and wide text', () => {
+    expect(visibleLen('\x1b[31mab\x1b[0m日')).toBe(4);
+    expect(visibleLen('')).toBe(0);
+    expect(visibleLen(undefined as unknown as string)).toBe(0);
+  });
+
+  it('charWidth shortcut matches the table for the whole range below U+0300', () => {
+    for (let cp = 0; cp < 0x300; cp++) {
+      expect(charWidth(String.fromCodePoint(cp))).toBe(1);
+    }
+  });
+
+  it('charWidth still classifies everything at or above U+0300', () => {
+    expect(charWidth('̀')).toBe(0);  // combining
+    expect(charWidth('‍')).toBe(0);  // ZWJ
+    expect(charWidth('️')).toBe(0);  // VS16
+    expect(charWidth('日')).toBe(2);       // wide
+    expect(charWidth('😀')).toBe(2);       // emoji
+    expect(charWidth('Ԁ')).toBe(1);  // plain above the cutoff
+    expect(charWidth('')).toBe(0);
+  });
+});
+
+describe('wrapAnsi width reuse (v1.9.4)', () => {
+  it('wraps unsplit words identically (the reused-width path)', () => {
+    expect(wrapAnsi('alpha beta gamma delta', 11)).toEqual(['alpha beta', 'gamma delta']);
+    expect(wrapAnsi('one two three', 80)).toEqual(['one two three']);
+  });
+
+  it('still hard-splits words wider than the line (the re-measured path)', () => {
+    expect(wrapAnsi('abcdefghij', 4)).toEqual(['abcd', 'efgh', 'ij']);
+    expect(wrapAnsi('hi abcdefghij', 4)).toEqual(['hi', 'abcd', 'efgh', 'ij']);
+  });
+
+  it('keeps ANSI-aware wrapping intact', () => {
+    const out = wrapAnsi('\x1b[31malpha beta gamma\x1b[0m', 11);
+    expect(out.map((l) => stripAnsi(l).length).every((n) => n <= 11)).toBe(true);
+  });
+});

@@ -8,7 +8,8 @@
   "files": {
     "includes": [
       "src/**/*.ts",
-      "examples/**/*.ts"
+      "examples/**/*.ts",
+      "bench/**/*.mjs"
     ]
   },
   "assist": {

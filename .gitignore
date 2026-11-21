@@ -22,6 +22,16 @@ coverage/
 *.lcov
 
 # ─────────────────────────────────────────────
+#  Benchmark output
+#
+#  bench/bench.mjs and bench/baseline.json ARE tracked — the harness is
+#  source and CI runs it. Only the per-run output is ignored: the CI job
+#  writes these two to the repo root before uploading them as artifacts.
+# ─────────────────────────────────────────────
+bench-result.txt
+bench-result.json
+
+# ─────────────────────────────────────────────
 #  Logs
 # ─────────────────────────────────────────────
 logs/

@@ -3,6 +3,102 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.4] — Width fast paths: wrapAnsi is 168x faster
+
+Pure optimization. **No API change and no behavioral change** — every width and
+every wrap is byte-identical to v1.9.3, verified by 39,663 direct comparisons
+between the two builds (every code point from U+0000 to U+3000, astral-plane
+samples, ZWJ emoji, flags, combining marks, CJK, fullwidth, ANSI, and 4,000
+randomized strings) before the suite was even run. 3,364 tests green.
+
+### The measurement
+
+`visibleLen` was the single hot spot of the whole library — every layout
+helper (padding, centering, table columns, wrapping) goes through it. Measuring
+an 11-character ASCII word cost **8.2 µs**, of which **7.8 µs was
+`Intl.Segmenter`**: ICU grapheme segmentation, 96% of the time, to establish
+that eleven Latin letters are one cell each.
+
+`wrapAnsi` on 1 KB was 2.1 ms, and it turned out to be *exactly* two passes of
+`visibleLen` (931 µs × 2) — choosing break points and concatenating was free.
+
+### Changed — `visibleLen` (src/utils/helpers.ts)
+
+Two shortcuts, both exact rather than approximate:
+
+- A printable-ASCII string (U+0020–U+007E) has no escapes to strip, one
+  grapheme per code unit, and width 1 for each — so its visible width *is*
+  `str.length`. A `charCodeAt` scan proves that far more cheaply than
+  segmenting.
+- Coloured ASCII — a table cell or panel title wrapped in escapes, the common
+  case in this library — takes the same shortcut after `stripAnsi`.
+
+Anything else (control characters, CJK, emoji, combining marks) falls through
+to the original exact path untouched.
+
+### Changed — `charWidth` (src/utils/helpers.ts)
+
+The lowest code point any width table can match is U+0300, and ZWJ (U+200D)
+and VS16 (U+FE0F) are both above it, so a code point below U+0300 is width 1
+without running four regex tests.
+
+### Changed — `wrapAnsi` (src/utils/helpers.ts)
+
+When a word isn't wider than the line — the normal path — `tokens` is `[raw]`
+and its width is the `wWidth` already measured, so re-measuring the same string
+was pure duplicate work. Since measuring widths was ~100% of this function's
+cost, reusing it is a straight 2x on top of the `visibleLen` gain.
+
+### Results (same harness, same machine, best of 3, rotated inputs)
+
+```
+case                           v1.9.3      v1.9.4    change
+wrapAnsi/1kb-80             2110.489      12.567     167.9x
+balancedWrap/1kb-80         2314.826      30.573      75.7x
+visibleLen/ascii-word          9.090       0.059     154.6x
+visibleLen/ascii-1kb         427.416       2.944     145.2x
+wrapAnsi/colored-1kb-80     2327.029     106.072      21.9x
+visibleLen/colored-1kb       502.462      77.062       6.5x
+charWidth/ascii                0.073       0.039       1.9x
+visibleLen/cjk                44.395      45.438        1.0x
+visibleLen/emoji              51.909      52.731        1.0x
+renderFrame/80x24-1-edit       1.950       1.897        1.0x
+fuzzySearch/1k-candidates    752.314     721.554        1.0x
+```
+
+CJK and emoji strings are unchanged by design — they need real grapheme
+segmentation, and no shortcut can be exact for them. No case regressed.
+
+### Added — benchmark harness
+
+```bash
+npm run bench                  # table of µs/op and ops/sec
+npm run bench -- --json        # machine-readable
+npm run bench -- --save        # record bench/baseline.json
+npm run bench -- --check       # fail on a regression beyond 1.5x
+npm run bench -- --filter=wrap # one area
+```
+
+Zero dependencies, like the library. It enforces the two rules that make
+timings meaningful, both of which produced nonsense numbers while this release
+was being measured: results are **consumed** (otherwise V8 deletes the work —
+an early run had cache *misses* beating cache *hits*) and inputs are
+**rotated** across 16 variants (otherwise V8 hoists a pure call out of the
+loop — that produced an impossible "0.03 µs" grapheme segmentation).
+
+CI runs it informationally, publishing the table to the job summary and the
+JSON as an artifact. It deliberately does not gate on `--check`: the baseline
+is recorded on a developer machine, and absolute timings on a shared runner
+differ enough that it would fail on noise. Use `--check` locally against your
+own baseline to gate a specific optimization.
+
+### Still open
+
+`fuzzySearch` is unchanged at 0.78 µs per candidate — linear, so 20,000
+candidates cost 15.6 ms per keystroke against the roadmap's own "<1 ms"
+target. The trie + Levenshtein automaton is the fix, with before/after numbers
+from this harness.
+
 ## [1.9.3] — Chunk decoding + keymap dispatcher (Phase 9)
 
 Additive only; the public API is unchanged and every existing function behaves

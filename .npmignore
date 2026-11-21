@@ -32,6 +32,8 @@ examples/node_modules/
 .vscode/
 .idea/
 .husky/
+bench/
+bench-result.*
 *.config.js
 *.config.ts
 *.config.cjs

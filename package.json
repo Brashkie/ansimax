@@ -1,6 +1,6 @@
 {
   "name": "ansimax",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "description": "Zero-dependency CLI rendering library: colors, gradients, animations, ASCII art, pixel art, components, and themes — all in TypeScript.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -18,6 +18,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "bench": "node bench/bench.mjs",
+    "bench:save": "node bench/bench.mjs --save",
+    "bench:check": "node bench/bench.mjs --check",
     "lint": "biome lint",
     "lint:fix": "biome lint --write",
     "check": "biome check",
