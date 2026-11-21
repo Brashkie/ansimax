@@ -337,7 +337,7 @@ const detectColorSupport = (): ColorSupport => {
 
   // 2. Non-TTY → no color (unless overridden above)
   const stdout = process.stdout;
-  if (!stdout || stdout.isTTY !== true) return 'none';
+  if (stdout?.isTTY !== true) return 'none';
 
   // 3. CI providers — explicit knowledge of which support what
   if (env['CI']) {

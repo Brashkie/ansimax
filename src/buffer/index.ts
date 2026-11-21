@@ -21,6 +21,14 @@ import type { DiffRowOptions } from '../diff/index.js';
 /** Move the cursor to 1-based (row, col). Rows/cols are 0-based in the API. */
 const cursorTo = (row: number, col: number): string => `\x1b[${row + 1};${col + 1}H`;
 
+/**
+ * Upper bound on the cells one {@link createScreenBuffer} may allocate.
+ * ~2000x2000 — orders of magnitude beyond any real terminal, while still
+ * small enough that hitting it raises a readable error instead of an
+ * out-of-memory abort. @since 1.9.5
+ */
+const MAX_BUFFER_CELLS = 4_000_000;
+
 /** Options for {@link renderFrame}. @since 1.8.0 */
 export interface RenderFrameOptions extends DiffRowOptions {
   /**
@@ -120,8 +128,24 @@ export const createScreenBuffer = (
   height: number,
   fill = ' ',
 ): ScreenBuffer => {
-  const w = Math.max(0, Math.floor(width));
-  const h = Math.max(0, Math.floor(height));
+  // `Math.max(0, x)` does NOT sanitize these: `Math.max(0, NaN)` is `NaN`, so
+  // `new Array(NaN)` threw a bare RangeError, and `Infinity` did the same.
+  // Both are ordinary `number`s, so a miscomputed size (a failed parse, an
+  // unset `process.stdout.columns`) reached here with correct types. Treat a
+  // non-finite dimension as 0, which is what a negative one already did.
+  const w = Number.isFinite(width) ? Math.max(0, Math.floor(width)) : 0;
+  const h = Number.isFinite(height) ? Math.max(0, Math.floor(height)) : 0;
+
+  // A finite but absurd size (say 1e9) passed the checks above and then took
+  // the process down with an out-of-memory abort — no stack, no message worth
+  // reading. 4M cells is ~2000x2000, orders of magnitude past any real
+  // terminal, so beyond it fail loudly and say what happened instead.
+  if (w * h > MAX_BUFFER_CELLS) {
+    throw new RangeError(
+      `ANSIMAX_BUFFER_TOO_LARGE: ${w}x${h} is ${w * h} cells, over the ${MAX_BUFFER_CELLS} limit`,
+    );
+  }
+
   const fillCh = [...fill][0] ?? ' ';
   // Grid of code points, row-major.
   let grid: string[][] = [];

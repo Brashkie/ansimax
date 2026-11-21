@@ -208,6 +208,10 @@ export const createETA = (opts: ETAOptions): ETA => {
     const denom = n * sumTT - sumT * sumT;
     if (denom <= 0) return 0;         // all samples at the same instant
     const slope = (n * sumTV - sumT * sumV) / denom;
+    // Math.max(NaN, 0) is NaN, while this ternary yields 0. The guard is
+    // deliberate: a non-finite slope must degrade to a zero rate rather
+    // than poison every ETA downstream with NaN.
+    // biome-ignore lint/complexity/useMathMinMax: Math.max is not equivalent on NaN
     return slope > 0 ? slope : 0;
   };
 

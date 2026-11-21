@@ -1,4 +1,4 @@
-import { table, badge, progressBar, status, section, columns, timeline, box, components, menu, MENU_CANCELLED } from '../components/index.js';
+import { table, badge, progressBar, status, section, columns, timeline, box, components, MENU_CANCELLED } from '../components/index.js';
 import { stripAnsi } from '../utils/helpers.js';
 import { resetColorSupportCache } from '../utils/ansi.js';
 

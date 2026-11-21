@@ -157,3 +157,49 @@ describe('compositeLayers (v1.8.1)', () => {
     expect(compositeLayers([{ content: ['ab'] }], 2, 1)).toEqual(['ab']);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.9.5 — dimension guards
+//
+//  `Math.max(0, Math.floor(x))` did not sanitize these: `Math.max(0, NaN)` is
+//  `NaN`, so `new Array(NaN)` threw a bare RangeError, and a finite-but-absurd
+//  width allocated until the process died with an out-of-memory abort. Both
+//  are plain `number`s, so valid types could reach either outcome.
+// ─────────────────────────────────────────────
+describe('createScreenBuffer dimension guards (v1.9.5)', () => {
+  it('treats a non-finite dimension as 0 instead of throwing', () => {
+    expect(createScreenBuffer(Number.NaN, 5).width).toBe(0);
+    expect(createScreenBuffer(5, Number.NaN).height).toBe(0);
+    expect(createScreenBuffer(Number.POSITIVE_INFINITY, 5).width).toBe(0);
+    expect(createScreenBuffer(5, Number.POSITIVE_INFINITY).height).toBe(0);
+  });
+
+  it('keeps a non-finite width usable rather than broken', () => {
+    const buf = createScreenBuffer(Number.NaN, 3);
+    expect(buf.rows()).toHaveLength(3);
+    expect(() => buf.set(0, 0, 'x')).not.toThrow();
+    expect(buf.toString()).toBe('\n\n');
+  });
+
+  it('matches the long-standing behavior for negative dimensions', () => {
+    expect(createScreenBuffer(-1, 5).width).toBe(0);
+    expect(createScreenBuffer(5, -1).height).toBe(0);
+  });
+
+  it('rejects an absurd size with a readable error instead of an OOM abort', () => {
+    expect(() => createScreenBuffer(1e9, 1)).toThrow(/ANSIMAX_BUFFER_TOO_LARGE/);
+    expect(() => createScreenBuffer(3000, 3000)).toThrow(RangeError);
+    expect(() => createScreenBuffer(1e9, 1)).toThrow(/1000000000 cells/);
+  });
+
+  it('still allows a generously large buffer', () => {
+    expect(() => createScreenBuffer(1000, 1000)).not.toThrow();
+    expect(createScreenBuffer(2000, 2000).width).toBe(2000);
+  });
+
+  it('truncates fractional dimensions as before', () => {
+    const buf = createScreenBuffer(2.9, 2.9);
+    expect(buf.width).toBe(2);
+    expect(buf.height).toBe(2);
+  });
+});

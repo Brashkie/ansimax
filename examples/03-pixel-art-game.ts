@@ -34,7 +34,7 @@ const buildBackground = (): ReturnType<typeof createCanvas> => {
   const canvas = createCanvas(WIDTH, HEIGHT);
 
   // Sunset gradient with Bayer dithering for smooth bands
-  const gradStr = images.gradientRect({
+  const _gradStr = images.gradientRect({
     width: WIDTH,
     height: HEIGHT,
     colors: ['#1a1a2e', '#16213e', '#fd7272', '#f9ca24'],

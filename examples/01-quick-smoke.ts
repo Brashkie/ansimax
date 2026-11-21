@@ -20,7 +20,6 @@ import {
   images,
   trees,
   tree,
-  configure,
   getConfig,
   // Utils
   stripAnsi,

@@ -39,21 +39,41 @@ export const fuzzyDistance = (pattern: string, text: string): number => {
   if (m === 0) return 0;          // empty pattern matches everywhere, 0 errors
   if (text.length === 0) return m; // nothing to match against → m insertions
   return m <= BITS
-    ? _myers(pattern, text)
+    ? _myers(pattern, text, _buildPeq(pattern))
     : _searchDP(pattern, text);
+};
+
+// Same distance as {@link fuzzyDistance}, with the pattern's bitmask table
+// supplied by the caller. Lets a batch search hoist that table out of its
+// loop; the result is bit-for-bit identical.
+const _distanceWith = (
+  pattern: string,
+  text: string,
+  peq: Map<string, number>,
+): number => {
+  const m = pattern.length;
+  if (m === 0) return 0;
+  if (text.length === 0) return m;
+  return m <= BITS ? _myers(pattern, text, peq) : _searchDP(pattern, text);
 };
 
 // Myers' bit-parallel approximate search. Tracks the DP value D[m][j] for each
 // text position j with the first row pinned to 0, and returns the minimum —
 // the error count of the best occurrence ending anywhere in the text.
-const _myers = (pattern: string, text: string): number => {
-  const m = pattern.length;
-  // Peq[c] = bitmask of pattern positions holding character c.
+// Peq[c] = bitmask of pattern positions holding character c. Depends only on
+// the pattern, so a repeated search (fuzzySearch over N candidates) builds it
+// once instead of N times — see _distanceWith.
+const _buildPeq = (pattern: string): Map<string, number> => {
   const peq = new Map<string, number>();
-  for (let i = 0; i < m; i++) {
+  for (let i = 0; i < pattern.length; i++) {
     const ch = pattern[i] as string;
     peq.set(ch, (peq.get(ch) ?? 0) | (1 << i));
   }
+  return peq;
+};
+
+const _myers = (pattern: string, text: string, peq: Map<string, number>): number => {
+  const m = pattern.length;
   const highBit = 1 << (m - 1);
   let pv = ~0;        // vertical positive deltas — all 1s initially
   let mv = 0;         // vertical negative deltas
@@ -196,24 +216,39 @@ export const fuzzySearch = <T>(
   const key = opts.key;
   const p = _norm(pattern, caseSensitive);
 
+  // v1.9.5: the pattern's bitmask table is built once here rather than inside
+  // every _myers call — it depends only on the pattern, so scanning 20,000
+  // candidates was rebuilding the identical Map 20,000 times.
+  const peq = _buildPeq(p);
+
+  // Candidate length is carried alongside each hit because the comparator
+  // below needs it: deriving it there re-ran `key(value)` on every single
+  // comparison, i.e. O(n log n) times instead of once per candidate.
   const hits: FuzzyResult<T>[] = [];
+  const lengths: number[] = [];
   for (let index = 0; index < candidates.length; index++) {
     const value = candidates[index] as T;
     const raw = key ? key(value) : String(value);
     const text = _norm(raw, caseSensitive);
-    const distance = fuzzyDistance(p, text);
+    const distance = _distanceWith(p, text, peq);
     if (distance > max) continue;
     const score = p.length === 0 ? 1 : 1 - distance / p.length;
+    lengths.push(raw.length);
     hits.push({ value, distance, score, index });
   }
 
-  hits.sort((a, b) => {
+  // Sort an index permutation so each hit keeps its precomputed length.
+  const order = hits.map((_, i) => i);
+  order.sort((ia, ib) => {
+    const a = hits[ia] as FuzzyResult<T>;
+    const b = hits[ib] as FuzzyResult<T>;
     if (a.distance !== b.distance) return a.distance - b.distance;
-    const la = key ? key(a.value).length : String(a.value).length;
-    const lb = key ? key(b.value).length : String(b.value).length;
+    const la = lengths[ia] as number;
+    const lb = lengths[ib] as number;
     if (la !== lb) return la - lb;
     return a.index - b.index;
   });
 
-  return opts.limit !== undefined ? hits.slice(0, Math.max(0, opts.limit)) : hits;
+  const sorted = order.map((i) => hits[i] as FuzzyResult<T>);
+  return opts.limit !== undefined ? sorted.slice(0, Math.max(0, opts.limit)) : sorted;
 };

@@ -78,6 +78,9 @@ const _justifySpacing = (
       return { lead, gaps };
     }
 
+    // 'start' is a real documented value of `justify`; naming it keeps the
+    // switch exhaustive and greppable instead of hiding it behind `default`.
+    // biome-ignore lint/complexity/noUselessSwitchCase: documents a real API value
     case 'start':
     default:
       gaps[count - 1] = free; // all free space trails to the right

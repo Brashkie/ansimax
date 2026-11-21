@@ -785,7 +785,10 @@ const EMOJI_RE = /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{1F300}-\u{1F9FF}]/u;
 // original ranges include; preserving byte-exact behavior matters more than
 // satisfying the linter's heuristic.
 //
-// eslint-disable-next-line no-misleading-character-class
+// This class matches ONLY combining marks and zero-width controls, which is
+// exactly the intent: each must contribute 0 columns on its own. There is no
+// base character in the set for them to be wrongly combined with.
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: only combining marks, by design
 const COMBINING_RE = /^[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u05BF\u05C1-\u05C2\u05C4-\u05C5\u05C7\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06E8\u06EA-\u06ED\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFE00-\uFE0F\uFEFF]/u;
 
 // Variation selectors and zero-width joiner
@@ -866,6 +869,15 @@ export const graphemes = function* (str: string): Generator<string, void, unknow
 // grapheme, so such a string's visible width is simply its length. Proving
 // that with a charCode scan costs a fraction of what ICU grapheme
 // segmentation does, and it is the overwhelmingly common case.
+//
+// v1.9.5 tried replacing the stripAnsi-then-rescan pair below with a single
+// pass that skipped escapes in place via ANSI_RE_STICKY, on the theory that
+// avoiding the allocated copy would win. It measured 0.7x — SLOWER. A coloured
+// 1 KB line holds ~500 escape sequences, so that pass costs ~500 regex exec
+// calls from JS, while `str.replace(ANSI_RE, '')` does the whole thing in one
+// native call. Keeping the two-step version; don't retry this without a
+// fundamentally cheaper scanner (e.g. charCode-only escape skipping with no
+// regex at all).
 const asciiOnlyWidth = (s: string): number => {
   for (let i = 0; i < s.length; i++) {
     const code = s.charCodeAt(i);

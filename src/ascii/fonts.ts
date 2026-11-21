@@ -219,7 +219,7 @@ const fontCellWidth = (fontMap: FontMap): number => {
   /* istanbul ignore next — `??` fallbacks fire only for malformed fonts */
   const sample = fontMap[' '] ?? fontMap['?'] ?? Object.values(fontMap)[0];
   /* istanbul ignore next — defensive: built-in fonts have at least ' ' or '?' */
-  if (!sample || !sample.length) return 1;
+  if (!sample?.length) return 1;
   /* istanbul ignore next — `?? ''` and `|| 1` fallbacks for malformed glyph */
   return (sample[0] ?? '').length || 1;
 };

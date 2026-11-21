@@ -170,3 +170,68 @@ describe('fuzzySearch (v1.7.2)', () => {
     expect(fuzzySearch('comit', cmds, { limit: 0 })).toHaveLength(0);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.9.5 — hoisted pattern table
+//
+//  fuzzySearch now builds the pattern's Myers bitmask once instead of once
+//  per candidate, and carries each candidate's length for the comparator
+//  rather than re-deriving it on every comparison. Results must be identical;
+//  these pin the paths the hoisted helper can take.
+// ─────────────────────────────────────────────
+describe('fuzzySearch hoisted pattern table (v1.9.5)', () => {
+  const pool = ['commit', 'comit', 'commits', 'command', 'config', '', 'x'.repeat(50)];
+
+  it('matches the per-call distance exactly', () => {
+    for (const candidate of pool) {
+      const viaSearch = fuzzySearch('commit', [candidate], { maxErrors: 10 });
+      const direct = fuzzyDistance('commit', candidate);
+      if (viaSearch.length > 0) expect(viaSearch[0]!.distance).toBe(direct);
+    }
+  });
+
+  it('handles an empty pattern (distance 0 for everything)', () => {
+    const hits = fuzzySearch('', pool);
+    expect(hits).toHaveLength(pool.length);
+    expect(hits.every((h) => h.distance === 0 && h.score === 1)).toBe(true);
+  });
+
+  it('handles empty candidates', () => {
+    const hits = fuzzySearch('ab', ['', 'ab'], { maxErrors: 2 });
+    expect(hits.map((h) => h.value)).toEqual(['ab', '']);
+    expect(hits[1]!.distance).toBe(2); // empty text → m insertions
+  });
+
+  it('handles a pattern longer than the 32-bit register (DP fallback)', () => {
+    const long = 'a'.repeat(40);
+    const hits = fuzzySearch(long, [long, `${long}b`, 'nope'], { maxErrors: 1 });
+    expect(hits.map((h) => h.value)).toEqual([long, `${long}b`]);
+    expect(hits[0]!.distance).toBe(0);
+  });
+
+  it('keeps the documented ordering: distance, then length, then input order', () => {
+    // Search is end-free, so 'commit' occurs exactly inside 'commits' —
+    // distance 0 for both, and the shorter candidate wins the tie.
+    const hits = fuzzySearch('commit', ['commits', 'commit', 'comit'], { maxErrors: 2 });
+    expect(hits.map((h) => h.value)).toEqual(['commit', 'commits', 'comit']);
+    expect(hits.map((h) => h.distance)).toEqual([0, 0, 1]);
+  });
+
+  it('breaks a length tie by input order', () => {
+    const hits = fuzzySearch('ab', ['xab', 'yab', 'zab'], { maxErrors: 0 });
+    expect(hits.map((h) => h.value)).toEqual(['xab', 'yab', 'zab']);
+  });
+
+  it('orders identically when a key() accessor is used', () => {
+    const objs = [{ n: 'commits' }, { n: 'commit' }, { n: 'comit' }];
+    const hits = fuzzySearch('commit', objs, { key: (o) => o.n, maxErrors: 2 });
+    expect(hits.map((h) => h.value.n)).toEqual(['commit', 'commits', 'comit']);
+  });
+
+  it('respects limit and caseSensitive unchanged', () => {
+    expect(fuzzySearch('commit', pool, { limit: 2 })).toHaveLength(2);
+    expect(fuzzySearch('COMMIT', ['commit'], { caseSensitive: true, maxErrors: 0 })).toHaveLength(0);
+    expect(fuzzySearch('COMMIT', ['commit'], { caseSensitive: false, maxErrors: 0 })).toHaveLength(1);
+    expect(fuzzySearch('commit', pool, { limit: 0 })).toHaveLength(0);
+  });
+});

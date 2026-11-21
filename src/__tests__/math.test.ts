@@ -295,3 +295,40 @@ describe('gaussian (v1.6.2)', () => {
     expect(gaussian(1, 0, 0)).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.9.5 — non-finite guards
+//
+//  gcd's Euclid loop could not terminate on NaN or Infinity: `NaN % NaN` is
+//  `NaN` and `NaN !== 0` is always true, so `while (y !== 0)` spun forever and
+//  hung the process rather than throwing. Both values are ordinary `number`s,
+//  so a miscomputed figure reached it with perfectly valid types.
+// ─────────────────────────────────────────────
+describe('gcd / lcm non-finite guards (v1.9.5)', () => {
+  it('returns 0 instead of hanging on NaN', () => {
+    expect(gcd(Number.NaN, 5)).toBe(0);
+    expect(gcd(5, Number.NaN)).toBe(0);
+    expect(gcd(Number.NaN, Number.NaN)).toBe(0);
+  });
+
+  it('returns 0 instead of hanging on Infinity', () => {
+    expect(gcd(Number.POSITIVE_INFINITY, 5)).toBe(0);
+    expect(gcd(5, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(gcd(Number.NEGATIVE_INFINITY, 5)).toBe(0);
+    expect(gcd(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY)).toBe(0);
+  });
+
+  it('propagates the guard through lcm', () => {
+    expect(lcm(Number.NaN, 5)).toBe(0);
+    expect(lcm(5, Number.POSITIVE_INFINITY)).toBe(0);
+  });
+
+  it('still computes finite cases exactly as before', () => {
+    expect(gcd(12, 8)).toBe(4);
+    expect(gcd(17, 5)).toBe(1);
+    expect(gcd(0, 0)).toBe(0);
+    expect(gcd(-12, 8)).toBe(4);
+    expect(lcm(4, 6)).toBe(12);
+    expect(lcm(3, 0)).toBe(0);
+  });
+});

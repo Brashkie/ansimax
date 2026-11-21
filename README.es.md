@@ -12,7 +12,7 @@ _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3364%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3382%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,364 tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,382 tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -1052,7 +1052,7 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr los 3,364 tests
+npm test              # Correr los 3,382 tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
@@ -1065,7 +1065,7 @@ Cobertura (a v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Tests totales** | **3,364** |
+| **Tests totales** | **3,382** |
 | **Test suites** | 35 |
 | **Matrix CI** | Node 18, 20, 22 |
 | **Plataformas probadas** | Linux, macOS, Windows |
@@ -1168,12 +1168,36 @@ ansimax/
 │   ├── utils/          Primitivas ANSI + helpers
 │   └── configure.ts    Config global + subscribers
 ├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          35 test suites, 3,364 tests
+└── __tests__/          35 test suites, 3,382 tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.9.5 — Dos cuelgues corregidos, lint limpio, `fuzzySearch` 2.7x
+
+Corrección de bugs, limpieza y optimización. Sin cambios de API; 3.382 tests
+verdes y `biome ci` en **cero warnings** por primera vez.
+
+- 🐛 **`gcd`/`lcm` colgaban el proceso** con `NaN` o `Infinity` — el bucle de
+  Euclides no puede terminar porque `NaN % NaN` es `NaN` y `NaN !== 0` siempre
+  es verdadero. No lanzaba, se quedaba girando. Y no hace falta abusar de los
+  tipos: ambos son `number` normales, así que un valor mal calculado llegaba
+  con tipos válidos. Ahora devuelve `0`.
+- 🐛 **`createScreenBuffer` crasheaba o se quedaba sin memoria** —
+  `Math.max(0, NaN)` es `NaN`, así que `new Array(NaN)` lanzaba, y
+  `createScreenBuffer(1e9, 1)` allocaba hasta matar el proceso. Las dimensiones
+  no finitas ahora son `0`, y un tamaño absurdo lanza un
+  `ANSIMAX_BUFFER_TOO_LARGE` legible.
+- ⚡ **`fuzzySearch` 2.7x más rápido**, resultados idénticos — el bitmask de
+  Myers se reconstruía por cada candidato (20.000 `Map` idénticos por búsqueda)
+  y el comparador re-ejecutaba `key()` en cada comparación.
+- 🧹 **41 warnings de lint → 0.** Se rechazó un autofix: reescribir
+  `slope > 0 ? slope : 0` como `Math.max(slope, 0)` **no** es equivalente
+  (`Math.max(NaN, 0)` es `NaN`) y habría añadido la misma clase de bug.
+
+Los dos bugs se encontraron haciendo fuzzing de la API pública, no leyéndola.
 
 ### v1.9.4 — Fast paths de ancho: `wrapAnsi` 168x más rápido
 
@@ -1201,7 +1225,7 @@ Ningún caso empeoró. Añade también `npm run bench`, un harness sin dependenc
 
 ### v1.9.3 — Decodificación de chunks + dispatcher de atajos
 
-Solo aditivo; nada existente cambió de comportamiento. 3,364 tests verdes.
+Solo aditivo; nada existente cambió de comportamiento. 3,382 tests verdes.
 
 - ⌨️ **`parseKeys` / `splitSequences`** — un solo evento `data` de stdin suele
   traer varias teclas; `parseKey` procesa exactamente una, así que un chunk
@@ -1225,7 +1249,7 @@ keys.handle(parseKeys('\x03')[0]);  // true
 ### v1.9.2 — Biome, releases por tag, trusted publishing
 
 Solo infraestructura — **no cambió código de runtime** y la API pública es
-idéntica. Los 3,364 tests siguen verdes.
+idéntica. Los 3,382 tests siguen verdes.
 
 - 🧹 **Biome reemplaza ESLint + Prettier** — una sola herramienta, seis dev
   deps menos, `npm run ci` en local y en CI; el lint ahora sí bloquea
@@ -2405,7 +2429,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3,364 tests en 35 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 3,382 tests en 35 suites, todos verdes, ~98% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

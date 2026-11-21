@@ -3,6 +3,118 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.5] — Two hangs fixed, lint clean, fuzzySearch 2.7x
+
+Bug fixes, cleanup and optimization. No API change; 3,382 tests green and
+`biome ci` reports zero warnings for the first time.
+
+### Fixed — `gcd`/`lcm` hung the process on non-finite input
+
+Euclid's loop could not terminate: `NaN % NaN` is `NaN` and `NaN !== 0` is
+always true, so `while (y !== 0)` spun forever. `Infinity` reached the same
+state on its first modulo (`Infinity % 5` is `NaN`). It did not throw — it
+**hung**, which is far worse to diagnose.
+
+This needed no type abuse to trigger. `NaN` and `Infinity` are ordinary
+`number`s, so a figure computed upstream — a division by zero, a failed parse,
+an unset terminal dimension — reached `gcd` with perfectly valid types and took
+the process down.
+
+```js
+gcd(NaN, 5)       // was: infinite loop      now: 0
+gcd(Infinity, 5)  // was: infinite loop      now: 0
+lcm(NaN, 5)       // was: infinite loop      now: 0
+```
+
+`0` matches the already-documented `gcd(0, 0)` result and keeps `lcm`
+returning `0`. Found by fuzzing the public API, not by inspection.
+
+### Fixed — `createScreenBuffer` crashed or ran out of memory
+
+`Math.max(0, Math.floor(width))` looks like it sanitizes the dimensions, but
+`Math.max(0, NaN)` is `NaN`, so `new Array(NaN)` threw a bare `RangeError`.
+Worse, a finite-but-absurd size passed every check and then allocated until
+the process died with an out-of-memory abort — no message worth reading.
+
+There was also an asymmetry: an invalid *height* silently degraded to zero
+rows, while an invalid *width* exploded.
+
+```js
+createScreenBuffer(NaN, 5)       // was: RangeError          now: width 0
+createScreenBuffer(Infinity, 5)  // was: RangeError          now: width 0
+createScreenBuffer(1e9, 1)       // was: OOM, process dies   now: RangeError
+```
+
+A non-finite dimension is now treated as `0`, matching what a negative one
+already did, and a size past 4,000,000 cells (~2000x2000, orders of magnitude
+beyond any real terminal) raises `ANSIMAX_BUFFER_TOO_LARGE` naming the size.
+`createScreenBuffer(2000, 2000)` still works.
+
+### Changed — `fuzzySearch` is 2.7x faster (identical results)
+
+Two pieces of repeated work, both outside the algorithm:
+
+- Myers' bitmask table (`peq`) depends only on the pattern, but it was rebuilt
+  inside every `_myers` call — so a 20,000-candidate search constructed the
+  identical `Map` 20,000 times. It is now built once per search.
+- The result comparator derived each candidate's length with
+  `key(value).length`, re-running the accessor on **every comparison**
+  (O(n log n) times) instead of once per candidate. Lengths are now carried
+  alongside the hits and the sort permutes an index array.
+
+```
+candidates          v1.9.4      v1.9.5   change
+100                  52.8 µs     20.4 µs   2.59x
+1,000               485.5 µs    171.7 µs   2.83x
+5,000              2552.3 µs    945.5 µs   2.70x
+20,000            12902.4 µs   5524.8 µs   2.34x
+5,000 with key()   3033.4 µs   1051.3 µs   2.89x
+```
+
+Verified identical across 4,932 comparisons against the v1.9.4 build — every
+combination of pattern, `caseSensitive`, `maxErrors`, `limit` and `key`.
+
+It remains linear, so it still misses the roadmap's "<1 ms per keystroke" at
+20k candidates. See below for why the planned fix does not apply.
+
+### Changed — lint is clean: 41 warnings to 0
+
+`biome ci` now passes with no warnings. Real cleanup was applied (unused
+imports and variables, `node:` protocol, optional chaining), and the genuine
+domain false positives are suppressed **in place** with the reason, rather than
+globally: the `COMBINING_RE` character class, the explicit `case 'start'` in
+`panels/flex.ts`, and the `Math.max` note below. Ambient Node declarations and
+test mocks get file-scoped overrides in `biome.json`.
+
+One autofix was **rejected**: Biome rewrote `slope > 0 ? slope : 0` as
+`Math.max(slope, 0)` in `loaders/meters.ts`. Those are not equivalent —
+`Math.max(NaN, 0)` is `NaN` while the ternary yields `0` — so accepting it
+would have introduced exactly the class of NaN bug this release fixes in
+`gcd`. The ternary stays, with a `biome-ignore` explaining why.
+
+### Not done, and why
+
+- **Trie + Levenshtein automaton for `fuzzySearch`** (long-standing roadmap
+  item): it does not apply to this matcher. `fuzzyDistance` is an *end-free*
+  search — `curr[0] = 0` makes starting a match at any position free, so it
+  finds the pattern *inside* a candidate. The automaton's pruning needs full
+  edit distance: with end-free matching any subtree may still contain an
+  occurrence further along, so a prefix's minimum row value never licenses
+  cutting it. Speeding this up requires a different structure (an n-gram or
+  character-bitmap prefilter), not a trie.
+- **Single-pass `visibleLen` for coloured text**: tried and reverted. The idea
+  was to skip escapes in place with the sticky matcher instead of allocating a
+  stripped copy. It measured **0.7x — slower**. A coloured 1 KB line holds
+  ~500 escape sequences, so the scan costs ~500 regex `exec` calls from JS,
+  while `str.replace(ANSI_RE, '')` does the whole job in one native call. The
+  reasoning is recorded in the source so it isn't retried blindly.
+
+### Added — more benchmark coverage
+
+`fuzzySearch/20k-candidates` joined the harness, and `bench/baseline.json` was
+re-recorded. `npm run bench -- --check` reports the 2.9x as an improvement
+rather than a regression.
+
 ## [1.9.4] — Width fast paths: wrapAnsi is 168x faster
 
 Pure optimization. **No API change and no behavioral change** — every width and

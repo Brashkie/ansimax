@@ -1628,7 +1628,6 @@ describe('createGradient: barrel export (v1.2.3)', () => {
 //  v1.2.4 — ReusableGradient metadata + reverseGradient
 // ─────────────────────────────────────────────
 import { reverseGradient } from '../colors/index.js';
-import type { ReusableGradient } from '../colors/index.js';
 
 describe('createGradient: metadata (v1.2.4)', () => {
   it('exposes original stops as readonly array', () => {

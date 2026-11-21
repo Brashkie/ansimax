@@ -1060,7 +1060,7 @@ describe('sleep — no listener leaks', () => {
   it('does not leak listener after multiple sleeps', async () => {
     jest.useFakeTimers();
     const ctrl = new AbortController();
-    const initialListeners = ctrl.signal.aborted ? 0 :
+    const _initialListeners = ctrl.signal.aborted ? 0 :
       // count abort listeners — typically zero before any sleep
       0;
 

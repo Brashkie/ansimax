@@ -318,7 +318,12 @@ const _parseListAt = (
     // Same indent: must match the outer list's ordering
     if (indent === baseIndent) {
       if (ordered !== isOrderedHere) break;
-      const rawText = ((o?.[3] ?? u?.[2]) as string).trim();
+      // Both regexes capture their text with `(.+)`, a required group, and the
+      // `!u && !o` guard above means one of them matched — so this is never
+      // undefined today. The `?? ''` replaces an `as string` assertion that
+      // merely silenced the compiler: if either pattern ever gains an optional
+      // group, this degrades to an empty item instead of throwing TypeError.
+      const rawText = (o?.[3] ?? u?.[2] ?? '').trim();
       items.push(_makeItem(rawText));
       i++;
       continue;
@@ -333,7 +338,7 @@ const _parseListAt = (
        defensive code for direct callers that may seed mid-list. */
     if (items.length === 0) {
       // Defensive: orphan indented item with no parent — treat as same-level
-      const rawText = ((o?.[3] ?? u?.[2]) as string).trim();
+      const rawText = (o?.[3] ?? u?.[2] ?? '').trim();
       items.push(_makeItem(rawText));
       i++;
       continue;

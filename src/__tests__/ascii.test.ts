@@ -510,7 +510,7 @@ describe('perCharColor preserves ANSI', () => {
     let calls = 0;
     const colorFn = (s: string): string => { calls++; return s; };
     // Use an empty colorFn so we can compare structure
-    const before = '\x1b[31mA\x1b[0m';
+    const _before = '\x1b[31mA\x1b[0m';
     const after = ascii.banner('A', { colorFn, perCharColor: true });
     // The ANSI codes from BLOCK font should be preserved
     expect(after.length).toBeGreaterThan(0);

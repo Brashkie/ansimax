@@ -1,7 +1,7 @@
 import {
   tree, renderTree, renderTreeStream, measureTree, walkTree, trees,
   findInTree, countNodes, mapTree, filterTree,
-  type TreeData, type TreeNode,
+  type TreeData, 
 } from '../trees/index.js';
 import { stripAnsi } from '../utils/helpers.js';
 import { color } from '../colors/index.js';

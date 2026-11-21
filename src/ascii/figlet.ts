@@ -90,7 +90,7 @@ export const figletText = (
   if (typeof text !== 'string') return '';
   // v1.2.7: empty text → empty output (was producing height-1 empty rows)
   if (text.length === 0) return '';
-  if (!font || !font.glyphs || font.height <= 0) return '';
+  if (!font?.glyphs || font.height <= 0) return '';
   const {
     trim = true,
     colorFn = null,

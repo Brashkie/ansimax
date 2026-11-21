@@ -22,7 +22,6 @@ import {
   termSize,
   sleep,
   cursor,
-  screen,
   write,
 } from '../dist/index.js';
 

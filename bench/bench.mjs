@@ -95,6 +95,7 @@ const candidates = (count) => {
   return list;
 };
 const pool1k = candidates(1000);
+const pool20k = candidates(20000);
 const queries = vary((i) => `modhandler${i % 4}`);
 
 // ── cases ────────────────────────────────────────────────
@@ -123,6 +124,7 @@ const cases = [
 
   // Fuzzy search — linear scan today; this is the case the trie should fix.
   ['fuzzySearch/1k-candidates', (q) => lib.fuzzySearch(q, pool1k, { limit: 10 }).length, queries, 500],
+  ['fuzzySearch/20k-candidates', (q) => lib.fuzzySearch(q, pool20k, { limit: 10 }).length, queries, 60],
 ];
 
 // ── run ──────────────────────────────────────────────────

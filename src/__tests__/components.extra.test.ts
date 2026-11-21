@@ -239,7 +239,7 @@ describe('status ?? fallback', () => {
 //  menu — injected I/O
 // ─────────────────────────────────────────────
 describe('menu with injected I/O', () => {
-  const { EventEmitter } = require('events');
+  const { EventEmitter } = require('node:events');
 
   const ENTER  = '\r';
   const UP     = '\x1b[A';
@@ -467,7 +467,7 @@ describe('columns — numCols < 1 clamps to default (defensive)', () => {
 });
 
 describe('menu — default process.stdin/stdout branches', () => {
-  const { EventEmitter } = require('events');
+  const { EventEmitter } = require('node:events');
   const origIsTTY = process.stdin.isTTY;
 
   afterEach(() => {
@@ -577,7 +577,7 @@ describe('columns — remaining branches', () => {
 });
 
 describe('menu — remaining input branches', () => {
-  const { EventEmitter } = require('events');
+  const { EventEmitter } = require('node:events');
 
   let fakeInput: any;
   let outputStr: string;

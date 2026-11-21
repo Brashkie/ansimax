@@ -12,7 +12,6 @@
 // ─────────────────────────────────────────────
 
 import {
-  ascii,
   themes,
   loader,
   components,

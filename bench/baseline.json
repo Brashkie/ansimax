@@ -1,25 +1,26 @@
 {
   "meta": {
-    "version": "1.9.4",
+    "version": "1.9.5",
     "node": "v22.23.4",
     "platform": "linux-x64",
-    "date": "2026-11-20T23:42:51.274Z"
+    "date": "2026-11-21T23:11:17.544Z"
   },
   "results": {
-    "visibleLen/ascii-word": 0.0616,
-    "visibleLen/ascii-1kb": 3.0083,
-    "visibleLen/colored-1kb": 74.9525,
-    "visibleLen/colored-cell": 0.0322,
-    "visibleLen/cjk": 45.1995,
-    "visibleLen/emoji": 50.3332,
-    "charWidth/ascii": 0.0374,
-    "wrapAnsi/1kb-80": 12.4241,
-    "wrapAnsi/colored-1kb-80": 104.8835,
-    "balancedWrap/1kb-80": 30.1145,
-    "color/hex": 0.0536,
-    "gradient/80-chars": 10.3518,
-    "stripAnsi/colored-1kb": 66.0584,
-    "renderFrame/80x24-1-edit": 1.9094,
-    "fuzzySearch/1k-candidates": 713.5509
+    "visibleLen/ascii-word": 0.0653,
+    "visibleLen/ascii-1kb": 2.0217,
+    "visibleLen/colored-1kb": 49.9281,
+    "visibleLen/colored-cell": 0.0229,
+    "visibleLen/cjk": 37.4795,
+    "visibleLen/emoji": 44.6309,
+    "charWidth/ascii": 0.0367,
+    "wrapAnsi/1kb-80": 10.915,
+    "wrapAnsi/colored-1kb-80": 75.3393,
+    "balancedWrap/1kb-80": 28.5974,
+    "color/hex": 0.0431,
+    "gradient/80-chars": 8.1266,
+    "stripAnsi/colored-1kb": 45.0198,
+    "renderFrame/80x24-1-edit": 1.6163,
+    "fuzzySearch/1k-candidates": 227.6561,
+    "fuzzySearch/20k-candidates": 4535.5092
   }
 }

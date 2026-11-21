@@ -153,15 +153,31 @@ export const wrap = (value: number, min: number, max: number): number => {
  * Greatest common divisor (Euclid's algorithm). Operates on the absolute
  * values, so sign is ignored. `gcd(0, 0)` is `0`.
  *
+ * Non-finite arguments return `0` rather than spinning: see the note in the
+ * body. `Infinity` and `NaN` are ordinary `number`s, so a value computed
+ * upstream (a division by zero, a failed parse) can reach here legitimately.
+ *
  * @example
  * ```ts
- * gcd(12, 8)   // → 4
- * gcd(17, 5)   // → 1
+ * gcd(12, 8)        // → 4
+ * gcd(17, 5)        // → 1
+ * gcd(NaN, 5)       // → 0
+ * gcd(Infinity, 5)  // → 0
  * ```
  */
 export const gcd = (a: number, b: number): number => {
-  let x = Math.abs(Math.trunc(a));
-  let y = Math.abs(Math.trunc(b));
+  const x0 = Math.abs(Math.trunc(a));
+  const y0 = Math.abs(Math.trunc(b));
+
+  // Euclid's loop cannot terminate on non-finite input: `NaN % NaN` is `NaN`
+  // and `NaN !== 0` is always true, so `while (y !== 0)` spins forever —
+  // hanging the process instead of throwing. Infinity reaches the same state
+  // on its first modulo (`Infinity % 5` is `NaN`). Bail out first; 0 matches
+  // the documented `gcd(0, 0)` result and keeps `lcm` returning 0 too.
+  if (!Number.isFinite(x0) || !Number.isFinite(y0)) return 0;
+
+  let x = x0;
+  let y = y0;
   while (y !== 0) {
     [x, y] = [y, x % y];
   }

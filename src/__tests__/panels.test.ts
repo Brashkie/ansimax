@@ -455,7 +455,7 @@ describe('panels.frame: titleAlign (v1.3.3)', () => {
 //  v1.3.6 — Branch coverage gaps
 // ─────────────────────────────────────────────
 
-import { vsplit as vs, hsplit as hs, frame as fr, grid as gr } from '../panels/index.js';
+import { vsplit as vs, frame as fr, grid as gr } from '../panels/index.js';
 
 describe('panels — branch coverage (v1.3.6)', () => {
   it('vsplit uses default gap=1 when omitted (line 177)', () => {

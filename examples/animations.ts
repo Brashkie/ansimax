@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import {
-  color, gradient, rainbow,
+  color, rainbow,
   animate,
   ascii,
   sleep, write, writeln, screen,

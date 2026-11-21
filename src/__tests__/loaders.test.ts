@@ -741,7 +741,7 @@ describe('cursor ownership', () => {
     const stop3 = loader.spin('c');
 
     // Capture state before any stop
-    const beforeStops = output;
+    const _beforeStops = output;
     output = '';
 
     stop1();
@@ -785,7 +785,7 @@ describe('drift correction', () => {
   it('spin frame index advances with elapsed time', () => {
     const stop = loader.spin('test', { type: 'line', interval: 100 });
     // Initial render
-    const firstOutput = output;
+    const _firstOutput = output;
     output = '';
     // Advance 350ms — should be on frame 3 (350/100 = 3)
     jest.advanceTimersByTime(350);
