@@ -3,6 +3,456 @@
 All notable changes to **ansimax** are documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — Phases 10, 11 and 12 complete, fuzzy prefilter
+
+Minor release, and by a wide margin the largest so far: **Phases 10, 11 and 12
+are all closed**. Six new modules (`qr`, `barcode`, `sixel`, `deflate`,
+`prompts`, plus PNG and JPEG under `images`), seven chart types, eight
+interactive controls, a compression layer written from scratch, and a crash
+fixed in every chart that existed. No breaking changes, nothing removed.
+4,020 tests green across 44 suites, `biome ci` at zero warnings, and **100%
+statement, line and function coverage** across the whole library.
+
+Everything in Phase 12 was checked against an outside implementation before it
+was believed — the table under "Verification" at the end of this entry says
+how each one.
+
+Phase 11 carries two design rules of its own, both about *not* taking over the
+host program:
+
+- **The library never calls `process.exit()`.** Ctrl+C resolves the
+  `PROMPT_CANCELLED` sentinel, so a caller can roll back, ask again, or exit —
+  its choice. A library that exits on Ctrl+C makes that decision for every
+  program that imports it, including the ones running inside a build.
+- **I/O is injected, never reached for.** Every prompt takes `input` and
+  `output`. That is what makes the whole module testable without a terminal
+  — all 187 prompt tests drive a fake stdin — and what lets a prompt run over
+  a socket or a pty instead of `process.stdin`.
+
+### Added — Phase 12, closed (`src/barcode`, `src/sixel`, `src/deflate`, `src/images/{png,jpeg,protocols}.ts`)
+
+```js
+import {
+  encodeCode128, encodeEAN13, renderBarcode, ean13CheckDigit,
+  encodeSixel, encodeSixelDetailed, medianCutPalette, createPaletteMapper,
+  decodePNG, encodePNG, decodeJPEG,
+  encodeKittyImage, encodeITerm2Image, base64Encode,
+  deflate, deflateRaw, inflate, inflateRaw, crc32, adler32,
+} from 'ansimax';
+```
+
+| Area | What landed |
+| --- | --- |
+| **Bar codes** | `encodeCode128` — all three code sets with automatic switching and shifts, `FNC1`–`FNC4`, mod-103 checksum. `encodeEAN13` — the first digit carried in the left-half parity pattern, check digit computed or verified. `renderBarcode` for both. |
+| **Sixel** | `encodeSixel` / `encodeSixelDetailed` — palette by median cut in Oklab or supplied (so an animation shares one), optional error-diffusion mapping, transparency, RLE, one pass per colour per six-row band. |
+| **PNG** | `decodePNG` — colour types 0/2/3/4/6, bit depths 1/2/4/8/16, `tRNS` in all three forms, Adam7 interlacing, all five scanline filters. `encodePNG` — 8-bit RGB/RGBA with per-row adaptive filtering. |
+| **JPEG** | `decodeJPEG` — baseline sequential, any sampling factors, multiple tables, restart intervals, greyscale / YCbCr / CMYK / YCCK, with interpolated chroma upsampling. Progressive is refused **by name** rather than decoded wrong. |
+| **Vendor protocols** | `encodeKittyImage` (raw RGB/RGBA or PNG, 4096-byte base64 chunking, `m=1`/`m=0` continuation) and `encodeITerm2Image` (OSC 1337, optional tmux passthrough). Still **opt-in**: `renderImageAuto` never emits one. |
+| **Compression** | `deflate` / `inflate` / `deflateRaw` / `inflateRaw` / `crc32` / `adler32` — RFC 1950 and 1951, written out because PNG needs them and an import of `node:zlib` would tie every consumer of the image code to a Node-shaped runtime. |
+| **Palettes** | `medianCutPalette` (Heckbert's median cut, splits in Oklab, cut at the pixel-weighted median) and `createPaletteMapper` (palette precomputed once, memoized by colour). |
+
+Four things worth recording, because each one was a wrong first answer that
+only measuring exposed:
+
+- **DEFLATE needs dynamic Huffman, and then it needs block splitting.** With
+  fixed Huffman only, a 64×64 gradient's scanlines came out *larger* than the
+  input (12,363 bytes from 12,352) — a gradient's channel values are a handful
+  of multiples and fixed codes spend 8 or 9 bits on each regardless. Dynamic
+  tables fixed that case; then a 256×256 one still fell back to stored where
+  zlib compressed 5%, and the reason turned out to be **block boundaries**,
+  not Huffman: one set of tables over a whole image averages statistics that
+  are locally very skewed. The encoder now cuts every 2 KB and merges adjacent
+  blocks while merging measurably costs fewer bits, which lets text settle
+  into one block and an image stay fine-grained. Result: at or better than
+  zlib level 6 on every corpus entry (0.92x–1.00x of its output size).
+- **JPEG chroma must be interpolated, not repeated.** Replication averaged
+  21.0 levels of error per channel against libjpeg on 4:2:0 and 13.3 on 4:2:2.
+  Sampling at pixel centres — output `x` at source `(x + 0.5) / shift - 0.5` —
+  reproduces libjpeg's "fancy upsampling" weights of 3/4 and 1/4 as a
+  consequence of the geometry, and takes those errors to **0.73 and 0.58**. At
+  4:4:4, where no upsampling happens, the error is **0.02**.
+- **A Sixel palette has to be snapped to the format's grid before mapping.**
+  Sixel states colour registers as percentages, so a terminal shows 101 levels
+  per channel. Mapping against unsnapped palette entries stacked the mapping
+  error on top of the percent rounding and made the reported palette a thing
+  that never appears on screen.
+- **`Number.isFinite` beats a hand-rolled finiteness test by 1.30x.** The
+  `v === v && v !== Infinity && v !== -Infinity` form looks cheaper and is
+  slower; V8 lowers the builtin to a single check. Recorded in `minMax` so it
+  is not "optimized" back.
+
+### Added — seven chart types, Phase 10 complete (`src/charts/plots.ts`)
+
+Every one is a pure function from data to a string: no I/O, no terminal
+queries, no dependencies.
+
+```js
+import {
+  barChart, areaChart, heatmap, pieChart, scatterPlot,
+  boxPlot, boxStats, candlestick, createStreamChart, composePlots,
+} from 'ansimax';
+```
+
+| Function | What it does |
+| --- | --- |
+| `barChart` | Vertical or horizontal, grouped or stacked. Eighth-block sub-cell precision, centred labels, legend. |
+| `areaChart` | Filled to the curve, resampled to any width, row fraction passed to `colorFn`. |
+| `heatmap` | Any 2D grid — ragged rows and holes allowed. Custom ramp, row labels, cell fraction passed to `colorFn`. |
+| `pieChart` | Wedges by `atan2` clockwise from 12 o'clock, horizontal distance divided by the cell aspect ratio so the circle reads round. `donut: true` hollows the middle. |
+| `scatterPlot` | Braille canvas at 2×4 sub-cells, so one cell carries up to 8 points. Optional plain marker. |
+| `boxPlot` / `boxStats` | Five-number summary with interpolated quartiles; whisker–box–median glyphs. |
+| `candlestick` | Body between open and close, wick to the extremes, doji rule, separate up/down colour hooks. |
+| `createStreamChart` | Bounded rolling window; `push`/`pushAll`/`clear` chain. Auto-scales to the window or honours a pinned scale. |
+| `composePlots` | Panels into a grid with titles, padded to a common width with ANSI discounted when measuring. |
+
+Three design decisions worth recording, because the first draft got each wrong
+and rendering the output is what exposed it:
+
+- **Stacked series are shaded, not all solid.** Without a `colorFn` every
+  series drew `█`, so a stacked bar was one indistinguishable block. Series
+  now cycle `█▓▒░▚▞`; supplying a `colorFn` restores solid blocks.
+- **A constant series is centred, not floored.** A flat series widened its
+  band upwards, which put every sample at the bottom and rendered an empty
+  canvas — identical to having no data. With neither bound pinned the band is
+  now centred; with one pinned, it widens away from it, so `min: 0` still
+  means "the floor is zero".
+- **Braille bottom-row bits are 6 and 7**, not 3 and 7. The naive mapping
+  silently plots the bottom row of every cell in the wrong place.
+
+### Added — `minMax` (`src/utils/math.ts`)
+
+Smallest and largest finite value in one pass, allocating nothing.
+
+```js
+import { minMax } from 'ansimax';
+
+minMax([3, -1, 7, Number.NaN]); // [-1, 7]  (non-finite entries skipped)
+minMax([]);                     // [0, 0]
+```
+
+### Fixed — every chart crashed on a large series
+
+`Math.min(...values)` passes one argument per element, so a series past a few
+hundred thousand samples threw `RangeError: Maximum call stack size exceeded`
+instead of returning a number. `areaChart`, `heatmap`, `sparkline`,
+`lineChart` and `histogram` all took their scale that way. They now use
+`minMax` and render a million samples. Six regression tests pin this at
+400k–1M samples.
+
+### Performance
+
+- **`heatmap` 1.66x** (66.7 → 40.2 µs for a 40×20 grid) — each ramp step is
+  widened to the cell width once instead of calling `repeat` per cell: 800
+  allocations become 8.
+- Taking the extent in one pass also removes the `filter` copy and the two
+  spread walks every chart did over its whole series.
+
+A measurement that went the other way, recorded in the source so it is not
+retried: the hand-rolled `v === v && v !== Infinity && v !== -Infinity`
+finiteness test inside `minMax` is **1.30x slower** than plain
+`Number.isFinite(v)`, which V8 lowers to a single check.
+
+### Added — QR code generation (Phase 12)
+
+The Reed–Solomon layer from v1.7.5 finally has the symbol built on top of it.
+`src/qr` is a complete encoder — still zero dependencies.
+
+```js
+import { encodeQR, renderQR, qrCapacity } from 'ansimax';
+
+console.log(renderQR('https://npmjs.com/package/ansimax'));
+
+const qr = encodeQR('hello', { level: 'H' });
+qr.version;  // → 1
+qr.size;     // → 21   (version * 4 + 17)
+qr.mask;     // → the lowest-penalty mask of the eight
+
+qrCapacity(10, 'L', 'byte');  // → 271 bytes
+```
+
+What is implemented: all 40 versions and all four error-correction levels;
+numeric, alphanumeric and UTF-8 byte modes with automatic selection; block
+splitting with interleaving; finder, separator, timing and alignment patterns;
+format information (BCH 15,5) and version information (BCH 18,6); zigzag data
+placement; and all eight mask patterns scored by the standard's four penalty
+rules.
+
+`renderQR` packs two module rows into each character cell with half-blocks, so
+a symbol is **half as tall as it is wide** in the terminal. It draws the light
+modules by default, which is what a dark terminal needs — the background then
+supplies the dark ones. Pass `invert: true` on a light background.
+
+**How this was verified.** Correctness here is not something tests of my own
+design can establish, so two independent external checks were used while
+building it:
+
+- Every symbol was rendered to a bitmap and read back by a real QR decoder
+  (jsQR): 67 payloads across all four levels decoded to exactly the input,
+  including UTF-8, emoji, 500-character strings and numeric-only data.
+- Each matrix was compared **module by module** against a reference encoder
+  with the mask forced on both sides: 504 of 536 identical. The 32 that differ
+  are one input where the reference splits the text into mixed-mode segments
+  while this encoder uses a single mode — a compaction difference, not an
+  encoding error, and both decode correctly.
+- `qrCapacity` was checked against the reference for every version, level and
+  mode: **480/480 identical**.
+
+Two of the 320 hand-written table entries were wrong (`ECC_PER_BLOCK.L[35]`
+and `NUM_BLOCKS.H[8]`) and were caught by that comparison, which is why
+nothing in the tables is trusted without an external check.
+
+### Added — Phase 11, closed (`src/prompts`)
+
+```js
+import {
+  textPrompt, passwordPrompt, numberPrompt, confirmPrompt,
+  datePrompt, filePrompt, formPrompt, wizardPrompt,
+  passwordStrength, formatISODate, formatTime,
+  PROMPT_CANCELLED, PROMPT_BACK, wasCancelled, wasBack, runSession,
+} from 'ansimax';
+```
+
+| Area | What landed |
+| --- | --- |
+| **Session core** | `runSession` — raw mode, the `parseKeys` listener, wrap-aware line counting (a line wider than the terminal occupies several rows, and erasing one row per line would leave the overflow on screen), idempotent teardown, SIGINT/SIGTERM/exit handlers that restore the cursor, and a non-TTY fallback. One place a terminal can be left without its cursor, and one place that fixes it. |
+| **Text** | `textPrompt` — a line editor over **code points**, so an emoji deletes as one character. Shell keys (`←`/`→`, Home/End, Ctrl+A/E/U/K/W), `placeholder`, `history` on the arrows, and fuzzy autocomplete through the v1.7.2 engine with Tab to accept. |
+| **Password** | `passwordPrompt` — configurable `mask` (empty hides the length), optional `confirm` round requiring a match, live strength meter. `passwordStrength` is a pure function: `log2(pool) · min(length, distinct · 2)`, bucketed at 24/40/60/90 bits. |
+| **Confirm** | `confirmPrompt` — arrows/Tab/Space to switch sides, `y`/`n` or the first letter of custom labels as immediate answers, and `deliberate: true` to drop the shortcuts for anything destructive. |
+| **Number** | `numberPrompt` — `min`/`max`/`step`/`integer`/`nudge`, arrows to nudge, and characters a number cannot contain refused at the keystroke rather than at submit. |
+| **Date / time** | `datePrompt` — a month grid, arrows for days and weeks, PageUp/PageDown for months, Shift for years, `t` for today, `weekStart`, localizable names, and `time: true` for a clock on Tab. `formatISODate` and `formatTime` exported alongside. |
+| **File** | `filePrompt` — an **injectable** directory lister, so what is browsed need not be a filesystem; `node:fs` is a lazy fallback inside a try/catch. Fuzzy filter as you type, directories first, human sizes, `directories: true`, and a file `filter` that never hides the way through the tree. |
+| **Forms** | `formPrompt` — a discriminated union over the six field types, answers keyed by `name`, `when` predicates for conditional fields, per-field validation, and a `✔ label value` summary line with passwords masked. |
+| **Wizards** | `wizardPrompt` — titled steps with their own `when`, answers accumulating across steps, a progress bar, and **Shift+Tab to step back** (resolved as the `PROMPT_BACK` sentinel by the session core, so no individual prompt knows about it). |
+
+Four things in here were wrong first and only fixed because the output was
+*looked at* or the arithmetic was *run*, not reasoned about:
+
+- **Autocomplete was far too permissive.** The fuzzy matcher is end-free
+  (`curr[0] = 0`), so it finds the pattern *inside* a candidate — which is the
+  behaviour you want, but it means an error budget of 2 on a 3-character query
+  matches almost anything. `"fea"` matched `"develop"` through `vel`, by two
+  substitutions. The budget now scales with the query:
+  `min(2, floor(length / 4))`. A 3-character query is exact, `comit` still
+  finds `commit`.
+- **`Number('')` is `0`, not `NaN`.** So pressing Up on an empty numeric field
+  with `min: 1024` nudged from zero to `step`, got clamped up to 1024, and
+  left the user one keypress short of where they expected. An empty field now
+  lands *on* the minimum.
+- **The file picker's `..` entry fought the filter.** With a query active,
+  `..` sat at the top of the list unmatched *and* selected, so typing a filter
+  and pressing Enter went **up a level** instead of into what was found. `..`
+  is now dropped while a query is active.
+- **A filesystem root was its own parent.** `/` is its own last separator, so
+  the parent of `/` came back as `/`: the listing offered `..` at the root and
+  following it reloaded `/` for ever. Roots — `/`, `C:`, `C:\` — now report no
+  parent at all. Found by running the documented example, not by reading the
+  function.
+
+### Changed — scatter plots and dead code
+
+- `src/charts/plots.ts` — `scatterPlot` now **drops** a point outside a
+  pinned window instead of clamping it to the edge. Both the marker path and
+  the Braille path took `Math.min(width - 1, ...)`, which meant a point to the
+  right of `xMax` was drawn *on* the right edge and a point below `yMin` on the
+  bottom row: a mark where there is no sample, which reads as data. Points to
+  the left or above were already dropped, so the behaviour was not even
+  symmetric. A point sitting exactly on a bound is still drawn — the window is
+  inclusive at both ends.
+- `src/charts/plots.ts` — `pieChart`'s last slice boundary is now
+  `+Infinity`. The slice fractions are floats and do not always sum to 1 (six
+  equal slices reach 0.9999999999999999), which left a sliver of the circle
+  past the last boundary and needed a fallback to patch it. Opening the last
+  boundary makes every angle land in a slice by construction.
+- `src/prompts/file.ts` — `separator` now defaults to the **platform's** when
+  the built-in `node:fs` lister is in use, so a Windows user no longer reads
+  `C:\Users\me/Documents/notes.txt`. With a custom `readDir` it still
+  defaults to `/`, because a tree that is not a filesystem — an archive, a
+  bucket — has its own convention. An explicit `separator` wins over both.
+- `src/prompts/file.ts` — a filesystem or drive root now reports **no**
+  parent. `/` is its own last separator, so `parentPath('/')` came back as
+  `/`: the listing offered `..` at the root and following it reloaded `/` for
+  ever. A name ending in `:` is treated as a top too, so a Windows navigator
+  no longer offers `..` from `C:\` and land in the process cwd.
+- `src/deflate/index.ts` — removed two pieces of dead code: a `get offset()`
+  with no callers anywhere, and a zlib header correction term that could never
+  fire. RFC 1950 wants `CMF * 256 + FLG` to be a multiple of 31, and `0x7801`
+  is `31 * 991` exactly, so there was no correction to apply — and none left
+  to get wrong.
+
+### Changed — coverage
+
+Statement, line and function coverage are now **100%** across the library,
+up from ~98%. Getting there
+turned up the three behaviour bugs above; the rest of the work was reaching
+error paths that need malformed input, which is worth recording because the
+inputs are not obvious:
+
+| path | how it is reached |
+| --- | --- |
+| DEFLATE's seven decoder errors | byte sequences recorded from a 60,000-case fuzz over random short inputs, each kept in the test with the error it causes |
+| `distance symbol is out of range` | no fuzz reaches it — the fixed table holds exactly the 30 legal distance codes, so the test **builds** a dynamic block whose HDIST declares 32 and then uses symbol 30 |
+| JPEG's `ZRL` (sixteen zero coefficients) | no file libjpeg produces reaches it: a run of sixteen zeros needs a block holding the DC term plus one coefficient past zigzag 16, and the integer DCT spreads even a perfect checkerboard across enough coefficients that the longest run over eight candidate images was nine. The test writes a JPEG byte by byte with a three-symbol AC table |
+| JPEG's `a run points past the block` | same hand-built file, with run-15/size-1 added to the table: three ZRLs reach coefficient 49, then fifteen more point at 64 |
+| JPEG's `0xFF` with nothing after it | the same file truncated so the scan's last byte is a lone `0xFF` |
+| PNG's five malformed-file errors | files assembled chunk by chunk rather than patched — a patched file needs its CRC recomputed anyway, and building it states what is wrong instead of hiding it in an offset |
+| the `node:fs` fallback in `filePrompt` | a real temp directory, since the point of that path is that it is the one place the module touches a filesystem |
+
+Four `/* istanbul ignore */` markers were **removed** as wrong and replaced
+with real tests, and six were added where a guard is genuinely unreachable
+from its callers — each naming the caller that makes it so, rather than
+saying "defensive". The removed ones are listed under the session core below;
+the two in `deflate`'s `tokenCost` are the clearest of the added ones: both
+call sites pass a table built over the range being costed, so a symbol with
+no code cannot occur, but a future caller would get `Infinity` rather than a
+stream it cannot write.
+
+### Fixed — a counter reporting zero at speed
+
+`createCounter`'s rate is measured between ticks, and `Date.now()` has
+millisecond resolution. Ticks that landed inside the same millisecond had
+`dt === 0`, and those events were **dropped from the rate entirely** — never
+counted, not deferred. A counter doing thousands of events per millisecond, the
+one case a rate meter is wanted for, reported `0/s`.
+
+Events with no measurable gap are now held and counted against the next
+interval that can time them. A loop of 150 ticks inside one millisecond
+followed by a tick 100 ms later now reads about `1.5K/s` instead of `0/s`;
+`reset()` clears the held count. Slow ticking is unchanged.
+
+Found by running a README example rather than by reading the code: the
+documented output was `"1.2K/s"` and the snippet produced `0/s`.
+
+### Changed — every example in both READMEs is now executed
+
+The 170 JavaScript blocks across `README.md` and `README.es.md` are extracted
+and run against the built package, and their imports checked against the
+package's real exports. 164 now run with nothing but `ansimax` installed; the
+remaining 6 need either `sharp` or a figlet `.flf` file, both of which the
+surrounding text names and links. That pass found, besides the counter bug:
+
+- **Three missing imports.** The Phase 12 example called `renderImageAuto` and
+  `encodeSixelDetailed` without importing either, and a v1.6.x example called
+  `gradient` the same way. Pasting any of them threw.
+- **Output comments that the code does not produce.** `createETA`,
+  `createThroughput` and `createCounter` are all rate meters: one `update` or
+  one `tick` has no interval to measure, so the promised `"3.2s"` and
+  `"1.5 MB/s"` came out as `"—"` and `"0 B/s"`. Those examples now take two
+  samples with a delay between them, and say why.
+- **Wrong argument shapes.** `gradientColorSpline` was shown with hex strings
+  and takes `RGB` objects — it returned `{r: null, g: null, b: null}` as
+  written. `compositeLayers` was shown with layers whose `content` was a
+  string, and it takes one string per row.
+- **33 blocks that referenced undefined variables** (`pixels`, `rows`,
+  `cards`, `draw`, `stops`, `sleep`, …). Each now defines what it uses.
+- **A README.es.md that had drifted.** Ten blocks were missing setup lines
+  their English counterparts already had.
+
+### Changed — the session core
+
+- `src/prompts/file.ts` — `parentPath` now returns `null` for a filesystem or
+  drive root, and treats a name ending in `:` as a top rather than a relative
+  name (a Windows navigator was offering `..` from `C:\` and landing in the
+  process cwd).
+- `src/prompts/session.ts` — three `/* istanbul ignore next */` markers
+  removed. They were placed *inside* the `catch` blocks, where the hint only
+  covers the next statement, so they were hiding nothing and marking paths as
+  unreachable that are not. All three — a `render()` that throws, an `onKey()`
+  that throws, and a stdin that refuses raw mode — now have real tests, and
+  each one hands the terminal back before resolving `PROMPT_CANCELLED`.
+
+### Benchmarks — Phase 11
+
+Only the pure parts of a prompt can be measured without a terminal, and they
+happen to be the ones in the hot path — the strength meter is recomputed on
+every keystroke:
+
+| case | µs/op | ops/sec |
+| --- | --: | --: |
+| `passwordStrength/6-32-chars` | 0.530 | 1,888,218 |
+| `formatISODate` | 0.086 | 11,600,928 |
+| `formatTime` | 0.061 | 16,313,214 |
+
+### Added — character prefilter for `fuzzySearch` (Phase 11)
+
+A pattern position whose character is absent from the candidate costs at least
+one error, so summing those gives a lower bound: a candidate over `maxErrors`
+is skipped without running Myers at all. Characters hash into 64 buckets, so a
+collision can only make the filter miss a rejection, never make a wrong one —
+results stay exact (600-comparison equivalence proof).
+
+```
+pool                    v1.9.5     v1.10.0   change
+homogeneous 1,500      319.8 µs    322.6 µs   0.99x   (filter disables itself)
+diverse 1,600          167.5 µs    123.9 µs   1.35x
+diverse, no matches    152.5 µs     66.2 µs   2.30x
+```
+
+The filter is pure overhead when every candidate shares the pattern's
+characters, so it watches its own rejection rate over the first 256 candidates
+and **switches itself off** below 10% — which is why the homogeneous case
+costs nothing rather than regressing.
+
+### Not done, and why
+
+**The trie + Levenshtein automaton** that the roadmap has listed for Phase 11
+since v1.7.2 cannot work here, and that is now settled rather than deferred.
+`fuzzyDistance` is an *end-free* search: `curr[0] = 0` makes starting a match
+at any position free, so the pattern is sought *inside* the candidate. The
+automaton's pruning needs full edit distance — with end-free matching, any
+subtree may still contain an occurrence further along, so a prefix's minimum
+row value never licenses cutting it. The prefilter above is the structure that
+does apply, because it reasons about the candidate as a whole.
+
+### Verification
+
+Nothing in Phase 12 was believed on the strength of its own tests. Reference
+implementations were installed in the sandbox only — none of them is a
+dependency, and none ships. The reference fixtures are embedded in the suite
+as base64, so what was checked once against an outside implementation stays
+checked on every run.
+
+One of those checks was wrong at first and is worth recording: the PNG
+fixtures labelled "interlaced" were not. Pillow accepts `interlace=True` on a
+PNG save and silently ignores it, so for a while the Adam7 path was reported
+as verified while never being exercised at all. ImageMagick does write them,
+and against pngjs the path turns out to be correct — but the lesson is that a
+fixture has to be checked for the property it is supposed to carry, not
+trusted because of how it was asked for.
+
+| Piece | Oracle | Result |
+| --- | --- | --- |
+| Code 128 | a reference encoder, plus an independent decoder | all 107 symbol patterns identical; 4,000 random payloads round-tripped exactly, at identical module width |
+| EAN-13 | a reference encoder | 3,000 codes byte-identical, all ten first-digit parity rows covered |
+| DEFLATE | `node:zlib` (C) | 2,500 random inputs across nine shapes and all ten levels, both directions: zlib accepted every stream we wrote and we read back every stream it wrote. CRC-32 matches its own |
+| PNG decode | Pillow (libpng), plus pngjs on ImageMagick's interlaced files | 15 non-interlaced variants decoded pixel-exact — RGB, grey, palette, bilevel, grey+alpha, RGBA, 16-bit, palette+`tRNS` — and 6 genuinely Adam7-interlaced ones, at depths 1, 2, 4 and 8. Pillow silently ignores `interlace=True`, so the interlaced files had to come from ImageMagick; until they did, that path was never exercised |
+| PNG encode | pngjs, UPNG **and** Pillow | every file read back exactly by all three, at levels 0, 6 and 9 |
+| JPEG | libjpeg via Pillow, with jpeg-js as a control | 124 files: average error per channel 0.02 (4:4:4), 0.58 (4:2:2), 0.73 (4:2:0). jpeg-js on the same files: 0.85 / 13.33 / 21.25 |
+| Sixel | an external Sixel decoder | 400 random images, transparency and odd dimensions included: every pixel came back as exactly the palette entry the encoder chose |
+| base64 | Node's `Buffer` | identical over 3,000 random buffers |
+| QR | an external decoder, plus a reference encoder | 67 payloads × 4 levels decoded exactly; matrices compared module-by-module with the mask forced on both sides |
+
+### Still open
+
+- QR encoding costs ~652 µs per URL because all eight masks each rebuild the
+  full matrix. Building the unmasked canvas once and re-masking a copy would
+  cut most of that.
+- Mixed-mode segmentation would let some QR payloads use a smaller version.
+- `medianCutPalette` is 14.5 ms for a 128×96 image at 64 colours, most of it
+  the per-split sorts. Holding every bucket as a range in one shared
+  `Int32Array` and splitting with a weighted quickselect would drop both the
+  allocation and the sort — left alone for now because the cut point has to
+  come out identical to the sort-based weighted median, and that needs
+  verifying against the current output first.
+- `inflate` is 3.6x slower than `node:zlib` and `deflate` 4.5x; the JPEG IDCT
+  is the direct cosine form, 1.7x slower than jpeg-js's butterfly and about
+  40x more accurate. Each of those trades is deliberate and noted at the code.
+- `fuzzySearch` is still linear in the homogeneous case; widening Myers from
+  32 to 64 bits with two registers remains the next idea there.
+- Nothing is left in Phase 11. What remains on the roadmap is Phase 9's
+  reactive TUI framework (a component tree) and Phase 14's Cassowary solver —
+  and those two pair, since a solver with no component tree to consume it is
+  power with nowhere to apply it.
+
 ## [1.9.5] — Two hangs fixed, lint clean, fuzzySearch 2.7x
 
 Bug fixes, cleanup and optimization. No API change; 3,382 tests green and

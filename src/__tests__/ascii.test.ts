@@ -2706,3 +2706,27 @@ describe('ditherColor — perceptual color dithering (v1.7.4)', () => {
     expect(typeof ascii.ditherColor).toBe('function');
   });
 });
+
+describe('fromImage — holes in a coloured render', () => {
+  it('writes the ramp character bare where there is no pixel', () => {
+    setNoColor(false);
+    try {
+      const grid = [
+        [{ r: 255, g: 0, b: 0 }, null, { r: 0, g: 255, b: 0 }],
+        [null, { r: 0, g: 0, b: 255 }, null],
+      ];
+      const out = fromImage(grid, { color: true, width: 3, height: 2 });
+      // A hole carries no colour of its own: the ramp character goes out bare
+      // rather than being painted black, which would show as a dark cell.
+      expect(out).toContain('\x1b[38;2;255;0;0m');
+      expect(out).toContain('\x1b[38;2;0;255;0m');
+      expect(out).toContain('\x1b[38;2;0;0;255m');
+      expect(out).not.toContain('38;2;0;0;0m');
+      // One colour per pixel, none for the three holes.
+      expect(out.match(/38;2;/g)).toHaveLength(3);
+      expect(stripAnsi(out).split('\n')).toHaveLength(2);
+    } finally {
+      resetNoColor();
+    }
+  });
+});

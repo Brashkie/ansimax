@@ -12,7 +12,7 @@ _Colors • Gradients • Animations • ASCII Art • Pixel Art • Trees • C
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3382%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-4020%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax replaces a stack of popular Node.js libraries with **one coherent, typed
 | TypeScript-first (strict mode) | partial | partial | ✅ | partial | partial | ✅ | partial | partial | ✅ |
 | **Zero runtime dependencies** | ✅ | — | — | — | — | — | — | — | ✅ |
 | ESM + CJS dual export | partial | partial | ✅ | ✅ | partial | ✅ | partial | partial | ✅ |
-| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **~98% (3,382 tests)** |
+| **Test coverage** | ~95% | partial | partial | partial | partial | partial | partial | partial | **100% (4,020 tests)** |
 
 > Comparison reflects what each library officially supports at time of writing. Some libraries can be combined to approach ansimax's feature set, but at the cost of bundle size, version-skew bugs, and inconsistent APIs.
 
@@ -193,6 +193,7 @@ console.log(themes.primary('cyberpunk primary'));
 - 🧱 **Components** — Tables (ANSI-aware, multi-line cells), badges, status lines, sections, columns, timelines, interactive menus
 - 🎨 **Themes** — 8 built-ins (Dracula, Nord, Monokai, Cyberpunk, Pastel, Matrix, Ocean, Sunset). Per-instance isolation, `onChange` listeners, `bg*` helpers
 - ⚙️ **Configure** — Centralized config with subscribers, batched updates, `withConfig()` temporary overrides, strict mode
+- 🧾 **Prompts** — Text (fuzzy autocomplete + history), password (strength meter), number, confirm, calendar, file picker, multi-field forms and wizards with back/forward. I/O injected, Ctrl+C never exits the process
 - 🛠️ **Utils** — ANSI primitives, cursor control, terminal hyperlinks (OSC 8), `setTitle`, `safeJson`, `onResize`, debounce/throttle/memoize
 
 ---
@@ -680,6 +681,148 @@ const wave = Array.from({ length: 60 }, (_, i) => Math.sin(i / 6));
 console.log(lineChart(wave, { width: 40, height: 8, antialias: true }));
 ```
 
+### Chart Types (v1.10.0 — Phase 10 complete)
+
+```js
+import {
+  barChart, areaChart, heatmap, pieChart, scatterPlot,
+  boxPlot, candlestick, createStreamChart, composePlots,
+} from 'ansimax';
+
+// Grouped or stacked bars, vertical or horizontal. Stacked series are shaded
+// (█▓▒░) when no colorFn is given, so they stay readable without color.
+console.log(barChart([
+  { name: 'pass', values: [42, 38, 55] },
+  { name: 'fail', values: [3, 9, 2] },
+], { mode: 'stacked', height: 10, labels: ['v1', 'v2', 'v3'] }));
+
+// Area chart — eighth-blocks for sub-cell precision, fraction-aware colorFn
+const wave = Array.from({ length: 120 }, (_, i) => Math.sin(i / 9) * 40 + 50);
+console.log(areaChart(wave, { width: 60, height: 10 }));
+
+// Heatmap — any 2D grid, ragged rows and holes allowed
+console.log(heatmap([[0, 3, 9], [5, 5, 1], [2, 8, 4]], { cellWidth: 3 }));
+
+// Pie / donut — divides horizontal distance by the cell aspect so it reads round
+console.log(pieChart([
+  { label: 'cache', value: 61 },
+  { label: 'disk',  value: 27 },
+  { label: 'net',   value: 12 },
+], { radius: 9, donut: true }));
+
+// Scatter — a Braille canvas, so one cell holds up to 8 points
+console.log(scatterPlot(
+  Array.from({ length: 400 }, (_, i) => [i, Math.random() * i]),
+  { width: 60, height: 14 },
+));
+
+// Box plot and candlestick
+console.log(boxPlot([12, 15, 19, 22, 24, 31, 48], { label: 'p95', width: 44 }));
+console.log(candlestick([
+  { open: 11, high: 14, low: 10, close: 13 },
+  { open: 13, high: 13, low: 9,  close: 10 },
+], { height: 10 }));
+
+// Rolling window for a live feed — push and re-render
+const stream = createStreamChart({ width: 60, height: 8 });
+stream.push(42).push(51);
+console.log(stream.render());
+
+// Dashboard — panels padded to a common width, ANSI discounted when measuring
+console.log(composePlots([
+  { title: 'latency', content: areaChart(wave, { width: 28, height: 6 }) },
+  { title: 'errors',  content: barChart([3, 9, 2, 7], { height: 6 }) },
+], { columns: 2, gap: 3 }));
+```
+
+Every one is a pure function from data to a string: no I/O, no terminal
+queries, no dependencies. They take the scale in one pass (`minMax`), so a
+series of a million samples renders instead of throwing a stack overflow.
+
+### Bar Codes, Sixel & Image Codecs (v1.10.0 — Phase 12 complete)
+
+```js
+import {
+  encodeCode128, encodeEAN13, renderBarcode, ean13CheckDigit,
+  encodeSixel, encodeSixelDetailed, medianCutPalette,
+  decodePNG, encodePNG, renderImageAuto,
+  encodeKittyImage, encodeITerm2Image,
+  deflate, inflate, crc32, adler32,
+  detectCapabilities,
+} from 'ansimax';
+
+// ── Linear bar codes ────────────────────────────────────
+console.log(renderBarcode('ANSIMAX-1.10', { height: 6 }));
+console.log(renderBarcode('978020137962', { format: 'ean13', height: 6 }));
+
+console.log(ean13CheckDigit('978020137962'));   // → 4
+console.log(encodeEAN13('978020137962').text);  // → '9780201379624'
+console.log(encodeEAN13('978020137962').width); // → 95  (always)
+console.log(encodeCode128('1234').values);      // start C, 12, 34, checksum, stop
+
+// ── Encode and decode an image ──────────────────────────
+// A real program would read a file here; this builds a grid so the snippet
+// runs on its own. `encodePNG` and `decodePNG` are a round trip.
+const grid = Array.from({ length: 24 }, (_, y) =>
+  Array.from({ length: 48 }, (_, x) => ({ r: x * 5, g: y * 10, b: 160 })));
+
+const file = encodePNG(grid);                   // a complete PNG, bytes
+const { pixels, width, height } = decodePNG(file);
+console.log(width, height);                     // 48 24
+
+// …then render it with whatever the terminal can take. renderImageAuto
+// returns { output, method, detectedProtocol }, not a bare string.
+console.log(renderImageAuto(pixels, { asciiWidth: 60 }).output);
+
+// ── Sixel, where the terminal supports it ───────────────
+if (detectCapabilities().imageProtocol === 'sixel') {
+  process.stdout.write(encodeSixel(pixels, { maxColors: 64 }));
+}
+
+// One palette across an animation's frames, so the terminal is not
+// redefining 64 colour registers every frame:
+const animation = [grid, grid.slice().reverse()];
+const first = encodeSixelDetailed(animation[0], { maxColors: 64 });
+for (const frame of animation.slice(1)) {
+  encodeSixel(frame, { palette: first.palette });
+}
+
+// ── Vendor protocols: opt-in, never automatic ───────────
+const caps = detectCapabilities();
+if (caps.imageProtocol === 'kitty') {
+  process.stdout.write(encodeKittyImage(pixels, { png: true }));
+} else if (caps.imageProtocol === 'iterm2') {
+  process.stdout.write(encodeITerm2Image(pixels, { width: 40 }));
+}
+
+// ── The compression layer, usable on its own ────────────
+const packed = deflate(new TextEncoder().encode('...'), { level: 9 });
+console.log(inflate(packed).length);            // → the bytes back
+console.log(crc32(new TextEncoder().encode('123456789')).toString(16));  // → 'cbf43926'
+console.log(adler32(new TextEncoder().encode('abc')));                   // → 38600999
+
+// ── Palette work ────────────────────────────────────────
+const palette = medianCutPalette(pixels, { maxColors: 32 });
+console.log(palette.length);                    // 32
+
+// …and write it back out
+import { writeFileSync } from 'node:fs';
+writeFileSync('out.png', encodePNG(pixels, { level: 9 }));
+```
+
+Every codec here is written out rather than depended on, and every one was
+checked against an outside implementation before it was believed:
+
+| Piece | How it was verified |
+| --- | --- |
+| Code 128 | all 107 symbol patterns diffed module-by-module against a reference encoder; 4,000 random payloads round-tripped through an independent decoder, at identical module width |
+| EAN-13 | 3,000 codes byte-identical to a reference encoder, all ten first-digit parity rows covered |
+| DEFLATE | 2,500 random inputs across nine shapes and all ten levels, both directions, against `node:zlib` |
+| PNG | 15 non-interlaced variants from Pillow decoded pixel-exact, plus 6 genuinely Adam7-interlaced ones from ImageMagick checked against pngjs (Pillow ignores `interlace=True`, so that path went unexercised until the files came from elsewhere); our own files read back exactly by pngjs, UPNG *and* Pillow |
+| JPEG | 124 files against libjpeg: average error per channel 0.02 at 4:4:4, 0.58 at 4:2:2, 0.73 at 4:2:0 (jpeg-js, as a control on the same files: 0.85 / 13.33 / 21.25) |
+| Sixel | 400 random images decoded by an external decoder — every pixel came back as exactly the palette entry the encoder chose |
+| base64 | identical to Node's `Buffer` over 3,000 random buffers |
+
 ### Fuzzy Matching (v1.7.2)
 
 ```js
@@ -746,6 +889,56 @@ console.log(`${caps.columns}×${caps.rows}`);
 console.log(caps.hyperlinks);   // true on iTerm2, WezTerm, VS Code, kitty, …
 ```
 
+### QR Codes (v1.10.0)
+
+```js
+import { encodeQR, renderQR, qrCapacity } from 'ansimax';
+
+// Straight to the terminal — half-blocks pack two module rows per line
+console.log(renderQR('https://npmjs.com/package/ansimax'));
+
+// Inspect the symbol
+const qr = encodeQR('https://example.com', { level: 'Q' });
+qr.version;   // → 3
+qr.size;      // → 29   (version * 4 + 17)
+qr.mask;      // → lowest-penalty mask of the eight
+qr.mode;      // → 'byte'
+qr.modules[0][0];  // → true  (top-left finder is dark)
+
+// How much fits
+qrCapacity(1, 'L', 'numeric');  // → 41
+qrCapacity(40, 'L', 'byte');    // → 2953
+
+// On a light terminal background
+console.log(renderQR('hello', { level: 'H', quiet: 4, invert: true }));
+```
+
+Output of the first line:
+
+```
+█████████████████████████████████
+██ ▄▄▄▄▄ █▀▄▄▄▀▀▄██▀▄ ▀█ ▄▄▄▄▄ ██
+██ █   █ ██▀▀ █▀█▄▀█▀▄▄█ █   █ ██
+██ █▄▄▄█ █▄▀▀█ ▄▀▀ █  ▀█ █▄▄▄█ ██
+██▄▄▄▄▄▄▄█▄█▄▀▄█▄▀▄▀ █▄█▄▄▄▄▄▄▄██
+██ ▀▄█ █▄▀▀██▀▄▀█▀  ██ █▀█▄▀█▄▀██
+██▀▄  ▄▄▄▀█ ▄  ▀ ▄ ▀▀▀██ ▀▀█▄ ▄██
+██▀ ▄██▄▄█▀▄▀▀██  ▄▄▄█ ▀ ██ █▄ ██
+██ ▀▀ ██▄█▄▄█ ▄▄█▀▄ ▀▀▄ ▀▄  █ ▄██
+██▄▀ ▀▄█▄▀█▄▄ ▄▀█▄▀ ██▀  ██ ▀▄ ██
+██▄▀  ▄▄▄ ▄█▄▀ ▀ ▀█▀ █▀█ ▀▄▀█ ▄██
+██▄█▄▄██▄█▀ ▄███ █ ▄█  ▄▄▄ █▀▀▀██
+██ ▄▄▄▄▄ ██  ▄ ▄█▀▀ █  █▄█  █▄▄██
+██ █   █ █▄ ▀▀ ▀█▄  ▀█▄▄▄▄ █▀▀ ██
+██ █▄▄▄█ █▄   ▄  ▀█   ▀█▀  ▄█▀▄██
+██▄▄▄▄▄▄▄█▄▄██▄██▄▄▄█▄▄▄█▄███▄▄██
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+```
+
+Levels recover roughly 7% (`'L'`), 15% (`'M'`), 25% (`'Q'`) and 30% (`'H'`) of
+a damaged symbol; stronger correction needs a larger version for the same
+payload.
+
 ### Keyboard & Mouse Input (v1.9.0 — matcher v1.9.1, keymap v1.9.3)
 
 ```js
@@ -809,6 +1002,187 @@ keys.bindings();  // ['ctrl+c', 'q', 'shift+tab', 'tab']
 //       if (!keys.handle(key)) insertText(key.sequence);
 //     }
 //   });
+```
+
+---
+
+### Prompts & Forms (v1.10.0 — Phase 11 complete)
+
+Every prompt takes its I/O as options and resolves a promise. The library
+**never calls `process.exit()`** — Ctrl+C resolves `PROMPT_CANCELLED`, so the
+caller decides what cancelling means. With no TTY each prompt resolves its
+default instead of hanging, so the same script runs in CI.
+
+```js
+import {
+  textPrompt, passwordPrompt, numberPrompt, confirmPrompt, wasCancelled,
+} from 'ansimax';
+
+// Autocomplete runs through the v1.7.2 fuzzy engine, so a typo still lands:
+// typing `comit` offers `commit`, and Tab accepts the highlighted suggestion.
+const cmd = await textPrompt({
+  message: 'Command',
+  placeholder: 'commit',
+  suggestions: ['commit', 'checkout', 'cherry-pick'],
+  history: ['commit -a', 'checkout main'],   // walked with ↑ / ↓
+});
+// ? Command comit
+// ▶ commit
+//                                              → 'commit'
+
+const port = await numberPrompt({ message: 'Port', initial: 8080, min: 1024, max: 65535 });
+// ? Port 8080  (1024–65535)        ↑ nudges   → 8081
+
+// `deliberate` drops the y/n shortcuts, so a destructive action cannot be a
+// stray keystroke — it takes the arrows and Enter.
+const go = await confirmPrompt({
+  message: 'Deploy to production?',
+  initial: false,
+  deliberate: true,
+});
+// ? Deploy to production?     Yes   ▸ No
+
+const token = await passwordPrompt({ message: 'Token', confirm: true });
+// ? Token ••••••••••••
+//   ████░ strong — add uppercase
+
+if (wasCancelled(cmd)) console.log('cancelled — nothing was changed');
+```
+
+`passwordStrength` is a pure function, so it can score a field anywhere.
+It uses `log2(pool) · min(length, distinct · 2)`, which is why repetition
+cannot buy entropy it does not carry:
+
+```js
+import { passwordStrength } from 'ansimax';
+
+passwordStrength('hunter2');
+// { score: 1, label: 'weak', bits: 36, hint: 'longer is the easiest win' }
+
+passwordStrength('aaaaaaaaaaaaaaaa');   // 16 characters, one of them
+// { score: 0, label: 'very weak', bits: 9, hint: 'add uppercase' }
+
+passwordStrength('Tr0ub4dor&3');
+// { score: 3, label: 'strong', bits: 72, hint: 'longer is the easiest win' }
+
+passwordStrength('correct horse battery staple');
+// { score: 4, label: 'very strong', bits: 153, hint: null }
+```
+
+The calendar moves by days with `←`/`→`, by weeks with `↑`/`↓`, by months with
+PageUp/PageDown and by years with Shift. All arithmetic is calendar-aware —
+31 Jan + 1 month is 28/29 Feb, never 3 Mar — and a day outside `min`/`max` is
+dimmed and **refuses** the move rather than sliding somewhere else:
+
+```js
+import { datePrompt, formatISODate, formatTime } from 'ansimax';
+
+const when = await datePrompt({
+  message: 'Release',
+  initial: new Date(2026, 11, 1, 9, 0),
+  min: new Date(2026, 10, 28),
+  weekStart: 1,            // Monday
+  time: true,              // Tab switches to the clock
+  minuteStep: 30,
+});
+// ? Release  2026-12-01 09:00
+//   December 2026
+//   Mo Tu We Th Fr Sa Su
+//       1  2  3  4  5  6
+//    7  8  9 10 11 12 13
+//   14 15 16 17 18 19 20
+//   21 22 23 24 25 26 27
+//   28 29 30 31
+//   09:00  tab
+
+formatISODate(when);   // '2026-12-03'
+formatTime(when);      // '10:00'
+```
+
+The file picker's directory lister is **injectable**, which is the point: the
+thing being browsed does not have to be a filesystem. `node:fs` is only a lazy
+fallback, loaded inside a try/catch, so importing the module never requires a
+filesystem to exist.
+
+```js
+import { filePrompt } from 'ansimax';
+
+// A real directory, filtered — directories always show, so the way through
+// the tree is never hidden by a filter meant for files
+const config = await filePrompt({
+  message: 'Config',
+  cwd: './src',
+  filter: (entry) => entry.name.endsWith('.json'),
+});
+
+// …or something that is not a filesystem at all
+const entry = await filePrompt({
+  message: 'Entry in the archive',
+  cwd: '/',
+  readDir: (path) => archive.list(path),   // → [{ name, directory, size? }]
+});
+// ? Entry in the archive  /
+// ▶ 📁 assets/
+//      manifest.json 412 B
+//                                         → '/assets/logo.png'
+```
+
+`formPrompt` composes the single prompts rather than redrawing them, so every
+field keeps its own editing keys, validation and non-TTY fallback. A `when`
+predicate makes a field conditional, and a field that stops applying drops its
+stale answer instead of leaving it in the result:
+
+```js
+import { formPrompt } from 'ansimax';
+
+const answers = await formPrompt([
+  { name: 'name',    type: 'text',    message: 'Project name', allowEmpty: false },
+  { name: 'private', type: 'confirm', message: 'Private?', initial: false },
+  { name: 'org',     type: 'text',    message: 'Organisation',
+    when: (a) => a.private === true },
+  { name: 'port',    type: 'number',  message: 'Port', min: 1024, max: 65535 },
+], { title: 'New project' });
+
+// New project
+// ✔ Project name ansimax
+// ✔ Private? yes
+// ✔ Organisation brashkie
+// ✔ Port 8080
+//
+// → { name: 'ansimax', private: true, org: 'brashkie', port: 8080 }
+```
+
+A wizard adds steps and a progress bar. **Shift+Tab steps back**, re-running
+the previous field seeded with what it answered before — and it lands on the
+last field actually *shown*, so a field that `when` skipped is never somewhere
+the user gets sent:
+
+```js
+import { wizardPrompt } from 'ansimax';
+
+const answers = await wizardPrompt([
+  { title: 'Identity', fields: [
+    { name: 'name',  type: 'text', message: 'Your name', allowEmpty: false },
+    { name: 'email', type: 'text', message: 'Email' },
+  ] },
+  { title: 'Deployment', fields: [
+    { name: 'deploy', type: 'confirm', message: 'Deploy on push?' },
+    { name: 'target', type: 'text', message: 'Target host',
+      when: (a) => a.deploy === true },
+  ] },
+], { title: 'Setup' });
+
+// Setup
+// ░░░░░░░░ 0/2 Identity
+// ✔ Your name Moises
+// ✔ Email m@example.com
+// ████░░░░ 1/2 Deployment
+// ✔ Deploy on push? yes
+// ✔ Target host prod.example.com
+// ████████ 2/2
+//
+// → { name: 'Moises', email: 'm@example.com',
+//     deploy: true, target: 'prod.example.com' }
 ```
 
 ---
@@ -1129,30 +1503,39 @@ The roadmap intentionally targets — and aims to surpass — gaps that even mat
 - [x] **Keymap dispatcher** — `createKeymap()` binds shortcuts to handlers with canonical dedup and exact modifier matching; `handle` returns `false` so unmatched keys fall through as text (v1.9.3)
 - [ ] **Full TUI framework** (reactive components — Textual-equivalent for Node)
 
-### 🔴 Phase 10 — Terminal charts
-- [~] Bar charts (horizontal + vertical, grouped, stacked) — horizontal bar + histogram (v1.6.6)
+### ✅ Phase 10 — Terminal charts
+- [x] Bar charts (horizontal + vertical, grouped, stacked) — horizontal bar + histogram (v1.6.6); **`barChart`** adds vertical/horizontal × grouped/stacked, eighth-block sub-cell precision, centred labels and a legend; stacked series are shaded `█▓▒░` so they read without color (v1.10.0)
 - [x] Line charts (with braille for sub-character resolution) — `lineChart`, 8× sub-pixel, multi-series, per-cell coverage color (v1.7.1); **Xiaolin Wu anti-aliasing** via `antialias` — fractional edge weights projected onto coverage (v1.7.2)
 - [x] Sparklines (inline mini-charts for status bars) (v1.6.6)
-- [ ] Area charts (filled with gradients)
-- [ ] Heatmaps (color-mapped 2D grids)
-- [ ] Pie / donut charts (with percentage labels)
-- [ ] Scatter plots
-- [ ] Box plots / candlestick charts
-- [ ] Real-time streaming charts (live data feed with rolling window)
-- [ ] **Plot composer** (multi-chart dashboards with shared axes)
+- [x] **Area charts** — `areaChart`: filled to the curve with eighth-blocks, resampled to any width, the row fraction passed to `colorFn` so a vertical gradient is one line (v1.10.0)
+- [x] **Heatmaps** — `heatmap`: any 2D grid, ragged rows and holes allowed, custom ramp, row labels, cell fraction passed to `colorFn`; each ramp step is widened once instead of per cell (1.66x) (v1.10.0)
+- [x] **Pie / donut charts** — `pieChart`: wedge angles from `atan2` clockwise from 12 o'clock, horizontal distance divided by the cell aspect ratio so the circle reads round in a terminal, per-wedge characters, percentage legend (v1.10.0)
+- [x] **Scatter plots** — `scatterPlot`: a Braille canvas at 2×4 sub-cells, so one cell carries up to 8 points; optional plain marker, dot coverage passed to `colorFn` (v1.10.0)
+- [x] **Box plots / candlesticks** — `boxPlot` + `boxStats` (five-number summary with interpolated quartiles) and `candlestick` (body between open and close, wick to the extremes, doji rule, separate up/down color hooks) (v1.10.0)
+- [x] **Real-time streaming charts** — `createStreamChart`: a bounded rolling window with `push`/`pushAll`/`clear` chaining, auto-scaling to the window or a pinned scale, rendered as an area or bars (v1.10.0)
+- [x] **Plot composer** — `composePlots`: panels into a grid with titles, padded to a common width with ANSI escapes discounted when measuring, so coloured charts align with plain ones (v1.10.0)
 
-### 🟡 Phase 11 — Forms & Input
+### ✅ Phase 11 — Forms & Input
+
+**Philosophy:** every prompt takes its I/O as options and resolves a promise.
+The library **never calls `process.exit()`** — Ctrl+C resolves the
+`PROMPT_CANCELLED` sentinel, so the caller decides what cancelling means.
+Raw mode, the key listener, wrap-aware redrawing and teardown live in one
+session core, which means there is a single place where a terminal could be
+left without its cursor, and a single place that fixes it. With no TTY each
+prompt resolves its default instead of hanging, so the same script works in CI.
+
 - [x] **Fuzzy matcher** — Myers bit-parallel Levenshtein (`fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch`); typo-tolerant, end-free substring search, `O(m·⌈n/32⌉)`, zero deps (v1.7.2)
-- [ ] Text input prompts (with autocomplete + history) — fuzzy engine ready (v1.7.2)
-- [ ] Password prompts (masked, strength meter)
-- [ ] Confirm dialogs (yes/no with default highlight)
-- [ ] Numeric input (with min/max validation)
-- [ ] Date/time pickers (calendar widget)
-- [ ] File picker (filesystem navigator)
-- [ ] Form composer (multi-field with validation + error display)
-- [ ] **Wizard flows** (multi-step forms with back/forward, progress indicator)
+- [x] **Text input prompts** — `textPrompt`: a full line editor over **code points** (so an emoji deletes as one character), shell keys (`←`/`→`, Home/End, Ctrl+A/E/U/K/W), `placeholder`, and `history` walked with the arrows. Autocomplete runs through the v1.7.2 fuzzy engine with the error budget scaled to the query length — a 3-character query is matched exactly, `comit` still finds `commit` (v1.10.0)
+- [x] **Password prompts** — `passwordPrompt`: configurable `mask` (empty hides the length), optional `confirm` round that requires a match, and a live strength meter. `passwordStrength` scores by `log2(pool) · min(length, distinct · 2)` — repeating a character cannot buy entropy it does not carry — and returns the bits, a label and the one change that would help most (v1.10.0)
+- [x] **Confirm dialogs** — `confirmPrompt`: arrows/Tab/Space to switch, Enter takes the highlighted side, `y`/`n` (or the first letter of custom labels) answer immediately — and `deliberate: true` drops the shortcuts, so a destructive action cannot be a stray keystroke (v1.10.0)
+- [x] **Numeric input** — `numberPrompt`: `min`/`max`/`step`/`integer`, arrows nudge, and non-numeric characters are refused at the keystroke rather than at submit. An empty field nudges to the minimum, not from zero (`Number('')` is `0`, which would land one keypress short) (v1.10.0)
+- [x] **Date/time pickers** — `datePrompt`: a month grid with arrows for days and weeks, PageUp/PageDown for months, Shift for years, `t` for today, `weekStart`, localizable day and month names. All arithmetic is calendar-aware, so 31 Jan + 1 month is 28/29 Feb and never 3 Mar; out-of-range days are dimmed and the cursor **refuses** the move rather than sliding somewhere else. `time: true` adds a clock on Tab (v1.10.0)
+- [x] **File picker** — `filePrompt`: the directory lister is **injectable**, so the thing being browsed can be an archive, a bucket or a remote host, and `node:fs` is only a lazy fallback. Fuzzy filter as you type, directories first, human sizes, `directories: true` to pick a folder, and a file `filter` that never hides the way through the tree (v1.10.0)
+- [x] **Form composer** — `formPrompt`: a discriminated union of the six field types, answers keyed by `name`, `when` predicates for conditional fields (a field that stops applying drops its stale answer), per-field validation, and a `✔ label value` line per answer with passwords masked (v1.10.0)
+- [x] **Wizard flows** — `wizardPrompt`: steps with their own titles and `when` conditions, answers accumulating so a later step can depend on an earlier one, and a progress bar across the flow. **Shift+Tab steps back**, re-running the previous field seeded with what it answered before — and it lands on the last field actually *shown*, not the previous index, so a skipped field is never somewhere the user gets sent (v1.10.0)
 
-### 🔴 Phase 12 — Image & media
+### ✅ Phase 12 — Image & media
 
 **Philosophy:** ansimax renders images through *universal, self-generated*
 methods that work in any terminal — never by depending on a proprietary
@@ -1162,13 +1545,15 @@ best portable method automatically.
 
 - [x] **Universal auto-render** — `renderImageAuto` picks half-blocks (color) or ASCII (no color) by capability (v1.6.7)
 - [x] **Half-block rendering** — `▀`/`▄` with fg/bg color, double vertical resolution, any truecolor terminal
-- [ ] Sixel encoder (open DEC format — pure algorithm, portable to any Sixel terminal)
+- [x] **Sixel encoder** — `encodeSixel` / `encodeSixelDetailed`: palette derived by median cut in Oklab (or supplied, so an animation can share one), optional error-diffusion mapping, transparency, RLE, one pass per colour per six-row band. Verified by decoding 400 random images with an external Sixel decoder — every pixel came back as exactly the palette entry the encoder chose (v1.10.0)
 - [x] **Perceptual quantization** — `rgbTo256Perceptual` / `nearestPerceptual` via Oklab ΔE (kills banding vs RGB L2) (v1.7.0)
 - [x] **Perceptual color dithering** — `ditherColor` error-diffuses to a palette choosing by Oklab ΔE, across any of the 6 kernels (v1.7.4)
-- [ ] PNG/JPEG decode → pixel grid (feed into the universal renderers)
-- [~] QR code generation (with size + ECC level options) — Reed-Solomon ECC over GF(2^8) done (`reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`/`gfPow`); matrix/masking next (v1.7.5)
-- [ ] Bar code generation (Code 128, EAN-13)
-- [ ] *(detection-only, opt-in)* iTerm2 / Kitty encoders — caller-supplied, never the default
+- [x] **Adaptive palette** — `medianCutPalette`: Heckbert's median cut with the splits taken in Oklab and the cut at the pixel-weighted median, plus `createPaletteMapper` for mapping an image without re-deriving the palette per pixel (v1.10.0)
+- [x] **DEFLATE / zlib from scratch** — `deflate` / `inflate` / `crc32` / `adler32` (RFC 1950 and 1951): LZ77 over a hash chain, fixed *and* dynamic Huffman, and block boundaries chosen by measurement rather than a constant. Compresses at or better than zlib level 6 across the corpus; 2,500 random inputs validated both ways against `node:zlib` (v1.10.0)
+- [x] **PNG/JPEG decode → pixel grid** — `decodePNG` (every non-animated form: colour types 0/2/3/4/6, bit depths 1–16, `tRNS`, Adam7 interlacing) and `decodeJPEG` (baseline sequential, any sampling factors, restart intervals, greyscale/YCbCr/CMYK/YCCK, interpolated chroma upsampling). Plus `encodePNG`, on a from-scratch DEFLATE. Verified against libjpeg, Pillow, pngjs and UPNG (v1.10.0)
+- [x] **QR code generation** — `encodeQR` / `renderQR` / `qrCapacity`: all 40 versions, all 4 ECC levels, numeric/alphanumeric/UTF-8 byte modes, block interleaving, every function pattern, format and version info (BCH), and all 8 masks scored by the standard's penalty rules. Rendered with half-blocks, so a symbol is half as tall as it is wide. Built on the v1.7.5 Reed-Solomon layer; verified by decoding every symbol with an external decoder and comparing matrices module-by-module against a reference (v1.10.0)
+- [x] **Bar code generation** — `encodeCode128` (all three code sets with automatic switching and shifts, FNC1–FNC4, mod-103 checksum) and `encodeEAN13` (parity-table first digit, check digit), plus `renderBarcode`. All 107 Code 128 patterns diffed against a reference encoder, and 4,000 random payloads round-tripped through an independent decoder at identical module width (v1.10.0)
+- [x] **iTerm2 / Kitty encoders** — `encodeKittyImage` (raw RGB/RGBA or PNG, 4096-byte base64 chunking) and `encodeITerm2Image` (OSC 1337, optional tmux passthrough), on a from-scratch `base64Encode`. **Still opt-in: `renderImageAuto` never emits a vendor protocol** (v1.10.0)
 
 ### 🟡 Phase 13 — Plugin system
 - [x] **Pipeline ordering** — `topoSort` / `tryTopoSort` (Kahn's algorithm): deterministic stage order + actionable cycle error naming the loop (v1.7.6)
@@ -1218,12 +1603,12 @@ yet, so this is deliberately not rushed).
 ## 🧪 Testing
 
 ```bash
-npm test              # Run all 3,382 tests
+npm test              # Run all 4,020 tests
 npm run test:watch    # Watch mode
 npm run test:coverage # Coverage report
 ```
 
-Coverage (as of v1.9.2):
+Coverage (as of v1.10.0):
 
 | Metric | Score |
 |---|:-:|
@@ -1231,8 +1616,8 @@ Coverage (as of v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Total tests** | **3,382** |
-| **Test suites** | 35 |
+| **Total tests** | **4,020** |
+| **Test suites** | 44 |
 | **CI matrix** | Node 18, 20, 22 |
 | **Platforms tested** | Linux, macOS, Windows |
 
@@ -1322,28 +1707,211 @@ no secret, no expiry. See the comments at the top of `release.yml`.
 ```
 ansimax/
 ├── src/
-│   ├── colors/         Color rendering + gradient engine
-│   ├── themes/         Theme system + 8 built-ins
-│   ├── ascii/          Banners, boxes, fonts
 │   ├── animations/     Typewriter, fade, slide, pulse, wave, glitch, reveal
-│   ├── loaders/        Spinners, progress, tasks, multi-loader
-│   ├── frames/         Sequenced playback + live renderer + morph
+│   ├── ascii/          Banners, boxes, figlet fonts
+│   ├── barcode/        Code 128 and EAN-13
+│   ├── buffer/         Virtual screen buffer + z-index layer compositing
+│   ├── charts/         Sparklines, bars, braille lines, and the Phase 10 set
+│   ├── colors/         Color rendering + gradient engine + Oklab
 │   ├── components/     Tables, badges, status, timelines, menus
-│   ├── images/         Sprites, canvas, dithered gradients
+│   ├── dag/            Topological sort (Kahn) + cycle diagnostics
+│   ├── deflate/        DEFLATE, zlib, CRC-32 and Adler-32, from scratch
+│   ├── diff/           Line and intra-row damage diffing
+│   ├── ecc/            Reed-Solomon over GF(2^8)
+│   ├── frames/         Sequenced playback + live renderer + morph
+│   ├── fuzzy/          Myers bit-parallel Levenshtein + adaptive prefilter
+│   ├── images/         Sprites, canvas, dithering, PNG, JPEG, protocols
+│   ├── input/          Key/mouse sequence parsing + keymap dispatch
+│   ├── json/           Pretty-printer with cycle handling
+│   ├── loaders/        Spinners, progress, tasks, meters, ETA
+│   ├── logger/         Levelled logger with themed output
+│   ├── markdown/       Terminal markdown + syntax highlighting
+│   ├── panels/         Split layouts
+│   ├── pipeline/       Plugin stages run in dependency order
+│   ├── prompts/        Text, password, number, confirm, date, file, forms
+│   ├── qr/             QR encoder (all 40 versions, 4 ECC levels, 8 masks)
+│   ├── screen/         Cursor and screen control
+│   ├── sixel/          Sixel encoder (the open DEC inline-image format)
+│   ├── themes/         Theme system + 8 built-ins
 │   ├── trees/          Tree builder + algorithms
-│   ├── utils/          ANSI primitives + helpers
+│   ├── tween/          Easings, springs, timelines
+│   ├── utils/          ANSI primitives, width machinery, math toolkit
 │   └── configure.ts    Global config + subscribers
-├── examples/           10 examples (TS) + 2 (JS — ESM & CJS) — all features covered
-└── __tests__/          35 test suites, 3,382 tests
+├── bench/              Zero-dependency benchmark harness + baseline
+├── examples/           24 examples (TS) + 2 (JS — ESM & CJS)
+└── src/__tests__/      44 test suites, 4,020 tests
 ```
 
 ---
 
 ## 📝 Changelog
 
+### v1.10.0 — Phases 10, 11 and 12 complete, fuzzy prefilter
+
+- 🖼️ **Phase 12 closed** — five new modules and the last of the image work:
+  `encodeCode128` / `encodeEAN13` / `renderBarcode` (Code 128's three code
+  sets with automatic switching, EAN-13's parity-table first digit),
+  `encodeSixel` (the open DEC format, palette by median cut in Oklab),
+  `decodePNG` / `encodePNG` (every non-animated PNG form, Adam7 included),
+  `decodeJPEG` (baseline sequential, any subsampling, restart intervals), and
+  `encodeKittyImage` / `encodeITerm2Image` — those two still **opt-in**, since
+  `renderImageAuto` never emits a vendor protocol
+- 🗜️ **DEFLATE and zlib, written out** — `deflate` / `inflate` / `crc32` /
+  `adler32`. PNG needs them and importing `node:zlib` would tie every consumer
+  of the image code to a Node-shaped runtime. Compresses at or better than
+  zlib level 6 on every corpus entry, after two findings: fixed Huffman alone
+  could not compress PNG scanlines *at all*, and once dynamic tables fixed
+  that, the remaining gap turned out to be **block boundaries** rather than
+  Huffman — so the encoder now cuts fine and merges adjacent blocks while
+  merging measurably costs fewer bits
+- 🎨 **`medianCutPalette` and `createPaletteMapper`** — Heckbert's median cut
+  with the splits taken in Oklab and the cut at the pixel-weighted median,
+  plus a mapper that precomputes the palette instead of re-deriving it per
+  pixel. That mapper took Sixel encoding of a 320×240 image from 3,448 ms to
+  71 ms (**48.6x**): `nearestPerceptual` was converting all 256 palette
+  entries to Oklab for *every pixel*, 19.7 million cube roots
+- ⚡ **sRGB gamma decode tabulated** — the transfer function's `Math.pow` is
+  the expensive part of every conversion into Oklab, and the input is a byte,
+  so there are exactly 256 answers. Not an approximation: an integer channel
+  gets the identical double. Oklab conversion of 12,288 colours went from
+  5.8 ms to 2.2 ms, and `medianCutPalette` is 1.28x faster
+- 🧪 **Phase 12 verified against outside implementations**, never its own
+  tests: all 107 Code 128 patterns and 4,000 round-tripped payloads; 3,000
+  EAN-13 codes; 2,500 DEFLATE inputs both ways against `node:zlib`; 15 PNG
+  variants from Pillow decoded pixel-exact and our files read back by pngjs,
+  UPNG *and* Pillow; 124 JPEGs against libjpeg (average channel error 0.02 at
+  4:4:4 against jpeg-js's 0.85); 400 Sixel images through an external decoder
+
+- 🧾 **Phase 11 closed** — eight interactive controls in a new `prompts`
+  module: `textPrompt` (line editor over code points, shell keys, history,
+  fuzzy autocomplete), `passwordPrompt` (+ `passwordStrength`),
+  `numberPrompt`, `confirmPrompt`, `datePrompt` (calendar + clock),
+  `filePrompt`, `formPrompt` and `wizardPrompt`
+- 🚪 **The library never calls `process.exit()`** — Ctrl+C resolves the
+  `PROMPT_CANCELLED` sentinel, so the caller decides what cancelling means. A
+  library that exits on Ctrl+C makes that choice for every program that
+  imports it, including the ones running inside a build
+- 🔌 **I/O is injected, never reached for** — every prompt takes `input` and
+  `output`, which is what makes the module testable without a terminal (all
+  187 prompt tests drive a fake stdin) and what lets a prompt run over a
+  socket or a pty. With no TTY each one resolves its default instead of
+  hanging, so the same script works in CI
+- 🧩 **One session core** — `runSession` owns raw mode, the `parseKeys`
+  listener, wrap-aware redrawing, idempotent teardown and the signal handlers
+  that restore the cursor. One place a terminal can be left without its
+  cursor, and one place that fixes it
+- 📅 **Calendar arithmetic, not date arithmetic** — 31 Jan + 1 month is
+  28/29 Feb and never 3 Mar, and a day outside `min`/`max` is dimmed and
+  **refuses** the move rather than sliding somewhere else
+- 🗂️ **The file picker's lister is injectable** — so what is browsed need not
+  be a filesystem (an archive, a bucket, a remote host); `node:fs` is only a
+  lazy fallback inside a try/catch
+- 🔙 **Shift+Tab steps back through a wizard**, re-running the previous field
+  seeded with what it answered before — and landing on the last field actually
+  *shown*, so a field that `when` skipped is never somewhere the user gets sent
+- 🐛 **Four bugs found by running the code, not reading it** — autocomplete
+  matched `"develop"` for `"fea"` (the matcher is end-free, so 2 errors on a
+  3-character query matches almost anything; the budget now scales with the
+  query); `Number('')` is `0`, so an empty numeric field nudged from zero and
+  got clamped, landing one keypress short of the minimum; a filter plus Enter
+  in the file picker went **up a level** because `..` sat selected and
+  unmatched; and `/` was its own parent, so following `..` at the root
+  reloaded `/` for ever
+- 🧹 **Three `istanbul ignore` markers removed** from the session core — they
+  sat *inside* their `catch` blocks, where the hint only covers the next
+  statement, so they hid nothing and marked reachable paths as unreachable. A
+  `render()` that throws, an `onKey()` that throws and a stdin that refuses
+  raw mode now have real tests, and each hands the terminal back before
+  resolving
+
+- 📊 **Phase 10 closed** — seven new chart types, all pure functions from data
+  to a string: `barChart` (vertical/horizontal × grouped/stacked), `areaChart`,
+  `heatmap`, `pieChart` (donut too), `scatterPlot` (Braille, 8 points per
+  cell), `boxPlot` + `boxStats`, `candlestick`, `createStreamChart` (rolling
+  window) and `composePlots` (dashboard grid)
+- 🧮 **`minMax`** — smallest and largest finite value in one pass. This is not
+  a convenience: `Math.min(...values)` spreads one argument per element, so
+  every chart threw `RangeError: Maximum call stack size exceeded` past a few
+  hundred thousand samples. `areaChart`, `heatmap`, `sparkline` and `lineChart`
+  all crashed on a 300k-sample series and now render a million
+- ⚡ **`heatmap` 1.66x** — each ramp step is widened once instead of calling
+  `repeat` per cell (a 40×20 grid: 800 allocations → 8)
+- 🎨 **Stacked bars readable without color** — stacked series without a
+  `colorFn` were all drawn as `█` and indistinguishable; they are now shaded
+  `█▓▒░▚▞`, and a caller who supplies a `colorFn` still gets solid blocks
+- 📐 **Constant series no longer render blank** — a flat series widened its
+  band upwards, putting every sample on the floor: an empty canvas that looked
+  like no data. The band is now centred when neither bound is pinned, and
+  widened away from a bound the caller did pin
+- 🔳 **QR code generation** — `encodeQR`, `renderQR`, `qrCapacity`. All 40
+  versions, 4 ECC levels, numeric/alphanumeric/UTF-8 modes, every function
+  pattern, BCH format and version info, and all 8 masks scored by the
+  standard's penalty rules. Built on the v1.7.5 Reed-Solomon layer, still zero
+  dependencies. Rendered with half-blocks, so a symbol is half as tall as wide
+- 🔎 **`fuzzySearch` character prefilter** — a candidate missing more than
+  `maxErrors` of the pattern's characters is skipped without running Myers:
+  **2.3x** when nothing matches, 1.35x on diverse pools, and 0.99x on
+  homogeneous ones because the filter switches itself off when it isn't paying
+- 🧹 **Three `istanbul ignore` markers removed** from the prompt session core
+  — they sat *inside* their `catch` blocks, where the hint only covers the
+  next statement, so they hid nothing and marked reachable paths as
+  unreachable. A `render()` that throws, an `onKey()` that throws and a stdin
+  that refuses raw mode now have real tests, and each hands the terminal back
+  before resolving
+- 🎯 **`scatterPlot` drops out-of-window points instead of clamping them** —
+  a point to the right of `xMax` was being drawn *on* the right edge and one
+  below `yMin` on the bottom row, which puts a mark where there is no sample.
+  Points to the left or above were already dropped, so it was not even
+  symmetric. A point sitting exactly on a bound is still drawn
+- 🥧 **`pieChart`'s last boundary is now open** — slice fractions are floats
+  and six equal slices sum to 0.9999999999999999, leaving a sliver of the
+  circle unassigned; opening the boundary makes every angle land in a slice by
+  construction rather than by fallback
+- 🗂️ **A filesystem or drive root reports no parent** — `/` is its own last
+  separator, so `..` appeared at the root and following it reloaded `/` for
+  ever. `C:` and `C:\` are tops too
+- 🧹 **Dead code removed from `deflate`** — a `get offset()` nothing called,
+  and a zlib header correction term that could never fire: RFC 1950 wants
+  `CMF * 256 + FLG` divisible by 31, and `0x7801` is `31 * 991` exactly
+- 🪟 **The file picker's separator now defaults to the platform's** when the
+  built-in `node:fs` lister is in use — a Windows user was reading
+  `C:\Users\me/Documents/notes.txt`. With a custom `readDir` it stays `/`,
+  since an archive or a bucket has its own convention
+- 🔢 **`createCounter` reported `0/s` at speed** — the rate is measured
+  between ticks and `Date.now()` has millisecond resolution, so ticks inside
+  the same millisecond had `dt === 0` and were **dropped from the rate
+  entirely**. A counter doing thousands of events per millisecond — the one
+  case a rate meter is for — read zero. Those events are now held and counted
+  against the next interval that can time them: 150 ticks in one millisecond
+  then one 100 ms later reads about `1.5K/s`
+- 📄 **Every example in both READMEs is now executed** — all 170 JavaScript
+  blocks are extracted and run against the built package, with their imports
+  checked against the real exports. 164 run with nothing but `ansimax`
+  installed; the 6 that need `sharp` or a figlet `.flf` say so. The pass found
+  three **missing imports** (`renderImageAuto`, `encodeSixelDetailed`,
+  `gradient` were called without being imported), output comments the code
+  never produced, two wrong argument shapes, 33 blocks using undefined
+  variables, and ten Spanish blocks missing setup their English counterparts
+  already had
+- 🧪 **4,020 tests** across 44 suites, **100% statement, line and function
+  coverage**, lint at zero warnings.
+  `passwordStrength` runs at 1.89 M/s, `formatISODate` at 11.6 M/s
+
+Verification worth noting: every QR was decoded back by an **external** decoder
+and each matrix compared module-by-module against a reference encoder — which
+caught two wrong entries in the 320 hand-written version-table values. The
+chart suite asserts geometry (row counts, where the ink lands, degenerate
+input) rather than snapshots, and six cases render series of 400k–1M samples
+purely to keep the spread-overflow bug from coming back.
+
+One measurement went against intuition and is recorded in the source: the
+hand-rolled `v === v && v !== Infinity && v !== -Infinity` finiteness check
+inside `minMax` is **1.30x slower** than plain `Number.isFinite(v)`, which V8
+lowers to a single check. The clever version was removed.
+
 ### v1.9.5 — Two hangs fixed, lint clean, `fuzzySearch` 2.7x
 
-Bug fixes, cleanup and optimization. No API change; 3,382 tests green and
+Bug fixes, cleanup and optimization. No API change; 3,419 tests green and
 `biome ci` at **zero warnings** for the first time.
 
 - 🐛 **`gcd`/`lcm` hung the process** on `NaN` or `Infinity` — Euclid's loop
@@ -1367,7 +1935,7 @@ Both bugs were found by fuzzing the public API, not by reading it.
 
 Pure optimization — **no API change, no behavioral change**. Every width and
 wrap is byte-identical to v1.9.3, verified by 39,663 direct comparisons between
-the two builds before the suite was run. 3,382 tests green.
+the two builds before the suite was run. 3,419 tests green.
 
 `visibleLen` was the hot spot of the entire library, and `Intl.Segmenter` was
 96% of its cost: 7.8 of 8.2 µs doing ICU grapheme segmentation to establish
@@ -1388,7 +1956,7 @@ No case regressed. Also adds `npm run bench`, a zero-dependency harness.
 
 ### v1.9.3 — Chunk decoding + keymap dispatcher
 
-Additive only; nothing existing changed behavior. 3,382 tests green.
+Additive only; nothing existing changed behavior. 3,419 tests green.
 
 - ⌨️ **`parseKeys` / `splitSequences`** — one stdin `data` event often carries
   several keypresses; `parseKey` handles exactly one, so a whole chunk used to
@@ -1412,7 +1980,7 @@ keys.handle(parseKeys('\x03')[0]);  // true
 ### v1.9.2 — Biome, tag-driven releases, trusted publishing
 
 Infrastructure only — **no runtime code changed** and the public API is
-identical. All 3,382 tests stay green.
+identical. All 3,419 tests stay green.
 
 - 🧹 **Biome replaces ESLint + Prettier** — one tool, six fewer dev deps,
   `npm run ci` locally and in CI; lint is now a real gate
@@ -1469,7 +2037,15 @@ Drop-in replacement for `1.8.1`.
 import { detectCapabilities, compositeLayers } from 'ansimax';
 
 detectCapabilities().colorDepth;   // 'none' | 'basic' | '256' | 'truecolor'
-compositeLayers([bg, popup], 40, 12);
+
+// A layer's `content` is one string per row, so a block is an array of lines.
+const bg = { content: Array.from({ length: 4 }, () => '·'.repeat(20)), z: 0 };
+const popup = { content: ['┌────────┐', '│ Saved! │', '└────────┘'], x: 5, y: 1, z: 1 };
+console.log(compositeLayers([bg, popup], 20, 4).join('\n'));
+// ····················
+// ·····┌────────┐·····
+// ·····│·Saved!·│·····
+// ·····└────────┘·····
 ```
 
 Drop-in replacement for `1.8.0`.
@@ -1555,7 +2131,11 @@ Drop-in replacement for `1.7.4`.
 import { ditherColor } from 'ansimax';
 
 const palette = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 0, b: 0 }];
-ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+const pixels = Array.from({ length: 2 }, (_, y) =>
+  Array.from({ length: 4 }, (_, x) => ({ r: x * 60, g: y * 120, b: 128 })));
+const dithered = ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+// Every pixel that comes back is one of the three palette entries.
+console.log(dithered[0][0]);   // { r: 0, g: 0, b: 0 }
 ```
 
 Drop-in replacement for `1.7.3`.
@@ -1570,8 +2150,11 @@ Drop-in replacement for `1.7.3`.
 ```js
 import { keyframes, interpolateSpline } from 'ansimax';
 
-interpolateSpline([0, 100, 0], 0.5);   // 100 — through the peak
-await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: (v) => drawBar(v) });
+console.log(interpolateSpline([0, 100, 0], 0.5));   // 100 — through the peak
+
+const drawBar = (v) => process.stdout.write(`\r${'█'.repeat(Math.round(v / 5))} ${Math.round(v)}%  `);
+await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: drawBar });
+process.stdout.write('\n');
 ```
 
 Drop-in replacement for `1.7.2`.
@@ -1586,10 +2169,13 @@ Drop-in replacement for `1.7.2`.
 ```js
 import { lineChart, fuzzySearch } from 'ansimax';
 
-lineChart(latency, { width: 40, height: 6, antialias: true, colorFn: fade });
+const latency = Array.from({ length: 60 }, (_, i) => 40 + Math.sin(i / 6) * 18);
+const fade = (t) => ({ r: 40 + Math.round(t * 200), g: 120, b: 255 - Math.round(t * 120) });
+console.log(lineChart(latency, { width: 40, height: 6, antialias: true, colorFn: fade }));
 
 const cmds = ['rollback', 'restart', 'rollout', 'scale', 'status'];
-fuzzySearch('rollbck', cmds, { limit: 3 }).map((r) => r.value); // ['rollback', ...]
+console.log(fuzzySearch('rollbck', cmds, { limit: 3 }).map((r) => r.value));
+// [ 'rollback', 'rollout' ]
 ```
 
 Drop-in replacement for `1.7.1`.
@@ -1623,10 +2209,17 @@ A larger minor. Highlights:
 ```js
 import { createScreen, rgbTo256Perceptual, gradientColorSpline, createStopwatch } from 'ansimax';
 
-await createScreen().run((s) => { s.moveTo(1,1); s.write('Full-screen app'); });
-rgbTo256Perceptual(128, 64, 32);              // nearest xterm-256 by perceptual ΔE
-gradientColorSpline(stops, 0.25);             // smooth multi-stop sampling
-const sw = createStopwatch(); sw.lap('load'); // profile stages
+await createScreen().run((s) => { s.moveTo(1, 1); s.write('Full-screen app'); });
+
+console.log(rgbTo256Perceptual(128, 64, 32));   // nearest xterm-256 by perceptual ΔE
+
+// The stops are RGB objects, not hex strings.
+const stops = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }];
+console.log(gradientColorSpline(stops, 0.25));  // { r: 128, g: 143, b: 0 }
+
+const sw = createStopwatch();
+sw.lap('load');
+console.log(sw.laps());                         // [ { label: 'load', duration: …, total: … } ]
 ```
 
 Drop-in replacement for `1.6.7`.
@@ -1641,9 +2234,21 @@ Drop-in replacement for `1.6.7`.
 ```js
 import { renderImageAuto, cubicBezier, createCounter } from 'ansimax';
 
-const { output, method } = renderImageAuto(pixels);  // 'halfblock' | 'ascii'
-const ease = cubicBezier(0.25, 0.1, 0.25, 1);        // CSS "ease"
-const c = createCounter(); c.tick(); c.formatRate();  // "1.2K/s"
+const pixels = Array.from({ length: 4 }, (_, y) =>
+  Array.from({ length: 8 }, (_, x) => ({ r: x * 30, g: y * 60, b: 140 })));
+const { output, method } = renderImageAuto(pixels);
+console.log(method);                           // 'halfblock' | 'ascii'
+console.log(output.split('\n').length);         // 2 rows of half-blocks
+
+console.log(cubicBezier(0.25, 0.1, 0.25, 1)(0.5));   // CSS "ease", ~0.8
+
+// The rate is measured between ticks, so it needs two of them with time in
+// between — a single tick has no interval to measure yet.
+const c = createCounter();
+c.tick();
+await new Promise((r) => setTimeout(r, 100));
+c.tick(120);
+console.log(c.formatRate());                   // "1.2K/s"
 ```
 
 > **On image protocols:** ansimax renders via universal, self-generated methods (half-blocks / ASCII) that work in any terminal. Sixel/Kitty/iTerm are *detection only* — surfaced so callers can plug in their own encoder, never emitted by default.
@@ -1679,10 +2284,12 @@ Drop-in replacement for `1.6.5`.
 ```js
 import { stringWidth, formatRate, createETA, ascii } from 'ansimax';
 
-stringWidth('中文');                                  // 4
-formatRate(1572864);                                 // "1.5 MB/s"
-createETA({ total: 1000, smoothing: 'ema' });        // faster reaction
-ascii.table(rows, { autoAlignNumbers: true });       // numbers right-aligned
+console.log(stringWidth('中文'));                      // 4
+console.log(formatRate(1572864));                    // "1.5 MB/s"
+console.log(createETA({ total: 1000, smoothing: 'ema' }).eta());  // "—" until it has samples
+
+const rows = [['Region', 'Requests'], ['us-east', '1200'], ['eu-west', '840']];
+console.log(ascii.table(rows, { autoAlignNumbers: true }));  // numbers right-aligned
 ```
 
 Drop-in replacement for `1.6.4`.
@@ -1734,12 +2341,16 @@ Drop-in replacement for `1.6.2`.
 ```js
 import { ascii, balancedWrap, catmullRom, percentile } from 'ansimax';
 
-ascii.fromImage(pixels, { dither: 'atkinson' });          // crisp, high contrast
-ascii.table(rows, { wrap: true, balancedWrap: true });    // even wrapped lines
+const pixels = Array.from({ length: 8 }, (_, y) =>
+  Array.from({ length: 16 }, (_, x) => ({ r: x * 16, g: y * 30, b: 90 })));
+console.log(ascii.fromImage(pixels, { width: 16, dither: 'atkinson' }));  // crisp, high contrast
 
-balancedWrap('I am a very long sentence here', 11);       // minimum raggedness
-catmullRom(0, 10, 20, 30, 0.5);                            // → 15 (smooth spline)
-percentile([1, 2, 3, 4, 5], 50);                          // → 3
+const rows = [['Note'], ['a long cell that has to wrap somewhere sensible']];
+console.log(ascii.table(rows, { maxWidth: 24, wrap: true, balancedWrap: true }));
+
+console.log(balancedWrap('I am a very long sentence here', 11));  // minimum raggedness
+console.log(catmullRom(0, 10, 20, 30, 0.5));             // → 15 (smooth spline)
+console.log(percentile([1, 2, 3, 4, 5], 50));            // → 3
 ```
 
 Drop-in replacement for `1.6.1`.
@@ -1752,7 +2363,7 @@ Drop-in replacement for `1.6.1`.
 - 🧪 **+45 tests**
 
 ```js
-import { createProgressGroup, presetStops, gradientRect } from 'ansimax';
+import { createProgressGroup, gradient, presetStops, gradientRect } from 'ansimax';
 
 const group = createProgressGroup({ title: 'Deploying' });
 group.add('api', 'API').add('web', 'Web');
@@ -1760,8 +2371,8 @@ group.update('api', 0.4, '12 MB/s');
 group.complete('web');
 group.render();
 
-gradient('text', presetStops('viridis'), { mirror: true });
-gradientRect({ width: 40, height: 10, preset: 'plasma' });
+console.log(gradient('text', presetStops('viridis'), { mirror: true }));
+console.log(gradientRect({ width: 40, height: 10, preset: 'plasma' }));
 ```
 
 Drop-in replacement for `1.6.0`.
@@ -1777,13 +2388,19 @@ Drop-in replacement for `1.6.0`.
 ```js
 import { createETA, createThroughput, createLiveRegion } from 'ansimax';
 
+// Both are rate meters, so they need two samples with time in between: one
+// `update` has no interval to measure against and reports nothing yet.
 const eta = createETA({ total: 1000 });
-eta.update(downloaded);
-console.log(eta.eta());              // "3.2s"
+eta.update(0);
+await new Promise((r) => setTimeout(r, 100));
+eta.update(250);
+console.log(eta.eta());              // "300ms" — 750 left at 2500/s
 
 const tp = createThroughput({ unit: 'bytes' });
-tp.update(bytesSoFar);
-console.log(tp.format());            // "1.5 MB/s"
+tp.update(0);
+await new Promise((r) => setTimeout(r, 100));
+tp.update(1572864);
+console.log(tp.format());            // "15 MB/s"
 
 const region = createLiveRegion();
 region.render(['A: 10%', 'B: 0%']);
@@ -2645,7 +3262,7 @@ A massive robustness pass across every module, plus a new `trees` module. **100%
 - 🎞️ **Frames** — ref-counted cursor, crash-safe restore, `repeat: 0` = infinite, fps cap at 60, drift correction
 - 🧱 **Components** — `menu([])` returns `MENU_CANCELLED` (no throw), defensive numeric inputs everywhere
 - 🛠️ **Utils** — `setTitle`, `link` (OSC 8 hyperlinks), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` with custom keyFn, `debounce` with `maxWait`, throttled `onResize`
-- 🧪 **Tests** — 3,382 tests across 35 suites, all green, ~98% coverage
+- 🧪 **Tests** — 4,020 tests across 44 suites, all green, 100% coverage
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history with per-module breakdowns.
 

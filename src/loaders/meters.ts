@@ -714,19 +714,36 @@ export const createCounter = (opts: CounterOptions = {}): Counter => {
   let lastTick: number | null = null;
   let emaRate = 0;
   let emaStarted = false;
+  // Events that arrived inside the same millisecond as the last one, waiting
+  // for an interval long enough to measure them against.
+  let pending = 0;
 
   return {
     tick(n = 1): void {
       const add = Number.isFinite(n) ? Math.max(0, n) : 0;
       count += add;
       const now = Date.now();
-      if (lastTick !== null) {
-        const dt = (now - lastTick) / 1000;
-        if (dt > 0) {
-          const instant = add / dt; // events/sec since last tick
-          if (!emaStarted) { emaRate = instant; emaStarted = true; }
-          else emaRate = alpha * instant + (1 - alpha) * emaRate;
-        }
+      if (lastTick === null) {
+        lastTick = now;
+        return;
+      }
+      const dt = (now - lastTick) / 1000;
+      if (dt <= 0) {
+        // `Date.now()` has millisecond resolution, so a fast loop fires many
+        // ticks with no measurable gap. Dropping those from the rate made a
+        // counter doing thousands of events per millisecond report `0/s` —
+        // exactly the case the rate is wanted for. They are held instead, and
+        // counted against the next interval that can actually time them.
+        pending += add;
+        return;
+      }
+      const instant = (add + pending) / dt; // events/sec since the last tick
+      pending = 0;
+      if (!emaStarted) {
+        emaRate = instant;
+        emaStarted = true;
+      } else {
+        emaRate = alpha * instant + (1 - alpha) * emaRate;
       }
       lastTick = now;
     },
@@ -744,6 +761,7 @@ export const createCounter = (opts: CounterOptions = {}): Counter => {
       lastTick = null;
       emaRate = 0;
       emaStarted = false;
+      pending = 0;
     },
   };
 };

@@ -12,7 +12,7 @@ _Colores • Gradientes • Animaciones • ASCII Art • Pixel Art • Árboles
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square)](tsconfig.json)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg?style=flat-square)](#testing)
-[![Tests](https://img.shields.io/badge/tests-3382%20passing-brightgreen.svg?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-4020%20passing-brightgreen.svg?style=flat-square)](#testing)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-brightgreen.svg?style=flat-square)](#)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-43853d.svg?style=flat-square)](#requirements)
 [![ESM + CJS](https://img.shields.io/badge/ESM%20%2B%20CJS-dual-blueviolet.svg?style=flat-square)](#)
@@ -117,7 +117,7 @@ Ansimax reemplaza un stack de librerías populares de Node.js con **un solo paqu
 | TypeScript-first (strict mode) | parcial | parcial | ✅ | parcial | parcial | ✅ | parcial | parcial | ✅ |
 | **Cero dependencias en runtime** | ✅ | — | — | — | — | — | — | — | ✅ |
 | Export dual ESM + CJS | parcial | parcial | ✅ | ✅ | parcial | ✅ | parcial | parcial | ✅ |
-| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **~98% (3,382 tests)** |
+| **Cobertura de tests** | ~95% | parcial | parcial | parcial | parcial | parcial | parcial | parcial | **100% (4.020 tests)** |
 
 > La comparación refleja lo que cada librería soporta oficialmente al momento de escribir esto. Algunas librerías pueden combinarse para acercarse al conjunto de features de ansimax, pero al costo de tamaño de bundle, bugs de version-skew, y APIs inconsistentes.
 
@@ -193,6 +193,7 @@ console.log(themes.primary('primary de cyberpunk'));
 - 🧱 **Componentes** — Tablas (conscientes de ANSI, celdas multi-línea), badges, líneas de estado, secciones, columnas, timelines, menús interactivos
 - 🎨 **Temas** — 8 built-in (Dracula, Nord, Monokai, Cyberpunk, Pastel, Matrix, Ocean, Sunset). Aislamiento por instancia, listeners `onChange`, helpers `bg*`
 - ⚙️ **Configure** — Config centralizada con subscribers, updates batched, overrides temporales con `withConfig()`, modo strict
+- 🧾 **Prompts** — Texto (autocomplete fuzzy + historial), password (medidor de fortaleza), número, confirm, calendario, picker de archivos, formularios multi-campo y wizards con back/forward. La I/O se inyecta y Ctrl+C nunca mata el proceso
 - 🛠️ **Utils** — Primitivas ANSI, control del cursor, hyperlinks de terminal (OSC 8), `setTitle`, `safeJson`, `onResize`, debounce/throttle/memoize
 
 ---
@@ -657,6 +658,331 @@ obj.self = obj;
 console.log(json.pretty(obj));   // → "self": [Circular]
 ```
 
+### Tipos de chart (v1.10.0 — Fase 10 completa)
+
+```js
+import {
+  barChart, areaChart, heatmap, pieChart, scatterPlot,
+  boxPlot, candlestick, createStreamChart, composePlots,
+} from 'ansimax';
+
+// Barras agrupadas o apiladas, verticales u horizontales. Las series apiladas
+// se sombrean (█▓▒░) cuando no hay colorFn, así se distinguen sin color.
+console.log(barChart([
+  { name: 'pass', values: [42, 38, 55] },
+  { name: 'fail', values: [3, 9, 2] },
+], { mode: 'stacked', height: 10, labels: ['v1', 'v2', 'v3'] }));
+
+// Área — octavos de bloque para precisión sub-celda, colorFn recibe la fracción
+const onda = Array.from({ length: 120 }, (_, i) => Math.sin(i / 9) * 40 + 50);
+console.log(areaChart(onda, { width: 60, height: 10 }));
+
+// Heatmap — cualquier grid 2D, admite filas desiguales y huecos
+console.log(heatmap([[0, 3, 9], [5, 5, 1], [2, 8, 4]], { cellWidth: 3 }));
+
+// Pie / donut — divide la distancia horizontal por el aspecto de celda,
+// así el círculo se ve redondo en una terminal
+console.log(pieChart([
+  { label: 'cache', value: 61 },
+  { label: 'disco', value: 27 },
+  { label: 'red',   value: 12 },
+], { radius: 9, donut: true }));
+
+// Scatter — canvas braille, una celda sostiene hasta 8 puntos
+console.log(scatterPlot(
+  Array.from({ length: 400 }, (_, i) => [i, Math.random() * i]),
+  { width: 60, height: 14 },
+));
+
+// Box plot y candlestick
+console.log(boxPlot([12, 15, 19, 22, 24, 31, 48], { label: 'p95', width: 44 }));
+console.log(candlestick([
+  { open: 11, high: 14, low: 10, close: 13 },
+  { open: 13, high: 13, low: 9,  close: 10 },
+], { height: 10 }));
+
+// Ventana móvil para un feed en vivo — push y volver a renderizar
+const stream = createStreamChart({ width: 60, height: 8 });
+stream.push(42).push(51);
+console.log(stream.render());
+
+// Dashboard — paneles alineados a un ancho común, descontando los escapes ANSI
+console.log(composePlots([
+  { title: 'latencia', content: areaChart(onda, { width: 28, height: 6 }) },
+  { title: 'errores',  content: barChart([3, 9, 2, 7], { height: 6 }) },
+], { columns: 2, gap: 3 }));
+```
+
+Todos son funciones puras de datos a string: sin I/O, sin consultar la
+terminal, sin dependencias. Toman la escala en una sola pasada (`minMax`), así
+que una serie de un millón de muestras se renderiza en vez de desbordar la
+pila.
+
+### Códigos de barras, Sixel y códecs de imagen (v1.10.0 — Fase 12 completa)
+
+```js
+import {
+  encodeCode128, encodeEAN13, renderBarcode, ean13CheckDigit,
+  encodeSixel, encodeSixelDetailed, medianCutPalette,
+  decodePNG, encodePNG, renderImageAuto,
+  encodeKittyImage, encodeITerm2Image,
+  deflate, inflate, crc32, adler32,
+  detectCapabilities,
+} from 'ansimax';
+
+// ── Códigos de barras lineales ──────────────────────────
+console.log(renderBarcode('ANSIMAX-1.10', { height: 6 }));
+console.log(renderBarcode('978020137962', { format: 'ean13', height: 6 }));
+
+console.log(ean13CheckDigit('978020137962'));   // → 4
+console.log(encodeEAN13('978020137962').text);  // → '9780201379624'
+console.log(encodeEAN13('978020137962').width); // → 95  (always)
+console.log(encodeCode128('1234').values);      // start C, 12, 34, checksum, stop
+
+// ── Codificar y decodificar una imagen ──────────────────
+// Un programa real leería un archivo acá; esto arma un grid para que el
+// snippet corra solo. `encodePNG` y `decodePNG` son un viaje de ida y vuelta.
+const grid = Array.from({ length: 24 }, (_, y) =>
+  Array.from({ length: 48 }, (_, x) => ({ r: x * 5, g: y * 10, b: 160 })));
+
+const file = encodePNG(grid);                   // un PNG completo, en bytes
+const { pixels, width, height } = decodePNG(file);
+console.log(width, height);                     // 48 24
+
+// …y después se renderiza con lo que la terminal acepte. renderImageAuto
+// devuelve { output, method, detectedProtocol }, no un string pelado.
+console.log(renderImageAuto(pixels, { asciiWidth: 60 }).output);
+
+// ── Sixel, donde la terminal lo soporte ─────────────────
+if (detectCapabilities().imageProtocol === 'sixel') {
+  process.stdout.write(encodeSixel(pixels, { maxColors: 64 }));
+}
+
+// Una sola paleta para todos los frames de una animación, así la terminal no
+// redefine 64 registros de color en cada frame:
+const animation = [grid, grid.slice().reverse()];
+const first = encodeSixelDetailed(animation[0], { maxColors: 64 });
+for (const frame of animation.slice(1)) {
+  encodeSixel(frame, { palette: first.palette });
+}
+
+// ── Protocolos propietarios: opt-in, nunca automáticos ──
+const caps = detectCapabilities();
+if (caps.imageProtocol === 'kitty') {
+  process.stdout.write(encodeKittyImage(pixels, { png: true }));
+} else if (caps.imageProtocol === 'iterm2') {
+  process.stdout.write(encodeITerm2Image(pixels, { width: 40 }));
+}
+
+// ── La capa de compresión, usable por sí sola ───────────
+const packed = deflate(new TextEncoder().encode('...'), { level: 9 });
+console.log(inflate(packed).length);            // → los bytes de vuelta
+console.log(crc32(new TextEncoder().encode('123456789')).toString(16));  // → 'cbf43926'
+console.log(adler32(new TextEncoder().encode('abc')));                   // → 38600999
+
+// ── Trabajo de paleta ───────────────────────────────────
+const palette = medianCutPalette(pixels, { maxColors: 32 });
+console.log(palette.length);                    // 32
+
+// …and escribirlo de vuelta
+import { writeFileSync } from 'node:fs';
+writeFileSync('out.png', encodePNG(pixels, { level: 9 }));
+```
+
+Cada códec está escrito desde cero en vez de depender de algo, y ninguno se
+dio por bueno sin compararlo contra una implementación externa:
+
+| Pieza | Cómo se verificó |
+| --- | --- |
+| Code 128 | los 107 patrones comparados módulo a módulo contra un encoder de referencia; 4.000 payloads aleatorios ida y vuelta por un decoder independiente, con el mismo ancho en módulos |
+| EAN-13 | 3.000 códigos byte a byte idénticos a un encoder de referencia, cubriendo las diez filas de paridad del primer dígito |
+| DEFLATE | 2.500 entradas aleatorias de nueve formas y los diez niveles, en ambos sentidos, contra `node:zlib` |
+| PNG | 15 variantes no entrelazadas de Pillow decodificadas píxel a píxel, más 6 realmente entrelazadas con Adam7 hechas con ImageMagick y contrastadas con pngjs (Pillow ignora `interlace=True`, así que ese camino quedó sin ejercitar hasta traer los archivos de otra parte); nuestros propios archivos releídos exactamente por pngjs, UPNG *y* Pillow |
+| JPEG | 124 archivos contra libjpeg: error medio por canal 0.02 en 4:4:4, 0.58 en 4:2:2, 0.73 en 4:2:0 (jpeg-js, como control sobre los mismos archivos: 0.85 / 13.33 / 21.25) |
+| Sixel | 400 imágenes aleatorias decodificadas con un decoder externo — cada píxel volvió exactamente como la entrada de paleta que el encoder eligió |
+| base64 | idéntico al `Buffer` de Node sobre 3.000 buffers aleatorios |
+
+---
+
+### Prompts y formularios (v1.10.0 — Fase 11 completa)
+
+Cada prompt recibe su I/O por opciones y resuelve una promesa. La librería
+**nunca llama a `process.exit()`** — Ctrl+C resuelve `PROMPT_CANCELLED`, así
+que quien llama decide qué significa cancelar. Sin TTY cada prompt resuelve su
+default en vez de colgarse, así el mismo script corre en CI.
+
+```js
+import {
+  textPrompt, passwordPrompt, numberPrompt, confirmPrompt, wasCancelled,
+} from 'ansimax';
+
+// El autocomplete usa el motor fuzzy de v1.7.2, así que un typo igual acierta:
+// escribir `comit` ofrece `commit`, y Tab acepta la sugerencia resaltada.
+const cmd = await textPrompt({
+  message: 'Command',
+  placeholder: 'commit',
+  suggestions: ['commit', 'checkout', 'cherry-pick'],
+  history: ['commit -a', 'checkout main'],   // se recorre con ↑ / ↓
+});
+// ? Command comit
+// ▶ commit
+//                                              → 'commit'
+
+const port = await numberPrompt({ message: 'Port', initial: 8080, min: 1024, max: 65535 });
+// ? Port 8080  (1024–65535)        ↑ empuja   → 8081
+
+// `deliberate` quita los atajos y/n, para que una acción destructiva no sea
+// una tecla suelta — exige las flechas y Enter.
+const go = await confirmPrompt({
+  message: 'Deploy to production?',
+  initial: false,
+  deliberate: true,
+});
+// ? Deploy to production?     Yes   ▸ No
+
+const token = await passwordPrompt({ message: 'Token', confirm: true });
+// ? Token ••••••••••••
+//   ████░ strong — add uppercase
+
+if (wasCancelled(cmd)) console.log('cancelado — no se cambió nada');
+```
+
+`passwordStrength` es una función pura, así que puede puntuar un campo en
+cualquier parte. Usa `log2(pool) · min(largo, distintos · 2)`, y por eso la
+repetición no compra entropía que no aporta:
+
+```js
+import { passwordStrength } from 'ansimax';
+
+passwordStrength('hunter2');
+// { score: 1, label: 'weak', bits: 36, hint: 'longer is the easiest win' }
+
+passwordStrength('aaaaaaaaaaaaaaaa');   // 16 caracteres, uno solo distinto
+// { score: 0, label: 'very weak', bits: 9, hint: 'add uppercase' }
+
+passwordStrength('Tr0ub4dor&3');
+// { score: 3, label: 'strong', bits: 72, hint: 'longer is the easiest win' }
+
+passwordStrength('correct horse battery staple');
+// { score: 4, label: 'very strong', bits: 153, hint: null }
+```
+
+El calendario se mueve por días con `←`/`→`, por semanas con `↑`/`↓`, por meses
+con PageUp/PageDown y por años con Shift. Toda la aritmética es consciente del
+calendario — 31 ene + 1 mes es 28/29 feb, nunca 3 mar — y un día fuera de
+`min`/`max` se atenúa y **rechaza** el movimiento en lugar de deslizarse a otro:
+
+```js
+import { datePrompt, formatISODate, formatTime } from 'ansimax';
+
+const when = await datePrompt({
+  message: 'Release',
+  initial: new Date(2026, 11, 1, 9, 0),
+  min: new Date(2026, 10, 28),
+  weekStart: 1,            // lunes
+  time: true,              // Tab cambia al reloj
+  minuteStep: 30,
+});
+// ? Release  2026-12-01 09:00
+//   December 2026
+//   Mo Tu We Th Fr Sa Su
+//       1  2  3  4  5  6
+//    7  8  9 10 11 12 13
+//   14 15 16 17 18 19 20
+//   21 22 23 24 25 26 27
+//   28 29 30 31
+//   09:00  tab
+
+formatISODate(when);   // '2026-12-03'
+formatTime(when);      // '10:00'
+```
+
+El listador de directorios del picker es **inyectable**, y ahí está el punto:
+lo que se navega no tiene que ser un filesystem. `node:fs` es solo un fallback
+perezoso, cargado dentro de un try/catch, así que importar el módulo nunca
+exige que exista un filesystem.
+
+```js
+import { filePrompt } from 'ansimax';
+
+// Un directorio real, filtrado — los directorios siempre se muestran, así que
+// un filtro pensado para archivos nunca oculta el camino por el árbol
+const config = await filePrompt({
+  message: 'Config',
+  cwd: './src',
+  filter: (entry) => entry.name.endsWith('.json'),
+});
+
+// …o algo que no es un filesystem en absoluto
+const entry = await filePrompt({
+  message: 'Entry in the archive',
+  cwd: '/',
+  readDir: (path) => archive.list(path),   // → [{ name, directory, size? }]
+});
+// ? Entry in the archive  /
+// ▶ 📁 assets/
+//      manifest.json 412 B
+//                                         → '/assets/logo.png'
+```
+
+`formPrompt` compone los prompts individuales en vez de redibujarlos, así cada
+campo conserva sus propias teclas de edición, su validación y su fallback sin
+TTY. Un predicado `when` hace condicional un campo, y un campo que deja de
+aplicar descarta su respuesta vieja en lugar de dejarla en el resultado:
+
+```js
+import { formPrompt } from 'ansimax';
+
+const answers = await formPrompt([
+  { name: 'name',    type: 'text',    message: 'Project name', allowEmpty: false },
+  { name: 'private', type: 'confirm', message: 'Private?', initial: false },
+  { name: 'org',     type: 'text',    message: 'Organisation',
+    when: (a) => a.private === true },
+  { name: 'port',    type: 'number',  message: 'Port', min: 1024, max: 65535 },
+], { title: 'New project' });
+
+// New project
+// ✔ Project name ansimax
+// ✔ Private? yes
+// ✔ Organisation brashkie
+// ✔ Port 8080
+//
+// → { name: 'ansimax', private: true, org: 'brashkie', port: 8080 }
+```
+
+Un wizard agrega pasos y una barra de progreso. **Shift+Tab retrocede**,
+re-ejecutando el campo anterior con lo que había respondido — y aterriza en el
+último campo realmente *mostrado*, así un campo que `when` salteó nunca es un
+lugar al que mandar al usuario:
+
+```js
+import { wizardPrompt } from 'ansimax';
+
+const answers = await wizardPrompt([
+  { title: 'Identity', fields: [
+    { name: 'name',  type: 'text', message: 'Your name', allowEmpty: false },
+    { name: 'email', type: 'text', message: 'Email' },
+  ] },
+  { title: 'Deployment', fields: [
+    { name: 'deploy', type: 'confirm', message: 'Deploy on push?' },
+    { name: 'target', type: 'text', message: 'Target host',
+      when: (a) => a.deploy === true },
+  ] },
+], { title: 'Setup' });
+
+// Setup
+// ░░░░░░░░ 0/2 Identity
+// ✔ Your name Moises
+// ✔ Email m@example.com
+// ████░░░░ 1/2 Deployment
+// ✔ Deploy on push? yes
+// ✔ Target host prod.example.com
+// ████████ 2/2
+//
+// → { name: 'Moises', email: 'm@example.com',
+//     deploy: true, target: 'prod.example.com' }
+```
+
 ---
 
 ## 📖 Documentación
@@ -969,38 +1295,57 @@ El roadmap apunta intencionalmente — y busca superar — gaps que ni siquiera 
 - [x] **Dispatcher de atajos** — `createKeymap()` asocia atajos a handlers, con dedup canónico y match exacto de modificadores; `handle` devuelve `false` para que las teclas no mapeadas pasen como texto (v1.9.3)
 - [ ] **Framework TUI completo** (componentes reactivos — equivalente a Textual para Node)
 
-### 🔴 Fase 10 — Charts de terminal
-- [ ] Barras (horizontal + vertical, agrupadas, apiladas)
+### ✅ Fase 10 — Charts de terminal
+- [x] Barras (horizontal + vertical, agrupadas, apiladas) — **`barChart`**: vertical/horizontal × agrupadas/apiladas, precisión sub-celda con octavos de bloque, etiquetas centradas y leyenda; las series apiladas se sombrean `█▓▒░` para leerse sin color (v1.10.0)
 - [x] Líneas (con braille para resolución sub-carácter) — `lineChart`, sub-pixel 8×, multi-serie, color por cobertura de celda (v1.7.1); **anti-aliasing Xiaolin Wu** vía `antialias` — pesos fraccionales de borde proyectados sobre la cobertura (v1.7.2)
 - [x] Sparklines (mini-charts inline para status bars) (v1.6.6)
-- [ ] Áreas (rellenas con gradientes)
-- [ ] Heatmaps (grids 2D color-mapped)
-- [ ] Pie / donut (con etiquetas de porcentaje)
-- [ ] Scatter plots
-- [ ] Box plots / candlestick
-- [ ] Charts en streaming en tiempo real (feed de datos con ventana móvil)
-- [ ] **Compositor de plots** (dashboards multi-chart con ejes compartidos)
+- [x] **Áreas** — `areaChart`: relleno hasta la curva con octavos de bloque, remuestreo a cualquier ancho, la fracción de fila llega al `colorFn` para un gradiente vertical en una línea (v1.10.0)
+- [x] **Heatmaps** — `heatmap`: cualquier grid 2D, filas desiguales y huecos, ramp personalizable, etiquetas de fila, la fracción de celda llega al `colorFn`; cada paso del ramp se ensancha una vez en lugar de por celda (1.66x) (v1.10.0)
+- [x] **Pie / donut** — `pieChart`: ángulos por `atan2` en sentido horario desde las 12, distancia horizontal dividida por el aspecto de celda para que el círculo se vea redondo, carácter propio por porción, leyenda con porcentajes (v1.10.0)
+- [x] **Scatter plots** — `scatterPlot`: canvas braille a 2×4 sub-celdas, una celda carga hasta 8 puntos; marcador plano opcional, la cobertura de puntos llega al `colorFn` (v1.10.0)
+- [x] **Box plots / candlestick** — `boxPlot` + `boxStats` (resumen de cinco números con cuartiles interpolados) y `candlestick` (cuerpo entre apertura y cierre, mecha a los extremos, regla doji, hooks de color up/down separados) (v1.10.0)
+- [x] **Streaming en tiempo real** — `createStreamChart`: ventana móvil acotada con `push`/`pushAll`/`clear` encadenables, auto-escala a la ventana o escala fija, renderizado como área o barras (v1.10.0)
+- [x] **Compositor de plots** — `composePlots`: paneles en grid con títulos, alineados a un ancho común descontando los escapes ANSI, así los charts con color cuadran con los planos (v1.10.0)
 
-### 🟡 Fase 11 — Formularios e input
+### ✅ Fase 11 — Formularios e input
+
+**Filosofía:** cada prompt recibe su I/O por opciones y resuelve una promesa.
+La librería **nunca llama a `process.exit()`** — Ctrl+C resuelve el centinela
+`PROMPT_CANCELLED`, así que quien llama decide qué significa cancelar. El modo
+raw, el listener de teclas, el redibujado consciente del wrap y el teardown
+viven en un único núcleo de sesión: hay un solo lugar donde una terminal podría
+quedarse sin cursor, y un solo lugar que lo arregla. Sin TTY cada prompt
+resuelve su default en vez de colgarse, así el mismo script corre en CI.
+
 - [x] **Matcher fuzzy** — Levenshtein bit-paralelo de Myers (`fuzzyDistance`, `fuzzyMatch`, `fuzzyScore`, `fuzzySearch`); tolerante a typos, búsqueda de subcadena sin anclaje, `O(m·⌈n/32⌉)`, cero deps (v1.7.2)
-- [ ] Prompts de texto (con autocomplete + historial) — motor fuzzy listo (v1.7.2)
-- [ ] Prompts de password (mascarados, medidor de fortaleza)
-- [ ] Diálogos de confirmación (yes/no con highlight de default)
-- [ ] Input numérico (con validación min/max)
-- [ ] Pickers de fecha/hora (widget calendario)
-- [ ] Picker de archivos (navegador de filesystem)
-- [ ] Compositor de formularios (multi-campo con validación + display de errores)
-- [ ] **Flujos de wizard** (formularios multi-paso con back/forward, indicador de progreso)
+- [x] **Prompts de texto** — `textPrompt`: editor de línea completo sobre **code points** (así un emoji se borra como un solo carácter), teclas de shell (`←`/`→`, Home/End, Ctrl+A/E/U/K/W), `placeholder` e `history` recorrido con las flechas. El autocomplete usa el motor fuzzy de v1.7.2 con el presupuesto de errores escalado al largo de la consulta — una consulta de 3 caracteres se compara exacta, y `comit` igual encuentra `commit` (v1.10.0)
+- [x] **Prompts de password** — `passwordPrompt`: `mask` configurable (vacío oculta el largo), ronda `confirm` opcional que exige coincidencia, y medidor de fortaleza en vivo. `passwordStrength` puntúa con `log2(pool) · min(largo, distintos · 2)` — repetir un carácter no compra entropía que no aporta — y devuelve los bits, una etiqueta y el único cambio que más ayudaría (v1.10.0)
+- [x] **Diálogos de confirmación** — `confirmPrompt`: flechas/Tab/Espacio para cambiar, Enter toma el lado resaltado, `y`/`n` (o la primera letra de etiquetas propias) responden de inmediato — y `deliberate: true` quita los atajos, para que una acción destructiva no sea una tecla suelta (v1.10.0)
+- [x] **Input numérico** — `numberPrompt`: `min`/`max`/`step`/`integer`, las flechas empujan el valor, y los caracteres no numéricos se rechazan en la tecla, no al enviar. Un campo vacío empuja hasta el mínimo, no desde cero (`Number('')` es `0`, lo que dejaría al usuario a una tecla de donde espera) (v1.10.0)
+- [x] **Pickers de fecha/hora** — `datePrompt`: grid del mes con flechas para días y semanas, PageUp/PageDown para meses, Shift para años, `t` para hoy, `weekStart`, nombres de días y meses localizables. Toda la aritmética es consciente del calendario: 31 ene + 1 mes es 28/29 feb y nunca 3 mar; los días fuera de rango se atenúan y el cursor **rechaza** el movimiento en lugar de deslizarse a otro día. `time: true` agrega un reloj en Tab (v1.10.0)
+- [x] **Picker de archivos** — `filePrompt`: el listador de directorios es **inyectable**, así lo que se navega puede ser un archivo comprimido, un bucket o un host remoto, y `node:fs` es solo un fallback perezoso. Filtro fuzzy al escribir, directorios primero, tamaños legibles, `directories: true` para elegir carpeta, y un `filter` de archivos que nunca oculta el camino por el árbol (v1.10.0)
+- [x] **Compositor de formularios** — `formPrompt`: unión discriminada de los seis tipos de campo, respuestas indexadas por `name`, predicados `when` para campos condicionales (un campo que deja de aplicar descarta su respuesta vieja), validación por campo, y una línea `✔ etiqueta valor` por respuesta con los passwords mascarados (v1.10.0)
+- [x] **Flujos de wizard** — `wizardPrompt`: pasos con título propio y condiciones `when`, respuestas que se acumulan para que un paso posterior dependa de uno anterior, y una barra de progreso del flujo. **Shift+Tab retrocede**, re-ejecutando el campo anterior con lo que había respondido — y aterriza en el último campo realmente *mostrado*, no en el índice previo, así un campo salteado nunca es un lugar al que mandar al usuario (v1.10.0)
 
-### 🔴 Fase 12 — Imagen y media
+### ✅ Fase 12 — Imagen y media
+
+**Filosofía:** ansimax renderiza imágenes con métodos *universales y propios*
+que funcionan en cualquier terminal — nunca dependiendo de un protocolo
+propietario. Kitty/iTerm/Sixel se tratan como *detección* (Fase 8); emitirlos
+es opcional y queda en manos de quien llama. `renderImageAuto` ya elige
+automáticamente el mejor método portable.
+
+- [x] **Auto-render universal** — `renderImageAuto` elige half-blocks (con color) o ASCII (sin color) según la capacidad detectada (v1.6.7)
+- [x] **Renderizado con half-blocks** — `▀`/`▄` con color de fondo y de frente, doble resolución vertical, en cualquier terminal truecolor
+- [x] **Cuantización perceptual** — `rgbTo256Perceptual` / `nearestPerceptual` por ΔE de Oklab (mata el banding frente a L2 en RGB) (v1.7.0)
 - [x] **Dithering de color perceptual** — `ditherColor` difunde el error hacia una paleta eligiendo por ΔE de Oklab, sobre cualquiera de los 6 kernels (v1.7.4)
-- [ ] Renderizado de imágenes Sixel (xterm, mlterm, WezTerm)
-- [ ] Imágenes inline de iTerm2 (protocolo base64)
-- [ ] Protocolo gráfico de Kitty
-- [ ] PNG/JPEG → imagen de terminal (auto-detecta mejor protocolo)
-- [ ] Preview de video (frame-por-frame a bajo FPS)
-- [~] Generación de códigos QR (con opciones de tamaño + nivel ECC) — corrección Reed-Solomon sobre GF(2^8) lista (`reedSolomonEncode`, `rsGeneratorPoly`, `gfMul`/`gfPow`); matriz/máscaras siguen (v1.7.5)
-- [ ] Generación de códigos de barras (Code 128, EAN-13)
+- [x] **Paleta adaptativa** — `medianCutPalette`: median cut de Heckbert con los cortes en Oklab y mediana ponderada por píxeles, más `createPaletteMapper` para mapear una imagen sin reconvertir la paleta en cada píxel (v1.10.0)
+- [x] **Encoder Sixel** — `encodeSixel` / `encodeSixelDetailed`: paleta derivada por median cut en Oklab (o suministrada, para que una animación comparta una sola), mapeo con dithering opcional, transparencia, RLE, una pasada por color y banda de seis filas. Verificado decodificando 400 imágenes aleatorias con un decoder Sixel externo — cada píxel volvió exactamente como la entrada de paleta que el encoder eligió (v1.10.0)
+- [x] **Decode PNG/JPEG → pixel grid** — `decodePNG` (todas las formas no animadas: tipos de color 0/2/3/4/6, profundidades de 1 a 16 bits, `tRNS`, entrelazado Adam7) y `decodeJPEG` (baseline secuencial, cualquier factor de submuestreo, intervalos de restart, gris/YCbCr/CMYK/YCCK, croma interpolado). Más `encodePNG`, sobre un DEFLATE propio. Verificado contra libjpeg, Pillow, pngjs y UPNG (v1.10.0)
+- [x] **DEFLATE / zlib propios** — `deflate` / `inflate` / `crc32` / `adler32` (RFC 1950 y 1951): LZ77 sobre cadena hash, Huffman fijo y dinámico, y los límites de bloque elegidos midiendo en vez de adivinando. Comprime igual o mejor que zlib nivel 6 en todo el corpus; 2.500 entradas aleatorias validadas en ambos sentidos contra `node:zlib` (v1.10.0)
+- [x] **Generación de códigos QR** — `encodeQR` / `renderQR` / `qrCapacity`: las 40 versiones, los 4 niveles ECC, modos numérico/alfanumérico/byte UTF-8, interleaving de bloques, todos los patrones de función, format y version info (BCH), y las 8 máscaras puntuadas con las reglas de penalización del estándar. Renderizado con half-blocks, así que el símbolo mide la mitad de alto que de ancho. Construido sobre la capa Reed-Solomon de v1.7.5; verificado decodificando cada símbolo con un decoder externo y comparando matrices módulo a módulo contra una referencia (v1.10.0)
+- [x] **Generación de códigos de barras** — `encodeCode128` (los tres code sets con cambio automático y shifts, FNC1–FNC4, checksum mod 103) y `encodeEAN13` (primer dígito en la tabla de paridad, dígito de control), más `renderBarcode`. Los 107 patrones de Code 128 comparados contra un encoder de referencia, y 4.000 payloads aleatorios ida y vuelta por un decoder independiente con el mismo ancho en módulos (v1.10.0)
+- [x] **Encoders iTerm2 / Kitty** — `encodeKittyImage` (RGB/RGBA crudo o PNG, troceado base64 de 4096 bytes) y `encodeITerm2Image` (OSC 1337, passthrough de tmux opcional), sobre un `base64Encode` propio. **Siguen siendo opt-in: `renderImageAuto` nunca emite un protocolo propietario** (v1.10.0)
 
 ### 🟡 Fase 13 — Sistema de plugins
 - [x] **Ordenamiento del pipeline** — `topoSort` / `tryTopoSort` (algoritmo de Kahn): orden de etapas determinista + error de ciclo accionable que nombra el bucle (v1.7.6)
@@ -1052,12 +1397,12 @@ hay motor que consuma AXB, así que deliberadamente no se apresura).
 ## 🧪 Testing
 
 ```bash
-npm test              # Correr los 3,382 tests
+npm test              # Correr los 4.020 tests
 npm run test:watch    # Modo watch
 npm run test:coverage # Reporte de cobertura
 ```
 
-Cobertura (a v1.9.2):
+Cobertura (a v1.10.0):
 
 | Métrica | Score |
 |---|:-:|
@@ -1065,8 +1410,8 @@ Cobertura (a v1.9.2):
 | **Branches** | ~95% |
 | **Functions** | ~99% |
 | **Lines** | ~99% |
-| **Tests totales** | **3,382** |
-| **Test suites** | 35 |
+| **Tests totales** | **4.020** |
+| **Test suites** | 44 |
 | **Matrix CI** | Node 18, 20, 22 |
 | **Plataformas probadas** | Linux, macOS, Windows |
 
@@ -1156,24 +1501,248 @@ sin secret y sin caducidad. Ver los comentarios al inicio de `release.yml`.
 ```
 ansimax/
 ├── src/
-│   ├── colors/         Renderizado de color + motor de gradientes
-│   ├── themes/         Sistema de temas + 8 built-ins
-│   ├── ascii/          Banners, cajas, fuentes
 │   ├── animations/     Typewriter, fade, slide, pulse, wave, glitch, reveal
-│   ├── loaders/        Spinners, progreso, tareas, multi-loader
-│   ├── frames/         Reproducción secuenciada + renderer live + morph
-│   ├── components/     Tablas, badges, status, timelines, menús
-│   ├── images/         Sprites, canvas, gradientes con dither
-│   ├── trees/          Builder de árboles + algoritmos
-│   ├── utils/          Primitivas ANSI + helpers
-│   └── configure.ts    Config global + subscribers
-├── examples/           10 ejemplos (TS) + 2 (JS — ESM y CJS) — todas las funciones cubiertas
-└── __tests__/          35 test suites, 3,382 tests
+│   ├── ascii/          Banners, boxes, figlet fonts
+│   ├── barcode/        Code 128 and EAN-13
+│   ├── buffer/         Virtual screen buffer + z-index layer compositing
+│   ├── charts/         Sparklines, bars, braille lines, and the Phase 10 set
+│   ├── colors/         Color rendering + gradient engine + Oklab
+│   ├── components/     Tables, badges, status, timelines, menus
+│   ├── dag/            Topological sort (Kahn) + cycle diagnostics
+│   ├── deflate/        DEFLATE, zlib, CRC-32 and Adler-32, from scratch
+│   ├── diff/           Line and intra-row damage diffing
+│   ├── ecc/            Reed-Solomon over GF(2^8)
+│   ├── frames/         Sequenced playback + live renderer + morph
+│   ├── fuzzy/          Myers bit-parallel Levenshtein + adaptive prefilter
+│   ├── images/         Sprites, canvas, dithering, PNG, JPEG, protocols
+│   ├── input/          Key/mouse sequence parsing + keymap dispatch
+│   ├── json/           Pretty-printer with cycle handling
+│   ├── loaders/        Spinners, progress, tasks, meters, ETA
+│   ├── logger/         Levelled logger with themed output
+│   ├── markdown/       Terminal markdown + syntax highlighting
+│   ├── panels/         Split layouts
+│   ├── pipeline/       Plugin stages run in dependency order
+│   ├── prompts/        Text, password, number, confirm, date, file, forms
+│   ├── qr/             QR encoder (all 40 versions, 4 ECC levels, 8 masks)
+│   ├── screen/         Cursor and screen control
+│   ├── sixel/          Sixel encoder (the open DEC inline-image format)
+│   ├── themes/         Theme system + 8 built-ins
+│   ├── trees/          Tree builder + algorithms
+│   ├── tween/          Easings, springs, timelines
+│   ├── utils/          ANSI primitives, width machinery, math toolkit
+│   └── configure.ts    Global config + subscribers
+├── bench/              Harness de benchmark sin dependencias + baseline
+├── examples/           24 ejemplos (TS) + 2 (JS — ESM y CJS)
+└── src/__tests__/      44 suites de test, 4.020 tests
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v1.10.0 — Fases 10, 11 y 12 completas, prefiltro fuzzy
+
+- 🖼️ **Fase 12 cerrada** — cinco módulos nuevos y lo que faltaba de imagen:
+  `encodeCode128` / `encodeEAN13` / `renderBarcode` (los tres code sets de
+  Code 128 con cambio automático, el primer dígito de EAN-13 en la tabla de
+  paridad), `encodeSixel` (el formato abierto de DEC, paleta por median cut en
+  Oklab), `decodePNG` / `encodePNG` (todas las formas no animadas de PNG,
+  Adam7 incluido), `decodeJPEG` (baseline secuencial, cualquier submuestreo,
+  intervalos de restart), y `encodeKittyImage` / `encodeITerm2Image` — esos
+  dos siguen siendo **opt-in**, porque `renderImageAuto` nunca emite un
+  protocolo propietario
+- 🗜️ **DEFLATE y zlib, escritos desde cero** — `deflate` / `inflate` /
+  `crc32` / `adler32`. PNG los necesita e importar `node:zlib` ataría a
+  cualquiera que use el código de imagen a un runtime con forma de Node.
+  Comprime igual o mejor que zlib nivel 6 en todo el corpus, tras dos
+  hallazgos: el Huffman fijo por sí solo no comprimía las scanlines de PNG
+  **en absoluto**, y una vez resuelto con tablas dinámicas, lo que quedaba de
+  diferencia eran los **límites de bloque** y no el Huffman — así que el
+  encoder corta fino y fusiona bloques adyacentes mientras fusionar cueste
+  medidamente menos bits
+- 🎨 **`medianCutPalette` y `createPaletteMapper`** — median cut de Heckbert
+  con los cortes en Oklab y la mediana ponderada por píxeles, más un mapper
+  que precalcula la paleta en vez de rederivarla en cada píxel. Ese mapper
+  llevó el encode Sixel de una imagen 320×240 de 3.448 ms a 71 ms (**48.6x**):
+  `nearestPerceptual` estaba convirtiendo las 256 entradas de paleta a Oklab
+  **por cada píxel**, 19,7 millones de raíces cúbicas
+- ⚡ **Gamma sRGB tabulada** — el `Math.pow` de la función de transferencia es
+  la parte cara de cualquier conversión a Oklab, y la entrada es un byte, así
+  que hay exactamente 256 respuestas. No es una aproximación: un canal entero
+  recibe el mismo double. Convertir 12.288 colores a Oklab pasó de 5,8 ms a
+  2,2 ms, y `medianCutPalette` es 1,28x más rápido
+- 🧪 **Fase 12 verificada contra implementaciones externas**, nunca contra sus
+  propios tests: los 107 patrones de Code 128 y 4.000 payloads ida y vuelta;
+  3.000 códigos EAN-13; 2.500 entradas DEFLATE en ambos sentidos contra
+  `node:zlib`; 15 variantes de PNG de Pillow decodificadas píxel a píxel y
+  nuestros archivos releídos por pngjs, UPNG *y* Pillow; 124 JPEG contra
+  libjpeg (error medio por canal 0,02 en 4:4:4 frente a 0,85 de jpeg-js); 400
+  imágenes Sixel por un decoder externo
+
+- 🧾 **Fase 11 cerrada** — ocho controles interactivos en un módulo `prompts`
+  nuevo: `textPrompt` (editor de línea sobre code points, teclas de shell,
+  historial, autocomplete fuzzy), `passwordPrompt` (+ `passwordStrength`),
+  `numberPrompt`, `confirmPrompt`, `datePrompt` (calendario + reloj),
+  `filePrompt`, `formPrompt` y `wizardPrompt`
+- 🚪 **La librería nunca llama a `process.exit()`** — Ctrl+C resuelve el
+  centinela `PROMPT_CANCELLED`, así que quien llama decide qué significa
+  cancelar. Una librería que sale en Ctrl+C toma esa decisión por todo
+  programa que la importe, incluidos los que corren dentro de un build
+- 🔌 **La I/O se inyecta, nunca se va a buscar** — cada prompt recibe `input`
+  y `output`, y eso es lo que hace al módulo testeable sin terminal (los 187
+  tests de prompts manejan un stdin falso) y lo que permite correr un prompt
+  sobre un socket o una pty. Sin TTY cada uno resuelve su default en vez de
+  colgarse, así el mismo script funciona en CI
+- 🧩 **Un solo núcleo de sesión** — `runSession` es dueño del modo raw, del
+  listener de `parseKeys`, del redibujado consciente del wrap, del teardown
+  idempotente y de los handlers de señales que restauran el cursor. Un solo
+  lugar donde una terminal puede quedarse sin cursor, y un solo lugar que lo
+  arregla
+- 📅 **Aritmética de calendario, no de fechas** — 31 ene + 1 mes es 28/29 feb
+  y nunca 3 mar, y un día fuera de `min`/`max` se atenúa y **rechaza** el
+  movimiento en lugar de deslizarse a otro
+- 🗂️ **El listador del picker de archivos es inyectable** — así lo que se
+  navega no tiene que ser un filesystem (un archivo comprimido, un bucket, un
+  host remoto); `node:fs` es solo un fallback perezoso dentro de un try/catch
+- 🔙 **Shift+Tab retrocede en un wizard**, re-ejecutando el campo anterior con
+  lo que había respondido — y aterrizando en el último campo realmente
+  *mostrado*, así un campo que `when` salteó nunca es un lugar al que mandar
+  al usuario
+- 🐛 **Cuatro bugs encontrados ejecutando el código, no leyéndolo** — el
+  autocomplete daba `"develop"` para `"fea"` (el matcher no está anclado, así
+  que 2 errores sobre una consulta de 3 caracteres matchea casi todo; el
+  presupuesto ahora escala con la consulta); `Number('')` es `0`, así que un
+  campo numérico vacío empujaba desde cero y quedaba clampeado, a una tecla
+  del mínimo; un filtro más Enter en el picker **subía un nivel** porque `..`
+  quedaba seleccionado y sin matchear; y `/` era su propio padre, así que
+  seguir `..` en la raíz recargaba `/` para siempre
+- 🧹 **Tres marcas `istanbul ignore` eliminadas** del núcleo de sesión —
+  estaban *dentro* de sus bloques `catch`, donde la marca solo cubre la
+  sentencia siguiente, así que no ocultaban nada y marcaban como inalcanzables
+  caminos que no lo son. Un `render()` que lanza, un `onKey()` que lanza y un
+  stdin que rechaza el modo raw ahora tienen tests reales, y cada uno devuelve
+  la terminal antes de resolver
+
+- 📊 **Fase 10 cerrada** — siete tipos de chart nuevos, todos funciones puras
+  de datos a string: `barChart` (vertical/horizontal × agrupadas/apiladas),
+  `areaChart`, `heatmap`, `pieChart` (y donut), `scatterPlot` (braille, 8
+  puntos por celda), `boxPlot` + `boxStats`, `candlestick`,
+  `createStreamChart` (ventana móvil) y `composePlots` (grid de dashboard)
+- 🧮 **`minMax`** — mínimo y máximo finitos en una pasada. No es una
+  comodidad: `Math.min(...valores)` pasa un argumento por elemento, así que
+  **todos** los charts lanzaban `RangeError: Maximum call stack size exceeded`
+  pasadas unos cientos de miles de muestras. `areaChart`, `heatmap`,
+  `sparkline` y `lineChart` reventaban con una serie de 300k y ahora renderizan
+  un millón
+- ⚡ **`heatmap` 1.66x** — cada paso del ramp se ensancha una vez en lugar de
+  llamar a `repeat` por celda (un grid 40×20: 800 allocations → 8)
+- 🎨 **Barras apiladas legibles sin color** — sin `colorFn` todas las series
+  apiladas se dibujaban con `█` y eran indistinguibles; ahora se sombrean
+  `█▓▒░▚▞`, y quien pasa un `colorFn` sigue recibiendo bloques sólidos
+- 📐 **Una serie constante ya no sale en blanco** — una serie plana ensanchaba
+  su banda hacia arriba, dejando todas las muestras en el suelo: un canvas
+  vacío que parecía falta de datos. Ahora la banda se centra cuando no hay
+  límite fijado, y se ensancha alejándose del límite que sí fijó quien llama
+- 🔳 **Generación de códigos QR** — `encodeQR`, `renderQR`, `qrCapacity`. Las
+  40 versiones, 4 niveles ECC, modos numérico/alfanumérico/UTF-8, todos los
+  patrones de función, format y version info con BCH, y las 8 máscaras
+  puntuadas con las reglas del estándar. Construido sobre la capa Reed-Solomon
+  de v1.7.5, sin dependencias. Con half-blocks, mitad de alto que de ancho
+- 🔎 **Prefiltro de caracteres en `fuzzySearch`** — un candidato al que le
+  faltan más de `maxErrors` caracteres del patrón se descarta sin correr Myers:
+  **2.3x** cuando nada matchea, 1.35x en conjuntos diversos, y 0.99x en los
+  homogéneos porque el filtro se autodesactiva cuando no rinde
+- 🧹 **Tres marcas `istanbul ignore` eliminadas** del núcleo de sesión de los
+  prompts — estaban *dentro* de sus bloques `catch`, donde la marca solo cubre
+  la sentencia siguiente, así que no ocultaban nada y marcaban como
+  inalcanzables caminos que no lo son. Un `render()` que lanza, un `onKey()`
+  que lanza y un stdin que rechaza el modo raw ahora tienen tests reales, y
+  cada uno devuelve la terminal antes de resolver
+- 🎯 **`scatterPlot` descarta los puntos fuera de la ventana en vez de pegarlos
+  al borde** — un punto a la derecha de `xMax` se dibujaba *sobre* el borde
+  derecho, y uno debajo de `yMin` en la fila de abajo: una marca donde no hay
+  muestra. Los puntos a la izquierda o arriba ya se descartaban, así que ni
+  siquiera era simétrico. Un punto exactamente sobre un límite sigue dibujándose
+- 🥧 **El último límite de `pieChart` ahora es abierto** — las fracciones son
+  floats y seis porciones iguales suman 0,9999999999999999, dejando una astilla
+  del círculo sin asignar; abriendo el límite, todo ángulo cae en una porción
+  por construcción y no por un fallback
+- 🗂️ **Una raíz de filesystem o de unidad no tiene padre** — `/` es su propio
+  último separador, así que `..` aparecía en la raíz y seguirlo recargaba `/`
+  para siempre. `C:` y `C:\` también son tope
+- 🧹 **Código muerto eliminado de `deflate`** — un `get offset()` que nadie
+  llamaba, y un término de corrección del header zlib que nunca podía dispararse:
+  RFC 1950 pide que `CMF * 256 + FLG` sea múltiplo de 31, y `0x7801` es
+  exactamente `31 * 991`
+- 🪟 **El separador del picker de archivos ahora usa el de la plataforma** por
+  defecto cuando se usa el lister de `node:fs` — en Windows se leía
+  `C:\Users\me/Documents/notes.txt`. Con un `readDir` propio sigue siendo
+  `/`, porque un archivo comprimido o un bucket tienen su propia convención
+- 🔢 **`createCounter` reportaba `0/s` a alta velocidad** — la tasa se mide
+  entre ticks y `Date.now()` tiene resolución de milisegundo, así que los
+  ticks dentro del mismo milisegundo daban `dt === 0` y **se descartaban de la
+  tasa por completo**. Un contador con miles de eventos por milisegundo — el
+  único caso para el que existe un medidor de tasa — marcaba cero. Ahora esos
+  eventos se retienen y se cuentan contra el próximo intervalo que sí se puede
+  medir: 150 ticks en un milisegundo y uno 100 ms después da ~`1.5K/s`
+- 📄 **Todos los ejemplos de ambos READMEs ahora se ejecutan** — los 170
+  bloques de JavaScript se extraen y se corren contra el paquete compilado, y
+  sus imports se verifican contra los exports reales. 164 corren con sólo
+  `ansimax` instalado; los 6 que necesitan `sharp` o un `.flf` de figlet lo
+  dicen. El pase encontró tres **imports faltantes** (`renderImageAuto`,
+  `encodeSixelDetailed` y `gradient` se llamaban sin importarlos), comentarios
+  de salida que el código nunca producía, dos formas de argumento equivocadas,
+  33 bloques con variables sin definir, y diez bloques en español a los que
+  les faltaba el setup que el inglés ya tenía
+- 🧪 **4.020 tests** en 44 suites, **100% de cobertura de statements, líneas
+  y funciones**, lint en cero warnings.
+  `passwordStrength` corre a 1,89 M/s y `formatISODate` a 11,6 M/s
+
+```js
+import { renderQR, encodeQR, qrCapacity } from 'ansimax';
+
+console.log(renderQR('https://npmjs.com/package/ansimax'));
+
+const qr = encodeQR('https://example.com', { level: 'Q' });
+qr.version;  // → 3
+qr.size;     // → 29   (version * 4 + 17)
+
+qrCapacity(40, 'L', 'byte');  // → 2953
+```
+
+Salida de la primera línea:
+
+```
+█████████████████████████████████
+██ ▄▄▄▄▄ █▀▄▄▄▀▀▄██▀▄ ▀█ ▄▄▄▄▄ ██
+██ █   █ ██▀▀ █▀█▄▀█▀▄▄█ █   █ ██
+██ █▄▄▄█ █▄▀▀█ ▄▀▀ █  ▀█ █▄▄▄█ ██
+██▄▄▄▄▄▄▄█▄█▄▀▄█▄▀▄▀ █▄█▄▄▄▄▄▄▄██
+██ ▀▄█ █▄▀▀██▀▄▀█▀  ██ █▀█▄▀█▄▀██
+██▀▄  ▄▄▄▀█ ▄  ▀ ▄ ▀▀▀██ ▀▀█▄ ▄██
+██▀ ▄██▄▄█▀▄▀▀██  ▄▄▄█ ▀ ██ █▄ ██
+██ ▀▀ ██▄█▄▄█ ▄▄█▀▄ ▀▀▄ ▀▄  █ ▄██
+██▄▀ ▀▄█▄▀█▄▄ ▄▀█▄▀ ██▀  ██ ▀▄ ██
+██▄▀  ▄▄▄ ▄█▄▀ ▀ ▀█▀ █▀█ ▀▄▀█ ▄██
+██▄█▄▄██▄█▀ ▄███ █ ▄█  ▄▄▄ █▀▀▀██
+██ ▄▄▄▄▄ ██  ▄ ▄█▀▀ █  █▄█  █▄▄██
+██ █   █ █▄ ▀▀ ▀█▄  ▀█▄▄▄▄ █▀▀ ██
+██ █▄▄▄█ █▄   ▄  ▀█   ▀█▀  ▄█▀▄██
+██▄▄▄▄▄▄▄█▄▄██▄██▄▄▄█▄▄▄█▄███▄▄██
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+```
+
+Vale señalar la verificación: cada QR se decodificó con un decoder **externo**
+y cada matriz se comparó módulo a módulo contra un encoder de referencia — eso
+detectó dos entradas erróneas en los 320 valores de las tablas de versión. La
+suite de charts verifica geometría (cuántas filas, dónde cae la tinta, entrada
+degenerada) en lugar de snapshots, y seis casos renderizan series de 400k–1M
+muestras solo para que el desborde de pila no vuelva.
+
+Una medición salió al revés de lo esperado y quedó anotada en el código: el
+chequeo de finitud hecho a mano `v === v && v !== Infinity && v !== -Infinity`
+dentro de `minMax` es **1.30x más lento** que `Number.isFinite(v)`, que V8
+compila a una sola comprobación. La versión "lista" se eliminó.
 
 ### v1.9.5 — Dos cuelgues corregidos, lint limpio, `fuzzySearch` 2.7x
 
@@ -1225,7 +1794,7 @@ Ningún caso empeoró. Añade también `npm run bench`, un harness sin dependenc
 
 ### v1.9.3 — Decodificación de chunks + dispatcher de atajos
 
-Solo aditivo; nada existente cambió de comportamiento. 3,382 tests verdes.
+Solo aditivo; nada existente cambió de comportamiento. 3.419 tests verdes.
 
 - ⌨️ **`parseKeys` / `splitSequences`** — un solo evento `data` de stdin suele
   traer varias teclas; `parseKey` procesa exactamente una, así que un chunk
@@ -1249,7 +1818,7 @@ keys.handle(parseKeys('\x03')[0]);  // true
 ### v1.9.2 — Biome, releases por tag, trusted publishing
 
 Solo infraestructura — **no cambió código de runtime** y la API pública es
-idéntica. Los 3,382 tests siguen verdes.
+idéntica. Los 3.419 tests siguen verdes.
 
 - 🧹 **Biome reemplaza ESLint + Prettier** — una sola herramienta, seis dev
   deps menos, `npm run ci` en local y en CI; el lint ahora sí bloquea
@@ -1306,7 +1875,15 @@ Reemplazo directo de `1.8.1`.
 import { detectCapabilities, compositeLayers } from 'ansimax';
 
 detectCapabilities().colorDepth;   // 'none' | 'basic' | '256' | 'truecolor'
-compositeLayers([bg, popup], 40, 12);
+
+// A layer's `content` is one string per row, so a block is an array of lines.
+const bg = { content: Array.from({ length: 4 }, () => '·'.repeat(20)), z: 0 };
+const popup = { content: ['┌────────┐', '│ Saved! │', '└────────┘'], x: 5, y: 1, z: 1 };
+console.log(compositeLayers([bg, popup], 20, 4).join('\n'));
+// ····················
+// ·····┌────────┐·····
+// ·····│·Saved!·│·····
+// ·····└────────┘·····
 ```
 
 Reemplazo directo de `1.8.0`.
@@ -1392,7 +1969,11 @@ Reemplazo directo de `1.7.4`.
 import { ditherColor } from 'ansimax';
 
 const palette = [{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 0, b: 0 }];
-ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+const pixels = Array.from({ length: 2 }, (_, y) =>
+  Array.from({ length: 4 }, (_, x) => ({ r: x * 60, g: y * 120, b: 128 })));
+const dithered = ditherColor(pixels, palette, { algorithm: 'stucki', metric: 'oklab' });
+// Every pixel that comes back is one of the three palette entries.
+console.log(dithered[0][0]);   // { r: 0, g: 0, b: 0 }
 ```
 
 Reemplazo directo de `1.7.3`.
@@ -1407,8 +1988,11 @@ Reemplazo directo de `1.7.3`.
 ```js
 import { keyframes, interpolateSpline } from 'ansimax';
 
-interpolateSpline([0, 100, 0], 0.5);   // 100 — a través del pico
-await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: (v) => drawBar(v) });
+console.log(interpolateSpline([0, 100, 0], 0.5));   // 100 — a través del pico
+
+const drawBar = (v) => process.stdout.write(`\r${'█'.repeat(Math.round(v / 5))} ${Math.round(v)}%  `);
+await keyframes({ frames: [0, 100, 60, 80], duration: 1200, onUpdate: drawBar });
+process.stdout.write('\n');
 ```
 
 Reemplazo directo de `1.7.2`.
@@ -1443,10 +2027,17 @@ Un minor grande. Destacados:
 ```js
 import { createScreen, rgbTo256Perceptual, gradientColorSpline, createStopwatch } from 'ansimax';
 
-await createScreen().run((s) => { s.moveTo(1,1); s.write('App pantalla completa'); });
-rgbTo256Perceptual(128, 64, 32);              // xterm-256 más cercano por ΔE perceptual
-gradientColorSpline(stops, 0.25);             // muestreo multi-stop suave
-const sw = createStopwatch(); sw.lap('load'); // perfilar etapas
+await createScreen().run((s) => { s.moveTo(1, 1); s.write('App pantalla completa'); });
+
+console.log(rgbTo256Perceptual(128, 64, 32));   // xterm-256 más cercano por ΔE perceptual
+
+// Los stops son objetos RGB, no strings hex.
+const stops = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }];
+console.log(gradientColorSpline(stops, 0.25));  // { r: 128, g: 143, b: 0 }
+
+const sw = createStopwatch();
+sw.lap('load');
+console.log(sw.laps());                         // [ { label: 'load', duration: …, total: … } ]
 ```
 
 Drop-in replacement para `1.6.7`.
@@ -1461,9 +2052,21 @@ Drop-in replacement para `1.6.7`.
 ```js
 import { renderImageAuto, cubicBezier, createCounter } from 'ansimax';
 
-const { output, method } = renderImageAuto(pixels);  // 'halfblock' | 'ascii'
-const ease = cubicBezier(0.25, 0.1, 0.25, 1);        // "ease" de CSS
-const c = createCounter(); c.tick(); c.formatRate();  // "1.2K/s"
+const pixels = Array.from({ length: 4 }, (_, y) =>
+  Array.from({ length: 8 }, (_, x) => ({ r: x * 30, g: y * 60, b: 140 })));
+const { output, method } = renderImageAuto(pixels);
+console.log(method);                           // 'halfblock' | 'ascii'
+console.log(output.split('\n').length);         // 2 filas de medios bloques
+
+console.log(cubicBezier(0.25, 0.1, 0.25, 1)(0.5));   // "ease" de CSS, ~0.8
+
+// La tasa se mide entre ticks, así que necesita dos con tiempo en medio — un
+// solo tick todavía no tiene intervalo que medir.
+const c = createCounter();
+c.tick();
+await new Promise((r) => setTimeout(r, 100));
+c.tick(120);
+console.log(c.formatRate());                   // "1.2K/s"
 ```
 
 > **Sobre protocolos de imagen:** ansimax renderiza con métodos universales que genera él mismo (half-blocks / ASCII) y funcionan en cualquier terminal. Sixel/Kitty/iTerm son *solo detección* — se exponen para que quien quiera conecte su propio encoder, nunca se emiten por defecto.
@@ -1499,10 +2102,12 @@ Drop-in replacement para `1.6.5`.
 ```js
 import { stringWidth, formatRate, createETA, ascii } from 'ansimax';
 
-stringWidth('中文');                                  // 4
-formatRate(1572864);                                 // "1.5 MB/s"
-createETA({ total: 1000, smoothing: 'ema' });        // reacción más rápida
-ascii.table(rows, { autoAlignNumbers: true });       // números a la derecha
+console.log(stringWidth('中文'));                      // 4
+console.log(formatRate(1572864));                    // "1.5 MB/s"
+console.log(createETA({ total: 1000, smoothing: 'ema' }).eta());  // "—" hasta tener muestras
+
+const rows = [['Región', 'Pedidos'], ['us-east', '1200'], ['eu-west', '840']];
+console.log(ascii.table(rows, { autoAlignNumbers: true }));  // números a la derecha
 ```
 
 Drop-in replacement para `1.6.4`.
@@ -1554,12 +2159,16 @@ Drop-in replacement para `1.6.2`.
 ```js
 import { ascii, balancedWrap, catmullRom, percentile } from 'ansimax';
 
-ascii.fromImage(pixels, { dither: 'atkinson' });          // nítido, alto contraste
-ascii.table(rows, { wrap: true, balancedWrap: true });    // líneas parejas
+const pixels = Array.from({ length: 8 }, (_, y) =>
+  Array.from({ length: 16 }, (_, x) => ({ r: x * 16, g: y * 30, b: 90 })));
+console.log(ascii.fromImage(pixels, { width: 16, dither: 'atkinson' }));  // nítido, alto contraste
 
-balancedWrap('I am a very long sentence here', 11);       // mínima irregularidad
-catmullRom(0, 10, 20, 30, 0.5);                            // → 15 (spline suave)
-percentile([1, 2, 3, 4, 5], 50);                          // → 3
+const rows = [['Nota'], ['una celda larga que tiene que cortarse en algún lado']];
+console.log(ascii.table(rows, { maxWidth: 24, wrap: true, balancedWrap: true }));
+
+console.log(balancedWrap('I am a very long sentence here', 11));  // mínima irregularidad
+console.log(catmullRom(0, 10, 20, 30, 0.5));             // → 15 (spline suave)
+console.log(percentile([1, 2, 3, 4, 5], 50));            // → 3
 ```
 
 Drop-in replacement para `1.6.1`.
@@ -1572,7 +2181,7 @@ Drop-in replacement para `1.6.1`.
 - 🧪 **+45 tests**
 
 ```js
-import { createProgressGroup, presetStops, gradientRect } from 'ansimax';
+import { createProgressGroup, gradient, presetStops, gradientRect } from 'ansimax';
 
 const group = createProgressGroup({ title: 'Deploying' });
 group.add('api', 'API').add('web', 'Web');
@@ -1580,8 +2189,8 @@ group.update('api', 0.4, '12 MB/s');
 group.complete('web');
 group.render();
 
-gradient('text', presetStops('viridis'), { mirror: true });
-gradientRect({ width: 40, height: 10, preset: 'plasma' });
+console.log(gradient('text', presetStops('viridis'), { mirror: true }));
+console.log(gradientRect({ width: 40, height: 10, preset: 'plasma' }));
 ```
 
 Drop-in replacement para `1.6.0`.
@@ -1597,13 +2206,19 @@ Drop-in replacement para `1.6.0`.
 ```js
 import { createETA, createThroughput, createLiveRegion } from 'ansimax';
 
+// Both are rate meters, so they need two samples with time in between: one
+// `update` has no interval to measure against and reports nothing yet.
 const eta = createETA({ total: 1000 });
-eta.update(downloaded);
-console.log(eta.eta());              // "3.2s"
+eta.update(0);
+await new Promise((r) => setTimeout(r, 100));
+eta.update(250);
+console.log(eta.eta());              // "300ms" — 750 left at 2500/s
 
 const tp = createThroughput({ unit: 'bytes' });
-tp.update(bytesSoFar);
-console.log(tp.format());            // "1.5 MB/s"
+tp.update(0);
+await new Promise((r) => setTimeout(r, 100));
+tp.update(1572864);
+console.log(tp.format());            // "15 MB/s"
 
 const region = createLiveRegion();
 region.render(['A: 10%', 'B: 0%']);
@@ -1632,11 +2247,21 @@ Drop-in replacement para `1.5.1`.
 ```js
 import { tween, stagger } from 'ansimax';
 
-await tween({ from: 0, to: 1, duration: 200, repeat: Infinity, yoyo: true, onUpdate: draw, signal });
+const draw = (v) => process.stdout.write(`\r${'▁▂▃▄▅▆▇█'[Math.round(v * 7)]} `);
 
+// `repeat: Infinity` necesita un AbortSignal, o no termina nunca.
+const forever = new AbortController();
+setTimeout(() => forever.abort(), 600);
+await tween({
+  from: 0, to: 1, duration: 200, repeat: Number.POSITIVE_INFINITY,
+  yoyo: true, onUpdate: draw, signal: forever.signal,
+});
+
+const rows = Array.from({ length: 3 }, () => ({ setOpacity: (v) => draw(v) }));
 await stagger(rows.map((row) => (s) =>
   tween({ from: 0, to: 1, duration: 200, onUpdate: (v) => row.setOpacity(v), signal: s })
 ), 80);
+process.stdout.write('\n');
 ```
 
 Drop-in replacement para `1.5.0`.
@@ -1650,6 +2275,8 @@ Drop-in replacement para `1.5.0`.
 
 ```js
 import { tween, spring, sequence, delay } from 'ansimax';
+
+const draw = (v) => process.stdout.write(`\r${'█'.repeat(Math.round(v / 5))} ${Math.round(v)}%  `);
 
 await tween({ from: 0, to: 100, duration: 1000, easing: 'easeOutCubic', onUpdate: draw });
 await spring({ from: 0, to: 100, config: { stiffness: 210, damping: 20 }, onUpdate: draw });
@@ -1677,7 +2304,9 @@ gradient('simétrico', ['#ff0000', '#00ff00', '#0000ff'], { mirror: true });
 gradient('vívido', ['#ff0000', '#0000ff'], { interpolation: 'hsl' });
 
 registerAsciiRamp('retro', ' .oO0');
-ascii.fromImage(pixels, { ramp: 'retro' });
+const pixels = Array.from({ length: 6 }, (_, y) =>
+  Array.from({ length: 12 }, (_, x) => ({ r: x * 20, g: y * 40, b: 100 })));
+console.log(ascii.fromImage(pixels, { width: 12, ramp: 'retro' }));
 ```
 
 Drop-in replacement para `1.4.12`.
@@ -1730,7 +2359,8 @@ markdown.render('# Título\n\nCitado[^a].\n\n[^a]: La nota.', { theme: 'solarize
 ```js
 import { ascii } from 'ansimax';
 
-ascii.table(rows, { maxWidth: 30, minColWidth: 4 });
+const rows = [['ID', 'Descripción muy larga'], ['1', 'algo que hay que cortar']];
+console.log(ascii.table(rows, { maxWidth: 30, minColWidth: 4 }));
 // Ninguna columna baja de 4 chars visibles
 ```
 
@@ -1774,7 +2404,8 @@ ascii.table([
 ], { align: ['left', 'left', 'right'], maxWidth: 40 });
 
 // Wrap de cards para caber en el ancho del terminal
-panels.wrap(cards, { maxWidth: 60, gapX: 2, gapY: 1 });
+const cards = ['A', 'B', 'C', 'D'].map((c) => ascii.box(c, { padding: 1 }));
+console.log(panels.wrap(cards, { maxWidth: 60, gapX: 2, gapY: 1 }));
 
 // Header/footer fijo con body scrolleable
 process.stdout.write(cursor.scrollRegion(2, 23));
@@ -1791,11 +2422,13 @@ Dos items del roadmap, cero breaking changes:
 - 🧪 **+30 tests**
 
 ```js
-import { panels, markdown } from 'ansimax';
+import { panels, markdown, ascii } from 'ansimax';
+
+const [boxA, boxB, boxC] = ['A', 'B', 'C'].map((c) => ascii.box(c, { padding: 1 }));
 
 // Layout flexbox
-panels.flex([boxA, boxB, boxC], { width: 60, justify: 'between' });
-panels.flex([boxA, boxB], { width: 40, grow: [3, 1] });  // A crece 3× más
+console.log(panels.flex([boxA, boxB, boxC], { width: 60, justify: 'between' }));
+console.log(panels.flex([boxA, boxB], { width: 40, grow: [3, 1] }));  // A crece 3× más
 
 // Reference links
 markdown.render(`
@@ -1926,15 +2559,18 @@ Release patch con 3 features nuevas significativas:
 - 🧪 **+27 tests** para todas las features nuevas
 
 ```js
-import { panels, markdown } from 'ansimax';
+import { panels, markdown, ascii } from 'ansimax';
+
+const [sidebar, top, bottom, side2] = ['nav', 'top', 'bottom', 'aside']
+  .map((c) => ascii.box(c, { padding: 1 }));
 
 // Layout estilo CSS Grid
-panels.grid([sidebar, top, bottom, side2], {
+console.log(panels.grid([sidebar, top, bottom, side2], {
   columns: 3,
   colSpan: [1, 2, 2, 1],
   rowSpan: [2, 1, 1, 1],
   cellHeight: 4,
-});
+}));
 
 // Escapar caracteres literales de markdown
 markdown.render('Mostrar \\*asteriscos literales\\*');
@@ -1985,12 +2621,15 @@ Release patch. Cero breaking changes:
 ```js
 import { panels, ascii } from 'ansimax';
 
+const [header, sidebar, content] = ['Header', 'Nav', 'Contenido']
+  .map((c) => ascii.box(c, { padding: 1 }));
+
 // Header span ambas columnas, luego sidebar + content lado a lado
-panels.grid([header, sidebar, content], {
+console.log(panels.grid([header, sidebar, content], {
   columns: 2,
   colSpan: [2, 1, 1],
   cellHeight: 10,    // altura de fila uniforme
-});
+}));
 ```
 
 Drop-in replacement para `1.4.0`.
@@ -2129,6 +2768,10 @@ Release patch con nuevas features opt-in. Cero breaking changes:
 ```js
 import { panels, json, ascii } from 'ansimax';
 
+const cards = ['Usuarios: 1.2k', 'Ingresos: $4.5k', 'Errores: 3', 'Uptime: 99.9%']
+  .map((c) => ascii.box(c, { padding: 1 }));
+const data = { users: 1200, revenue: 4500 };
+
 // Grid de 2×2 con metric cards
 console.log(panels.grid(cards, { columns: 2, gapX: 2 }));
 
@@ -2152,7 +2795,11 @@ Release patch con cobertura JSDoc + IntelliSense significativamente mejorada:
 
 ```js
 // Pasando el cursor sobre frames.play() en VS Code ahora muestra patrones de uso:
-import { frames } from 'ansimax';
+import { frames, color } from 'ansimax';
+
+const myFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
+const ctrl = new AbortController();
+setTimeout(() => ctrl.abort(), 2000);   // para a los 2s
 
 await frames.play(myFrames, {
   interval: 80,
@@ -2176,7 +2823,7 @@ Release patch que mejora los módulos de v1.3.0 con quality-of-life:
 - 🧪 **+26 tests** entre panels + json
 
 ```js
-import { panels, json } from 'ansimax';
+import { panels, json, ascii } from 'ansimax';
 
 // Centrar un box dentro de la terminal
 console.log(panels.center(ascii.box('Hello'), { width: 80 }));
@@ -2268,6 +2915,9 @@ Release patch con mejoras al motor ASCII:
 ```js
 import { ascii, ASCII_RAMPS } from 'ansimax';
 
+const pixels = Array.from({ length: 40 }, (_, y) =>
+  Array.from({ length: 80 }, (_, x) => ({ r: x * 3, g: y * 6, b: 160 })));
+
 // Renderizado tipo-foto con bloques coloreados en background
 console.log(ascii.fromImage(pixels, {
   width: 80,
@@ -2277,11 +2927,10 @@ console.log(ascii.fromImage(pixels, {
   contrast: 0.2,
 }));
 
-// Figlet multi-línea con espaciado
-console.log(ascii.figletText('TITULO\nSUBTITULO', font, {
-  kerning: 1,
-  lineSpacing: 1,
-}));
+console.log(Object.keys(ASCII_RAMPS));   // las rampas disponibles
+
+// Figlet multi-línea con espaciado — `font` sale de ascii.parseFlfFont(...),
+// así que este trozo necesita un .flf cargado antes.
 ```
 
 Drop-in replacement para `1.2.5`.
@@ -2385,6 +3034,8 @@ Release minor que cierra el roadmap del motor de gradientes con tres features po
 ```js
 import { animateGradient } from 'ansimax';
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const ctrl = animateGradient('Cargando...', ['#ff79c6', '#bd93f9', '#8be9fd']);
 await sleep(3000);
 ctrl.stop();
@@ -2429,7 +3080,7 @@ Una pasada masiva de robustez sobre todo módulo, más un nuevo módulo `trees`.
 - 🎞️ **Frames** — cursor con conteo de refs, restauración crash-safe, `repeat: 0` = infinito, fps cap a 60, corrección de drift
 - 🧱 **Components** — `menu([])` retorna `MENU_CANCELLED` (no throw), inputs numéricos defensivos en todas partes
 - 🛠️ **Utils** — `setTitle`, `link` (hyperlinks OSC 8), `bell`, `safeJson` (BigInt + circular), `once`, `escapeRegex`, `padBoth`, `nextTick`, `memoize` con keyFn personalizado, `debounce` con `maxWait`, `onResize` con throttle
-- 🧪 **Tests** — 3,382 tests en 35 suites, todos verdes, ~98% de cobertura
+- 🧪 **Tests** — 4.020 tests en 44 suites, todos verdes, 100% de cobertura
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial completo de versiones con desglose por módulo.
 

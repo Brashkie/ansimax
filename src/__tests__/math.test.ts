@@ -332,3 +332,54 @@ describe('gcd / lcm non-finite guards (v1.9.5)', () => {
     expect(lcm(3, 0)).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.10.0 — minMax
+// ─────────────────────────────────────────────
+
+describe('minMax (v1.10.0)', () => {
+  const { minMax } = require('../utils/math.js') as typeof import('../utils/math.js');
+
+  it('returns the smallest and largest value', () => {
+    expect(minMax([3, -1, 7, 0])).toEqual([-1, 7]);
+    expect(minMax([5])).toEqual([5, 5]);
+  });
+
+  it('skips non-finite entries instead of poisoning the result', () => {
+    expect(minMax([Number.NaN, 3, 9])).toEqual([3, 9]);
+    expect(minMax([Number.POSITIVE_INFINITY, 5])).toEqual([5, 5]);
+    expect(minMax([Number.NEGATIVE_INFINITY, 5, 8])).toEqual([5, 8]);
+    expect(minMax([Number.NaN, Number.POSITIVE_INFINITY])).toEqual([0, 0]);
+  });
+
+  it('returns [0, 0] for an empty series', () => {
+    expect(minMax([])).toEqual([0, 0]);
+  });
+
+  it('compares zeroes equal, whatever their sign', () => {
+    // Documented divergence: Math.max(-0, 0) is +0, this keeps the zero it
+    // saw first. Both compare equal, which is all any caller can observe.
+    // `toBe` is Object.is, which separates -0 from +0, so compare with ===.
+    const [lo, hi] = minMax([-0, 0]);
+    expect(lo === 0).toBe(true);
+    expect(hi === 0).toBe(true);
+  });
+
+  it('agrees with Math.min / Math.max where those are usable', () => {
+    for (let trial = 0; trial < 50; trial++) {
+      const n = 1 + Math.floor(Math.random() * 40);
+      const values = Array.from({ length: n }, () => (Math.random() - 0.5) * 1000);
+      const [lo, hi] = minMax(values);
+      expect(lo).toBe(Math.min(...values));
+      expect(hi).toBe(Math.max(...values));
+    }
+  });
+
+  it('handles a series far past the argument limit of a spread', () => {
+    // `Math.min(...values)` throws RangeError here. This is the reason the
+    // helper exists, so the size is the assertion.
+    const values = new Array(1_000_000);
+    for (let i = 0; i < values.length; i++) values[i] = i % 977;
+    expect(minMax(values)).toEqual([0, 976]);
+  });
+});

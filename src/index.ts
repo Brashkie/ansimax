@@ -57,6 +57,8 @@ export {
   DITHER_ALGORITHMS,
   // v1.7.4 — perceptual color dithering (Phase 12)
   ditherColor,
+  // v1.10.0 — adaptive palette by median cut in Oklab (Phase 12)
+  medianCutPalette,
   // v1.4.8 — auto-layout tables
   table as asciiTable,
   // v1.4.13 — ASCII ramp registry
@@ -69,6 +71,8 @@ export type {
   AsciiRamp, FromImageOptions, FigletFont, FigletOptions,
   // v1.7.4 — perceptual color dithering
   DitherColorOptions,
+  // v1.10.0 — adaptive palette
+  MedianCutOptions,
   // v1.4.8 — auto-layout tables (aliased to avoid clash with components.table)
   TableOptions as AsciiTableOptions,
   TableAlign as AsciiTableAlign,
@@ -83,6 +87,17 @@ export type { Screen, ScreenOptions } from './screen/index.js';
 export { sparkline, bar, histogram } from './charts/index.js';
 // v1.7.1 — Phase 10: Braille line chart
 export { lineChart } from './charts/index.js';
+// v1.10.0 — Phase 10 chart types
+export {
+  barChart, areaChart, heatmap, pieChart, scatterPlot,
+  boxPlot, boxStats, candlestick, createStreamChart, composePlots,
+} from './charts/index.js';
+export type {
+  ChartColorFn, ChartSeries, BarChartOptions, AreaChartOptions, HeatmapOptions,
+  PieSlice, PieChartOptions, ScatterPoint, ScatterOptions,
+  BoxPlotOptions, BoxStats, Candle, CandlestickOptions,
+  StreamChartOptions, StreamChart, PlotPanel, ComposePlotsOptions,
+} from './charts/index.js';
 export type {
   SparklineOptions, BarOptions, HistogramRow, HistogramOptions,
   LineChartSeries, LineChartOptions,
@@ -154,6 +169,45 @@ export { renderImageAuto } from './images/index.js';
 export type { RenderMethod, RenderImageAutoOptions, RenderImageAutoResult } from './images/index.js';
 // v1.7.5 — Phase 12: Reed-Solomon error correction over GF(2^8)
 export { reedSolomonEncode, rsGeneratorPoly, gfMul, gfPow } from './ecc/index.js';
+// v1.10.0 — Phase 12: QR symbols on top of the Reed-Solomon layer
+export { encodeQR, renderQR, qrCapacity } from './qr/index.js';
+export type { QRCode, QROptions, QRRenderOptions, QRErrorLevel, QRMode } from './qr/index.js';
+// v1.10.0 — Phase 12: DEFLATE / zlib and the two checksums, from scratch
+export { deflate, deflateRaw, inflate, inflateRaw, crc32, adler32 } from './deflate/index.js';
+export type { DeflateOptions, InflateOptions } from './deflate/index.js';
+// v1.10.0 — Phase 12: PNG, decoded to a pixel grid and encoded back
+export { decodePNG, encodePNG } from './images/png.js';
+export type { PNGImage, DecodePNGOptions, EncodePNGOptions } from './images/png.js';
+// v1.10.0 — Phase 12: vendor inline-image protocols (opt-in, never default)
+export { encodeKittyImage, encodeITerm2Image, base64Encode } from './images/protocols.js';
+export type { KittyImageOptions, ITerm2ImageOptions } from './images/protocols.js';
+// v1.10.0 — Phase 11: interactive prompts
+export {
+  PROMPT_CANCELLED, PROMPT_BACK, wasCancelled, wasBack, runSession,
+  textPrompt, passwordPrompt, numberPrompt, passwordStrength, confirmPrompt,
+  datePrompt, formatISODate, formatTime, filePrompt, formPrompt, wizardPrompt,
+} from './prompts/index.js';
+export type {
+  PromptInput, PromptOutput, PromptBaseOptions, SessionSpec, Validator,
+  TextPromptOptions, PasswordPromptOptions, NumberPromptOptions, PasswordStrength,
+  ConfirmPromptOptions, DatePromptOptions, FilePromptOptions, FileEntry, ReadDir,
+  FormPromptOptions, WizardPromptOptions, FormField, FormFieldSpec,
+  FormAnswers, FieldValue, WizardStep,
+} from './prompts/index.js';
+// v1.10.0 — Phase 12: baseline JPEG decoding
+export { decodeJPEG } from './images/jpeg.js';
+export type { JPEGImage, DecodeJPEGOptions } from './images/jpeg.js';
+// v1.10.0 — Phase 12: Sixel, the open inline-image format
+export { encodeSixel, encodeSixelDetailed } from './sixel/index.js';
+export type { SixelOptions, SixelResult } from './sixel/index.js';
+// v1.10.0 — Phase 12: linear symbols (Code 128, EAN-13)
+export {
+  encodeBarcode, encodeCode128, encodeEAN13, renderBarcode, ean13CheckDigit,
+  FNC1, FNC2, FNC3, FNC4,
+} from './barcode/index.js';
+export type {
+  Barcode, BarcodeFormat, Code128Options, EncodeBarcodeOptions, RenderBarcodeOptions,
+} from './barcode/index.js';
 // v1.7.6 — Phase 13: dependency ordering (topological sort)
 export { topoSort, tryTopoSort, CycleError } from './dag/index.js';
 export type { DagEdge } from './dag/index.js';
@@ -298,6 +352,8 @@ export {
   relativeLuminance, contrastRatio, readableTextColor, meetsContrast,
   // v1.7.0 — perceptual quantization (Oklab ΔE)
   oklabDistance, rgbTo256Perceptual, nearestPerceptual,
+  // v1.10.0 — reusable palette mapper: palette precomputed once, memoized
+  createPaletteMapper,
   mixColors, quantizeColor,
   // v1.3.7 — consolidated clamp helpers
   clampPercent, clampInt,
@@ -311,12 +367,16 @@ export {
   gcd, lcm, sum, mean, distribute,
   // v1.6.2 — statistics + advanced interpolation
   median, variance, stddev, percentile, quantize, catmullRom, gaussian,
+  // v1.10.0 — allocation-free extent (no spread, so it survives huge series)
+  minMax,
 } from './utils/math.js';
 export type {
   RGB, ResizeListener, OnResizeOptions, FrameHandle,
   LineDiff, DiffType, DebounceOptions, MemoizeOptions,
   // v1.3.5
   HSL, Oklab, ColorSpace,
+  // v1.10.0
+  PaletteMapper, PaletteMapperOptions,
 } from './utils/helpers.js';
 
 // v1.3.5 — Easing curves (Robert Penner library)
@@ -366,8 +426,19 @@ import { tweenEngine as _tweenNs } from './tween/index.js';
 import {
   sparkline as _spark, bar as _bar, histogram as _histo,
   lineChart as _line,
+  barChart as _barChart, areaChart as _areaChart, heatmap as _heatmap,
+  pieChart as _pieChart, scatterPlot as _scatter, boxPlot as _boxPlot,
+  boxStats as _boxStats, candlestick as _candle,
+  createStreamChart as _streamChart, composePlots as _compose,
 } from './charts/index.js';
-const chartNs = { sparkline: _spark, bar: _bar, histogram: _histo, lineChart: _line };
+const chartNs = {
+  sparkline: _spark, bar: _bar, histogram: _histo, lineChart: _line,
+  // v1.10.0 — Phase 10
+  barChart: _barChart, areaChart: _areaChart, heatmap: _heatmap,
+  pieChart: _pieChart, scatterPlot: _scatter, boxPlot: _boxPlot,
+  boxStats: _boxStats, candlestick: _candle,
+  createStreamChart: _streamChart, composePlots: _compose,
+};
 
 // v1.7.2 — Phase 11 fuzzy namespace
 import {
@@ -381,6 +452,38 @@ import {
   gfMul as _gfMul, gfPow as _gfPow,
 } from './ecc/index.js';
 const eccNs = { reedSolomonEncode: _rsEnc, rsGeneratorPoly: _rsGen, gfMul: _gfMul, gfPow: _gfPow };
+
+// v1.10.0 — Phase 12 QR namespace
+import { encodeQR as _encodeQR, renderQR as _renderQR, qrCapacity as _qrCapacity } from './qr/index.js';
+const qrNs = { encode: _encodeQR, render: _renderQR, capacity: _qrCapacity };
+
+// v1.10.0 — Phase 12 vendor-protocol namespace
+import { protocols as _protocolsNs } from './images/protocols.js';
+const protocolsNs = _protocolsNs;
+
+// v1.10.0 — Phase 11 prompts namespace
+import { prompts as _promptsNs } from './prompts/index.js';
+const promptsNs = _promptsNs;
+
+// v1.10.0 — Phase 12 JPEG namespace
+import { jpeg as _jpegNs } from './images/jpeg.js';
+const jpegNs = _jpegNs;
+
+// v1.10.0 — Phase 12 PNG namespace
+import { png as _pngNs } from './images/png.js';
+const pngNs = _pngNs;
+
+// v1.10.0 — Phase 12 compression namespace
+import { compress as _compressNs } from './deflate/index.js';
+const compressNs = _compressNs;
+
+// v1.10.0 — Phase 12 Sixel namespace
+import { sixel as _sixelNs } from './sixel/index.js';
+const sixelNs = _sixelNs;
+
+// v1.10.0 — Phase 12 linear-barcode namespace
+import { barcode as _barcodeNs } from './barcode/index.js';
+const barcodeNs = _barcodeNs;
 
 // v1.7.6 — Phase 13 dependency-ordering namespace
 import { topoSort as _topo, tryTopoSort as _tryTopo } from './dag/index.js';
@@ -442,6 +545,14 @@ const ansimax = {
   fuzzy: fuzzyNs,
   // v1.7.5
   ecc: eccNs,
+  qr: qrNs,
+  barcode: barcodeNs,
+  sixel: sixelNs,
+  compress: compressNs,
+  png: pngNs,
+  jpeg: jpegNs,
+  prompts: promptsNs,
+  protocols: protocolsNs,
   // v1.7.6
   dag: dagNs,
   // v1.7.7

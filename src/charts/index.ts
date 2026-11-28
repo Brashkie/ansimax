@@ -10,6 +10,8 @@
 //    - histogram()  a series → stacked horizontal bars with labels
 // ─────────────────────────────────────────────
 
+import { minMax } from '../utils/math.js';
+
 // Eight levels of vertical block, from 1/8 to 8/8. Index 0 is the lowest
 // visible bar; a dedicated space is used for "no data" so gaps read clearly.
 const SPARK_TICKS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
@@ -53,8 +55,11 @@ export const sparkline = (values: number[], opts: SparklineOptions = {}): string
   const finite = values.filter((v) => Number.isFinite(v));
   if (finite.length === 0) return ' '.repeat(values.length);
 
-  const lo = opts.min ?? Math.min(...finite);
-  const hi = opts.max ?? Math.max(...finite);
+  // One pass instead of two spreads: `Math.min(...finite)` throws a stack
+  // overflow once a series passes a few hundred thousand samples.
+  const [dataLo, dataHi] = minMax(finite);
+  const lo = opts.min ?? dataLo;
+  const hi = opts.max ?? dataHi;
   const span = hi - lo;
 
   const out: string[] = [];
@@ -161,8 +166,9 @@ export const histogram = (rows: HistogramRow[], opts: HistogramOptions = {}): st
   const showValue = opts.showValue !== false;
 
   const values = rows.map((r) => (Number.isFinite(r.value) ? r.value : 0));
-  const max = Math.max(0, ...values);
-  const labelWidth = Math.max(...rows.map((r) => r.label.length));
+  const max = Math.max(0, minMax(values)[1]);
+  let labelWidth = 0;
+  for (const r of rows) if (r.label.length > labelWidth) labelWidth = r.label.length;
 
   const lines = rows.map((row, i) => {
     const v = values[i] as number;
@@ -336,8 +342,9 @@ export const lineChart = (
   }
   if (finite.length === 0) return '';
 
-  const lo = Number.isFinite(opts.min as number) ? (opts.min as number) : Math.min(...finite);
-  const hi = Number.isFinite(opts.max as number) ? (opts.max as number) : Math.max(...finite);
+  const [dataLo, dataHi] = minMax(finite);
+  const lo = Number.isFinite(opts.min as number) ? (opts.min as number) : dataLo;
+  const hi = Number.isFinite(opts.max as number) ? (opts.max as number) : dataHi;
   const span = hi - lo;
 
   // Sub-pixel intensity grid (row-major, 0..1). In the default hard-line mode
@@ -401,3 +408,17 @@ export const lineChart = (
   }
   return out.join('\n');
 };
+
+// ─────────────────────────────────────────────
+//  v1.10.0 — Phase 10 chart types (see ./plots.ts)
+// ─────────────────────────────────────────────
+export {
+  barChart, areaChart, heatmap, pieChart, scatterPlot,
+  boxPlot, boxStats, candlestick, createStreamChart, composePlots,
+} from './plots.js';
+export type {
+  ChartColorFn, ChartSeries, BarChartOptions, AreaChartOptions, HeatmapOptions,
+  PieSlice, PieChartOptions, ScatterPoint, ScatterOptions,
+  BoxPlotOptions, BoxStats, Candle, CandlestickOptions,
+  StreamChartOptions, StreamChart, PlotPanel, ComposePlotsOptions,
+} from './plots.js';

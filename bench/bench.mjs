@@ -96,7 +96,112 @@ const candidates = (count) => {
 };
 const pool1k = candidates(1000);
 const pool20k = candidates(20000);
+// A diverse pool, where the character prefilter can actually reject.
+const diversePool = (() => {
+  const parts = ['react','vue','svelte','webpack','rollup','esbuild','babel','eslint',
+    'prettier','jest','typescript','lodash','axios','express','zod','chalk','figlet','sharp'];
+  const out = [];
+  for (let i = 0; out.length < 20000; i++) for (const p of parts) out.push(`${p}-${i.toString(36)}`);
+  return out.slice(0, 20000);
+})();
+const diverseQueries = vary((i) => ['react', 'zod', 'prettier', 'axios'][i % 4]);
+const missQueries = vary((i) => `qqzzxxjj${i % 4}`);
 const queries = vary((i) => `modhandler${i % 4}`);
+
+// Chart inputs. Each variant is a distinct series so V8 cannot hoist the call.
+const series200 = vary((i) =>
+  Array.from({ length: 200 }, (_, x) => Math.sin((x + i) / 9) * 50 + Math.cos(x / 3) * 8 + 60));
+const stacked3 = vary((i) => [
+  { name: 'ok', values: series200[i].slice(0, 24) },
+  { name: 'warn', values: series200[i].slice(24, 48) },
+  { name: 'err', values: series200[i].slice(48, 72) },
+]);
+const grids = vary((i) =>
+  Array.from({ length: 20 }, (_, r) =>
+    Array.from({ length: 40 }, (_, c) => ((r * 40 + c + i) % 97) / 97)));
+const cloud2k = vary((i) =>
+  Array.from({ length: 2000 }, (_, n) => [(n * 7 + i) % 211, (n * 13 + i) % 173]));
+const pies = vary((i) =>
+  [3, 5, 8, 13].map((v, k) => ({ label: `s${k}`, value: v + (i % 5) })));
+const scalars = vary((i) => Math.sin(i) * 40 + 50);
+const stream = lib.createStreamChart({ width: 80, height: 12 });
+
+// A 64x48 baseline JPEG, 4:2:0, quality 50, written by libjpeg.
+const JPEG_FIXTURE =
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1R' +
+  'V19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Nj' +
+  'Y2NjY2NjY2NjY2NjY2P/wAARCAAwAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA' +
+  'AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6' +
+  'Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXG' +
+  'x8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA' +
+  'AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5' +
+  'OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPE' +
+  'xcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDh0iqdIParEcVWo4PataNP2hEK1imlv7VO' +
+  'lr7Vb2KhxjJ9Kesbt3x9K3lCjB8u78jtp1mVltQOTgfWpFgQdSPwqytuq43cVMkY/hT86zkoLRxSf3/kd9Or5lUQJ2BP0FTJ' +
+  'An91vyqyImGM4X8KkSPnqx+lZvkT1S+5f53O+nVMeGL2q1s2KMDk1JBF04qYRbpDx04oo1HCiuXd6HwMKmpXit/WplQk4QYH' +
+  'rVjyiW2DoOtSiPHyr17mk5qK5Y6Jfe32R3U6pWWFU4xk+lTLG2Mn5RU6w7MADLVKsODz8zelYufLpt/XfdvyR6FOqV0hH8K5' +
+  '9zUqx++f92rAiPRuf9kVKseOOnsOtZOpbTb+v63bfkd9OqZMEeBkjpUsUW1C2OlTxR4iPFTCLhV/GlCpaEWt0vz0PgYVSukW' +
+  'xOOp6VKkWwAAfMasrF8xJ6LUiREDP8TdKlz5dun9P5t6I7qdUrpFj5V69z6VKkWOFwB3arCw4+UdB1NSLFnBI47D1rFzt/X9' +
+  'fN7t6I9CnVIEiwOPlHr61KkWB02j9TVhYT36/oKkWPv+vc1m6lv6/r+t29jvp1T/2Q==';
+
+// Phase 12 inputs. Each variant differs so nothing can be hoisted or cached.
+const pixelGrids = vary((i) =>
+  Array.from({ length: 96 }, (_, y) =>
+    Array.from({ length: 128 }, (_, x) => ({
+      r: (x * 2 + i) & 255, g: (y * 2 + i * 3) & 255, b: (x ^ y) & 255,
+    }))));
+const scanlineBlobs = vary((i) => {
+  const w = 128;
+  const h = 96;
+  const out = new Uint8Array(h * (1 + w * 3));
+  let at = 0;
+  for (let y = 0; y < h; y++) {
+    out[at++] = 0;
+    for (let x = 0; x < w; x++) {
+      out[at++] = (x * 2 + i) & 255;
+      out[at++] = (y * 2) & 255;
+      out[at++] = (x ^ y) & 255;
+    }
+  }
+  return out;
+});
+const packedBlobs = scanlineBlobs.map((d) => lib.deflate(d, { level: 6 }));
+const rawBlobs = scanlineBlobs;
+const pngFiles = pixelGrids.map((g) => lib.encodePNG(g));
+// A JPEG to decode has to come from somewhere, and this library has no
+// encoder — so one is built here from a PNG round trip through the only
+// encoder available: none. Instead, decode cost is measured on a synthetic
+// baseline file assembled once at startup from a fixed fixture.
+// The library has no JPEG encoder, so the variants cannot be generated — all
+// 16 are the same fixture. That is acceptable here only because decoding
+// allocates a fresh pixel grid per call, so there is no pure result for V8 to
+// hoist out of the loop; the measured work is real.
+const jpegFiles = (() => {
+  const bytes = Buffer.from(JPEG_FIXTURE, 'base64');
+  return Array.from({ length: VARIANTS }, () => new Uint8Array(bytes));
+})();
+const barcodeTexts = vary((i) => `ANSIMAX-${i}-${(i * 7919) % 100000}`);
+
+// Phase 11 inputs. `passwordStrength` runs on *every keystroke* of a password
+// prompt, so its per-call cost is the one that decides whether the meter feels
+// instant. Rotate through lengths and character classes, since the score walks
+// the string once per class it finds.
+const PW_ALPHABETS = [
+  'abcdefghijklmnopqrstuvwxyz',
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{};:,.<>?/~`',
+];
+const passwords = vary((i) => {
+  const alphabet = PW_ALPHABETS[i % PW_ALPHABETS.length];
+  const length = 6 + (i % 27);
+  let out = '';
+  for (let c = 0; c < length; c++) {
+    out += alphabet[(i * 31 + c * 17) % alphabet.length];
+  }
+  return out;
+});
+const promptDates = vary((i) => new Date(2020 + (i % 12), i % 12, 1 + (i % 28), i % 24, i % 60));
+const eanDigits = vary((i) => String(400638133393 + i).padStart(12, '0').slice(0, 12));
 
 // ── cases ────────────────────────────────────────────────
 const cases = [
@@ -125,6 +230,42 @@ const cases = [
   // Fuzzy search — linear scan today; this is the case the trie should fix.
   ['fuzzySearch/1k-candidates', (q) => lib.fuzzySearch(q, pool1k, { limit: 10 }).length, queries, 500],
   ['fuzzySearch/20k-candidates', (q) => lib.fuzzySearch(q, pool20k, { limit: 10 }).length, queries, 60],
+  ['fuzzySearch/20k-diverse', (q) => lib.fuzzySearch(q, diversePool, { limit: 10 }).length, diverseQueries, 60],
+  ['fuzzySearch/20k-no-match', (q) => lib.fuzzySearch(q, diversePool, { limit: 10 }).length, missQueries, 60],
+
+  // Charts (Phase 10, completed in v1.10.0). A dashboard redraws these every
+  // frame, so the per-render cost is what decides the achievable frame rate.
+  ['areaChart/200x80x20', (s) => lib.areaChart(s, { width: 80, height: 20 }).length, series200, 2_000],
+  ['barChart/3x24-stacked', (s) => lib.barChart(s, { mode: 'stacked', height: 24 }).length, stacked3, 2_000],
+  ['heatmap/40x20', (g) => lib.heatmap(g, { cellWidth: 2 }).length, grids, 2_000],
+  ['scatterPlot/2k-braille', (p) => lib.scatterPlot(p, { width: 80, height: 20 }).length, cloud2k, 1_000],
+  ['pieChart/r15', (s) => lib.pieChart(s, { radius: 15 }).length, pies, 2_000],
+  ['streamChart/push-render', (v) => { stream.push(v); return stream.render().length; }, scalars, 5_000],
+
+  // Phase 12 codecs, completed in v1.10.0. These are the heavy ones: a
+  // terminal image goes through decode, quantization and an encoder.
+  ['deflate/scanlines-48k', (d) => lib.deflate(d, { level: 6 }).length, scanlineBlobs, 20],
+  ['inflate/scanlines-48k', (d) => lib.inflate(d).length, packedBlobs, 60],
+  ['png/encode-128x96', (g) => lib.encodePNG(g).length, pixelGrids, 20],
+  ['png/decode-128x96', (f) => lib.decodePNG(f).width, pngFiles, 20],
+  ['jpeg/decode-64x48', (f) => lib.decodeJPEG(f).width, jpegFiles, 20],
+  ['sixel/encode-128x96', (g) => lib.encodeSixel(g, { maxColors: 64 }).length, pixelGrids, 10],
+  ['medianCut/128x96-64', (g) => lib.medianCutPalette(g, { maxColors: 64 }).length, pixelGrids, 10],
+  ['barcode/code128', (s) => lib.encodeCode128(s).width, barcodeTexts, 20_000],
+  ['barcode/ean13', (s) => lib.encodeEAN13(s).width, eanDigits, 50_000],
+  ['base64/48k', (d) => lib.base64Encode(d).length, rawBlobs, 200],
+
+  // Phase 11 prompts, completed in v1.10.0. Only the pure parts are
+  // measurable without a terminal — and they are the ones in the hot path:
+  // the strength meter is recomputed on every keystroke.
+  ['passwordStrength/6-32-chars', (p) => lib.passwordStrength(p).bits, passwords, 50_000],
+  ['formatISODate', (d) => lib.formatISODate(d).length, promptDates, 200_000],
+  ['formatTime', (d) => lib.formatTime(d).length, promptDates, 200_000],
+
+  // QR symbols (Phase 12, new in v1.10.0).
+  ['qr/encode-url', (s) => lib.encodeQR(s, { level: 'M' }).size, vary((i) => `https://example.com/p/${i}`), 300],
+  ['qr/encode-v10', (s) => lib.encodeQR(s, { level: 'L', version: 10 }).size, vary((i) => `${'a'.repeat(200)}${i}`), 100],
+  ['qr/render-url', (s) => lib.renderQR(s, { level: 'M' }).length, vary((i) => `https://example.com/p/${i}`), 300],
 ];
 
 // ── run ──────────────────────────────────────────────────

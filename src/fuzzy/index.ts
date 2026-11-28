@@ -170,6 +170,72 @@ export const fuzzyScore = (
   return 1 - d / p.length;
 };
 
+
+// ─────────────────────────────────────────────
+//  Character prefilter (v1.10.0)
+//
+//  A necessary condition for an occurrence within k errors: every pattern
+//  position whose character is absent from the candidate costs at least one
+//  error. Summing those gives a lower bound, so a candidate exceeding k can be
+//  rejected without running Myers at all.
+//
+//  The roadmap planned a trie + Levenshtein automaton here, but that cannot
+//  work: this is an END-FREE search (see _searchDP, where `curr[0] = 0` makes
+//  starting a match at any position free), so the pattern is sought INSIDE the
+//  candidate and any subtree may still hold an occurrence further along — a
+//  prefix's minimum never licenses pruning it. A prefilter does work, because
+//  it reasons about the candidate as a whole rather than about prefixes.
+//
+//  Characters are hashed into 64 buckets. Collisions only make the filter
+//  miss a rejection, never cause a wrong one, so the result is always exact.
+// ─────────────────────────────────────────────
+
+const PREFILTER_BUCKETS = 64;
+/** Candidates probed before deciding whether the filter earns its keep. */
+const PREFILTER_PROBE = 256;
+/** Below this rejection rate the filter costs more than it saves. */
+const PREFILTER_MIN_RATE = 0.1;
+
+const _bucket = (code: number): number => code & (PREFILTER_BUCKETS - 1);
+
+/** Pattern positions per bucket, as a compact list of the buckets in use. */
+const _patternBuckets = (pattern: string): [number, number][] => {
+  const counts = new Uint8Array(PREFILTER_BUCKETS);
+  for (let i = 0; i < pattern.length; i++) {
+    const b = _bucket(pattern.charCodeAt(i));
+    // Saturate rather than wrap: the bound only has to be valid, not exact.
+    if ((counts[b] as number) < 255) counts[b] = (counts[b] as number) + 1;
+  }
+  const used: [number, number][] = [];
+  for (let b = 0; b < PREFILTER_BUCKETS; b++) {
+    const c = counts[b] as number;
+    if (c > 0) used.push([b, c]);
+  }
+  return used;
+};
+
+/** True when the candidate provably cannot match within `max` errors. */
+const _prefilterRejects = (used: [number, number][], text: string, max: number): boolean => {
+  let lo = 0;
+  let hi = 0;
+  for (let i = 0; i < text.length; i++) {
+    const b = _bucket(text.charCodeAt(i));
+    if (b < 32) lo |= 1 << b;
+    else hi |= 1 << (b - 32);
+  }
+  let missing = 0;
+  for (let i = 0; i < used.length; i++) {
+    const entry = used[i] as [number, number];
+    const b = entry[0];
+    const present = b < 32 ? (lo >>> b) & 1 : (hi >>> (b - 32)) & 1;
+    if (present === 0) {
+      missing += entry[1];
+      if (missing > max) return true;
+    }
+  }
+  return false;
+};
+
 /** A ranked hit from {@link fuzzySearch}. @since 1.7.2 */
 export interface FuzzyResult<T> {
   /** The original candidate. */
@@ -221,6 +287,14 @@ export const fuzzySearch = <T>(
   // candidates was rebuilding the identical Map 20,000 times.
   const peq = _buildPeq(p);
 
+  // v1.10.0 prefilter. It is pure overhead when every candidate shares the
+  // pattern's characters, so it watches its own rejection rate over the first
+  // PREFILTER_PROBE candidates and switches itself off if it isn't paying.
+  const patternBuckets = _patternBuckets(p);
+  let filterOn = p.length > 0 && max < p.length;
+  let probed = 0;
+  let rejected = 0;
+
   // Candidate length is carried alongside each hit because the comparator
   // below needs it: deriving it there re-ran `key(value)` on every single
   // comparison, i.e. O(n log n) times instead of once per candidate.
@@ -230,6 +304,15 @@ export const fuzzySearch = <T>(
     const value = candidates[index] as T;
     const raw = key ? key(value) : String(value);
     const text = _norm(raw, caseSensitive);
+
+    if (filterOn) {
+      const skip = _prefilterRejects(patternBuckets, text, max);
+      probed++;
+      if (skip) rejected++;
+      if (probed === PREFILTER_PROBE && rejected / probed < PREFILTER_MIN_RATE) filterOn = false;
+      if (skip) continue;
+    }
+
     const distance = _distanceWith(p, text, peq);
     if (distance > max) continue;
     const score = p.length === 0 ? 1 : 1 - distance / p.length;

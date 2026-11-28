@@ -940,7 +940,6 @@ export const multi = (opts: { interval?: number } = {}): MultiLoader => {
         const id = nextId++;
         const item: InternalItem = {
           id, text,
-          /* istanbul ignore next — conditional spread + default */
           ...(addOpts.color !== undefined && { color: addOpts.color }),
           type: addOpts.type ?? 'dots',
           state: 'spinning',
@@ -981,7 +980,8 @@ export const multi = (opts: { interval?: number } = {}): MultiLoader => {
       let glyph: string;
       if (item.state === 'success') glyph = applyColor('✓', '#00ff88');
       else if (item.state === 'fail') glyph = applyColor('✗', '#ff6b6b');
-      /* istanbul ignore next — `?? '' | ?? null` fallbacks */
+      /* istanbul ignore next — the `?? ''` arm needs an empty frame list,
+         which resolveSpinnerFrames never returns. */
       else glyph = applyColor(frames[frame % frames.length] ?? '', item.color ?? null);
 
       const text = item.finalText ?? item.text;
@@ -1009,7 +1009,6 @@ export const multi = (opts: { interval?: number } = {}): MultiLoader => {
       const id = nextId++;
       const item: InternalItem = {
         id, text,
-        /* istanbul ignore next — conditional spread + default */
         ...(addOpts.color !== undefined && { color: addOpts.color }),
         type: addOpts.type ?? 'dots',
         state: 'spinning',

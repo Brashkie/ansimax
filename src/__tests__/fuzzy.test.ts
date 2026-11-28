@@ -235,3 +235,74 @@ describe('fuzzySearch hoisted pattern table (v1.9.5)', () => {
     expect(fuzzySearch('commit', pool, { limit: 0 })).toHaveLength(0);
   });
 });
+
+// ─────────────────────────────────────────────
+//  v1.10.0 — character prefilter (Phase 11)
+//
+//  A pattern position whose character is absent from the candidate costs at
+//  least one error, so summing those gives a lower bound and a candidate over
+//  maxErrors can be skipped without running Myers. Characters are hashed into
+//  64 buckets, so a collision can only make the filter MISS a rejection —
+//  never make a wrong one. These tests pin that the results are unchanged.
+// ─────────────────────────────────────────────
+describe('fuzzySearch character prefilter (v1.10.0)', () => {
+  const diverse: string[] = [];
+  const parts = ['react', 'vue', 'svelte', 'webpack', 'rollup', 'esbuild', 'babel',
+    'eslint', 'prettier', 'jest', 'typescript', 'lodash', 'axios', 'express', 'zod'];
+  for (let i = 0; i < 40; i++) for (const p of parts) diverse.push(`${p}-${i.toString(36)}`);
+
+  const bruteForce = (pattern: string, pool: string[], max: number) =>
+    pool.filter((c) => fuzzyDistance(pattern.toLowerCase(), c.toLowerCase()) <= max);
+
+  it('never drops a candidate that actually matches', () => {
+    for (const pattern of ['react', 'zod', 'prettier', 'axios', 'esbuild']) {
+      for (const max of [0, 1, 2, 3]) {
+        const found = fuzzySearch(pattern, diverse, { maxErrors: max }).map((h) => h.value);
+        expect(found.slice().sort()).toEqual(bruteForce(pattern, diverse, max).sort());
+      }
+    }
+  });
+
+  it('returns nothing for a pattern no candidate can match', () => {
+    expect(fuzzySearch('qqzzxxjj', diverse, { maxErrors: 2 })).toEqual([]);
+  });
+
+  it('is unaffected when every candidate shares the pattern characters', () => {
+    // Homogeneous pool: the filter rejects nothing and switches itself off
+    // after its probe window. Results must be identical either way.
+    const homogeneous: string[] = [];
+    for (let i = 0; i < 600; i++) homogeneous.push(`module-${i.toString(36)}-handler`);
+    const found = fuzzySearch('modhandler', homogeneous, { maxErrors: 2 }).map((h) => h.value);
+    expect(found.slice().sort()).toEqual(bruteForce('modhandler', homogeneous, 2).sort());
+  });
+
+  it('survives crossing the probe window with a pool larger than it', () => {
+    const pool = [...diverse, ...diverse, ...diverse]; // > 256 candidates
+    const found = fuzzySearch('react', pool, { maxErrors: 1 });
+    expect(found.length).toBe(bruteForce('react', pool, 1).length);
+  });
+
+  it('keeps working with non-ASCII, empty and odd candidates', () => {
+    const pool = ['', 'x', '日本語', ' spaces ', 'ñandú', '😀emoji', 'react'];
+    for (const pattern of ['react', '日本', 'ñ', '', '😀']) {
+      for (const max of [0, 2]) {
+        const found = fuzzySearch(pattern, pool, { maxErrors: max }).map((h) => h.value);
+        expect(found.slice().sort()).toEqual(bruteForce(pattern, pool, max).sort());
+      }
+    }
+  });
+
+  it('stays exact when maxErrors is at or above the pattern length', () => {
+    // The filter cannot reject anything here, so every candidate is kept.
+    const found = fuzzySearch('zod', diverse, { maxErrors: 3 });
+    expect(found.length).toBe(bruteForce('zod', diverse, 3).length);
+  });
+
+  it('is unaffected by caseSensitive and key()', () => {
+    const objs = diverse.map((n, i) => ({ n, i }));
+    const viaKey = fuzzySearch('REACT', objs, { key: (o) => o.n, maxErrors: 1 }).map((h) => h.value.n);
+    const direct = fuzzySearch('REACT', diverse, { maxErrors: 1 }).map((h) => h.value);
+    expect(viaKey).toEqual(direct);
+    expect(fuzzySearch('REACT', diverse, { caseSensitive: true, maxErrors: 0 })).toEqual([]);
+  });
+});

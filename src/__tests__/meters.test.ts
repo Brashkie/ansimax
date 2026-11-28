@@ -571,6 +571,73 @@ describe('createCounter (v1.6.7)', () => {
     expect(c.total()).toBe(2);
   });
 
+  // These three drive a frozen clock rather than real time. The behaviour
+  // under test is what happens when two ticks share a timestamp, so letting
+  // the machine decide how fast the loop runs would decide the result: on a
+  // quick machine all the ticks land in one millisecond, on a loaded one they
+  // spread out and the arithmetic is a different case entirely.
+  const atClock = <T>(body: (set: (ms: number) => void) => T): T => {
+    const spy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    try {
+      return body((ms) => spy.mockReturnValue(1_000_000 + ms));
+    } finally {
+      spy.mockRestore();
+    }
+  };
+
+  it('counts ticks that land inside one millisecond', () => {
+    // `Date.now()` has millisecond resolution, so a tight loop fires many
+    // ticks with no measurable gap between them. Those used to be dropped
+    // from the rate entirely, and a counter doing thousands of events per
+    // millisecond reported `0/s` — the one case the rate exists for.
+    atClock((set) => {
+      const c = createCounter({ alpha: 1 });   // alpha 1: the rate is the last interval
+      for (let i = 0; i < 150; i++) c.tick();  // all at the same instant
+      set(100);
+      c.tick();
+
+      // The first tick is the anchor, so the interval holds the 149 ticks
+      // after it plus the one that closed it: 150 events over 0.1s.
+      expect(c.rate()).toBe(1500);
+      expect(c.total()).toBe(151);
+      expect(c.formatRate()).toBe('1.5K/s');
+    });
+  });
+
+  it('holds events only until an interval can time them', () => {
+    atClock((set) => {
+      const c = createCounter({ alpha: 1 });
+      c.tick();                        // the anchor
+      for (let i = 0; i < 9; i++) c.tick();
+      set(50);
+      c.tick();                        // closes it: 9 held + 1 = 10 over 0.05s
+      expect(c.rate()).toBe(200);
+      set(100);
+      c.tick();                        // a second interval, one event
+      // The held events were spent on the first interval, not counted twice.
+      expect(c.rate()).toBe(20);
+      expect(c.total()).toBe(12);
+    });
+  });
+
+  it('clears held events on reset', () => {
+    atClock((set) => {
+      const c = createCounter({ alpha: 1 });
+      for (let i = 0; i < 20; i++) c.tick();
+      c.reset();
+      expect(c.total()).toBe(0);
+      expect(c.rate()).toBe(0);
+
+      c.tick();
+      set(50);
+      c.tick();
+      // Only the two ticks since the reset count: one event over 0.05s. The
+      // nineteen that were being held are gone, or this would read 400.
+      expect(c.rate()).toBe(20);
+      expect(c.total()).toBe(2);
+    });
+  });
+
   it('reports a positive rate after timed ticks', async () => {
     const c = createCounter({ alpha: 0.5 });
     for (let i = 0; i < 5; i++) { c.tick(); await wait(20); }

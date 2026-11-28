@@ -1527,3 +1527,255 @@ describe('barrel coverage — v1.9.3 re-exports', () => {
     expect(typeof ns.createKeymap).toBe('function');
   });
 });
+
+describe('barrel coverage — v1.10.0 re-exports', () => {
+  it('exposes the QR API from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.encodeQR).toBe('function');
+    expect(typeof main.renderQR).toBe('function');
+    expect(typeof main.qrCapacity).toBe('function');
+    // Exercise so the re-export lines are covered.
+    const qr = main.encodeQR('HELLO', { level: 'L', mask: 2 });
+    expect(qr.size).toBe(21);
+    expect(qr.version).toBe(1);
+    expect(main.qrCapacity(1, 'L', 'byte')).toBe(17);
+    expect(main.renderQR(qr).length).toBeGreaterThan(0);
+  });
+
+  it('exposes the qr namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { qr: Record<string, unknown> }).qr;
+    expect(typeof ns.encode).toBe('function');
+    expect(typeof ns.render).toBe('function');
+    expect(typeof ns.capacity).toBe('function');
+    expect((ns.capacity as typeof main.qrCapacity)(2, 'M', 'numeric')).toBe(63);
+  });
+
+  it('exposes the barcode API from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.encodeBarcode).toBe('function');
+    expect(typeof main.encodeCode128).toBe('function');
+    expect(typeof main.encodeEAN13).toBe('function');
+    expect(typeof main.renderBarcode).toBe('function');
+    expect(typeof main.ean13CheckDigit).toBe('function');
+    expect(typeof main.FNC1).toBe('string');
+    // Exercise so the re-export lines are covered.
+    expect(main.encodeCode128('A').width).toBe(3 * 11 + 13);
+    expect(main.encodeEAN13('978020137962').text).toBe('9780201379624');
+    expect(main.ean13CheckDigit('400638133393')).toBe(1);
+    expect(main.encodeBarcode('4006381333931', { format: 'ean13' }).width).toBe(95);
+    expect(main.renderBarcode('A', { height: 2, text: false }).split('\n')).toHaveLength(2);
+    expect([main.FNC1, main.FNC2, main.FNC3, main.FNC4].join('')).toHaveLength(4);
+  });
+
+  it('exposes the barcode namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { barcode: Record<string, unknown> }).barcode;
+    expect(typeof ns.encode).toBe('function');
+    expect(typeof ns.code128).toBe('function');
+    expect(typeof ns.ean13).toBe('function');
+    expect(typeof ns.render).toBe('function');
+    expect(typeof ns.checkDigit).toBe('function');
+    expect((ns.checkDigit as typeof main.ean13CheckDigit)('978020137962')).toBe(4);
+  });
+
+  it('exposes the Sixel encoder from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.encodeSixel).toBe('function');
+    expect(typeof main.encodeSixelDetailed).toBe('function');
+    // Exercise so the re-export lines are covered.
+    const grid = [[{ r: 255, g: 0, b: 0 }, { r: 0, g: 0, b: 255 }]];
+    const out = main.encodeSixel(grid);
+    expect(out.startsWith('\x1bP')).toBe(true);
+    expect(out.endsWith('\x1b\\')).toBe(true);
+    const detail = main.encodeSixelDetailed(grid);
+    expect(detail.width).toBe(2);
+    expect(detail.bands).toBe(1);
+    expect(detail.palette).toHaveLength(2);
+  });
+
+  it('exposes the sixel namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { sixel: Record<string, unknown> }).sixel;
+    expect(typeof ns.encode).toBe('function');
+    expect(typeof ns.encodeDetailed).toBe('function');
+    expect((ns.encode as typeof main.encodeSixel)([[{ r: 0, g: 0, b: 0 }]])).toContain('\x1bP');
+  });
+
+  it('exposes medianCutPalette and createPaletteMapper (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.medianCutPalette).toBe('function');
+    expect(typeof main.createPaletteMapper).toBe('function');
+    const grid = [[{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }]];
+    const palette = main.medianCutPalette(grid, { maxColors: 2 });
+    expect(palette.length).toBeLessThanOrEqual(2);
+    const map = main.createPaletteMapper(main.medianCutPalette(grid, { maxColors: 3 }));
+    expect(map.size).toBe(3);
+    expect(map({ r: 250, g: 5, b: 5 })).toBeGreaterThanOrEqual(0);
+  });
+
+  it('exposes medianCutPalette on the ascii namespace', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { ascii: Record<string, unknown> }).ascii;
+    expect(typeof ns.medianCutPalette).toBe('function');
+  });
+
+  it('exposes DEFLATE and the checksums from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    for (const name of ['deflate', 'deflateRaw', 'inflate', 'inflateRaw', 'crc32', 'adler32']) {
+      expect(typeof (main as unknown as Record<string, unknown>)[name]).toBe('function');
+    }
+    const data = new TextEncoder().encode('barrel coverage'.repeat(20));
+    expect([...main.inflate(main.deflate(data))]).toEqual([...data]);
+    expect([...main.inflateRaw(main.deflateRaw(data))]).toEqual([...data]);
+    expect(main.crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926);
+    expect(main.adler32(new TextEncoder().encode('abc'))).toBe(0x024d0127);
+  });
+
+  it('exposes the compress namespace on the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { compress: Record<string, unknown> }).compress;
+    for (const name of ['deflate', 'deflateRaw', 'inflate', 'inflateRaw', 'crc32', 'adler32']) {
+      expect(typeof ns[name]).toBe('function');
+    }
+    expect((ns.crc32 as typeof main.crc32)(new Uint8Array(0))).toBe(0);
+  });
+
+  it('exposes PNG and the vendor protocols from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.encodePNG).toBe('function');
+    expect(typeof main.decodePNG).toBe('function');
+    expect(typeof main.encodeKittyImage).toBe('function');
+    expect(typeof main.encodeITerm2Image).toBe('function');
+    expect(typeof main.base64Encode).toBe('function');
+    const grid = [[{ r: 10, g: 20, b: 30 }, { r: 200, g: 100, b: 0 }]];
+    const file = main.encodePNG(grid);
+    const back = main.decodePNG(file);
+    expect(back.width).toBe(2);
+    expect(back.pixels[0]?.[1]).toEqual({ r: 200, g: 100, b: 0 });
+    expect(main.encodeKittyImage(grid).startsWith('\x1b_G')).toBe(true);
+    expect(main.encodeITerm2Image(grid).startsWith('\x1b]1337;File=')).toBe(true);
+    expect(main.base64Encode(new TextEncoder().encode('ab'))).toBe('YWI=');
+  });
+
+  it('exposes the png and protocols namespaces on the default export', async () => {
+    const main = await import('../index.js');
+    const dflt = main.default as {
+      png: Record<string, unknown>;
+      protocols: Record<string, unknown>;
+    };
+    expect(typeof dflt.png.encode).toBe('function');
+    expect(typeof dflt.png.decode).toBe('function');
+    expect(typeof dflt.protocols.kitty).toBe('function');
+    expect(typeof dflt.protocols.iterm2).toBe('function');
+    expect(typeof dflt.protocols.base64).toBe('function');
+    expect((dflt.protocols.base64 as typeof main.base64Encode)(new Uint8Array([97]))).toBe('YQ==');
+  });
+
+  it('exposes the JPEG decoder from the main entry (Fase 12)', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.decodeJPEG).toBe('function');
+    const ns = (main.default as { jpeg: Record<string, unknown> }).jpeg;
+    expect(typeof ns.decode).toBe('function');
+    // Exercise the re-export: a file with no SOI must be named as such.
+    expect(() => main.decodeJPEG(new Uint8Array([1, 2, 3, 4])))
+      .toThrow(/ANSIMAX_JPEG_SIGNATURE/);
+    expect(() => (ns.decode as typeof main.decodeJPEG)(new Uint8Array([1, 2])))
+      .toThrow(/ANSIMAX_JPEG_SIGNATURE/);
+  });
+
+  it('exposes the Fase 10 chart types from the main entry', async () => {
+    const main = await import('../index.js');
+    expect(typeof main.barChart).toBe('function');
+    expect(typeof main.areaChart).toBe('function');
+    expect(typeof main.heatmap).toBe('function');
+    expect(typeof main.pieChart).toBe('function');
+    expect(typeof main.scatterPlot).toBe('function');
+    expect(typeof main.boxPlot).toBe('function');
+    expect(typeof main.boxStats).toBe('function');
+    expect(typeof main.candlestick).toBe('function');
+    expect(typeof main.createStreamChart).toBe('function');
+    expect(typeof main.composePlots).toBe('function');
+    // Exercise so the re-export lines are covered.
+    expect(main.barChart([1, 2], { height: 2, gap: 0 }).split('\n')).toHaveLength(2);
+    expect(main.areaChart([1, 2], { width: 2, height: 2 }).split('\n')).toHaveLength(2);
+    expect(main.heatmap([[0, 1]], { cellWidth: 1 })).toHaveLength(2);
+    expect(main.pieChart([{ value: 1 }], { radius: 5, legend: false }).split('\n')).toHaveLength(5);
+    expect(main.scatterPlot([[0, 0], [1, 1]], { width: 4, height: 2 }).split('\n')).toHaveLength(2);
+    expect(main.boxStats([1, 2, 3]).median).toBe(2);
+    expect(main.boxPlot([1, 2, 3], { width: 10 })).toHaveLength(10);
+    expect(main.candlestick([{ open: 1, high: 2, low: 0, close: 2 }], { height: 3 }))
+      .toHaveLength(3 + 2); // 3 rows, 2 newlines, 1 column
+    expect(main.createStreamChart({ width: 3 }).push(1).length).toBe(1);
+    expect(main.composePlots([{ content: 'a' }, { content: 'b' }], { gap: 1 })).toBe('a b');
+  });
+
+  it('exposes minMax from the main entry', async () => {
+    // Reading a re-export is what runs its getter, so a symbol nothing reads
+    // through the barrel is a symbol nothing proves is wired up.
+    const main = await import('../index.js');
+    expect(typeof main.minMax).toBe('function');
+    expect(main.minMax([3, -1, 7, 2])).toEqual([-1, 7]);
+    // Non-finite values are skipped, and an all-non-finite series is [0, 0].
+    expect(main.minMax([Number.NaN, 5, Number.POSITIVE_INFINITY, 1])).toEqual([1, 5]);
+    expect(main.minMax([Number.NaN])).toEqual([0, 0]);
+    expect(main.minMax([])).toEqual([0, 0]);
+    // The whole point of it: no spread, so a series far past the argument
+    // limit does not blow the stack the way Math.min(...values) does.
+    const huge = new Array(400_000);
+    for (let i = 0; i < huge.length; i++) huge[i] = (i % 977) - 400;
+    expect(main.minMax(huge)).toEqual([-400, 576]);
+
+    // The math helpers are named exports only — the default export carries
+    // feature namespaces (color, chart, prompts, …), not a math one.
+    expect(main.minMax([2, 2, 2])).toEqual([2, 2]);
+  });
+
+  it('exposes the Fase 11 prompts from the main entry', async () => {
+    const main = await import('../index.js');
+    for (const name of ['textPrompt', 'passwordPrompt', 'numberPrompt', 'confirmPrompt',
+      'datePrompt', 'filePrompt', 'formPrompt', 'wizardPrompt', 'runSession',
+      'passwordStrength', 'formatISODate', 'formatTime', 'wasCancelled', 'wasBack'] as const) {
+      expect(typeof main[name]).toBe('function');
+    }
+    expect(typeof main.PROMPT_CANCELLED).toBe('symbol');
+    expect(typeof main.PROMPT_BACK).toBe('symbol');
+    expect(main.PROMPT_BACK).not.toBe(main.PROMPT_CANCELLED);
+    // Exercise the re-exports rather than only asserting their type.
+    expect(main.formatISODate(new Date(2026, 10, 28))).toBe('2026-11-28');
+    expect(main.formatTime(new Date(2026, 10, 28, 7, 5))).toBe('07:05');
+    expect(main.passwordStrength('aaa').score).toBeLessThan(2);
+    expect(main.wasCancelled(main.PROMPT_CANCELLED)).toBe(true);
+    expect(main.wasBack(main.PROMPT_BACK)).toBe(true);
+    // The composers resolve without I/O when there is nothing to ask.
+    await expect(main.formPrompt([])).resolves.toEqual({});
+    await expect(main.wizardPrompt([])).resolves.toEqual({});
+  });
+
+  it('exposes the Fase 11 prompts on the prompts namespace of the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { prompts: Record<string, unknown> }).prompts;
+    for (const name of ['text', 'password', 'number', 'confirm', 'date', 'file',
+      'form', 'wizard', 'strength', 'formatISODate', 'formatTime',
+      'wasCancelled', 'wasBack']) {
+      expect(typeof ns[name]).toBe('function');
+    }
+    expect(ns.CANCELLED).toBe(main.PROMPT_CANCELLED);
+    expect(ns.BACK).toBe(main.PROMPT_BACK);
+    expect((ns.formatISODate as typeof main.formatISODate)(new Date(2024, 1, 29)))
+      .toBe('2024-02-29');
+    expect((ns.strength as typeof main.passwordStrength)('Tr0ub4dor&3xyz').score)
+      .toBeGreaterThan(2);
+    await expect((ns.form as typeof main.formPrompt)([])).resolves.toEqual({});
+  });
+
+  it('exposes the Fase 10 charts on the chart namespace of the default export', async () => {
+    const main = await import('../index.js');
+    const ns = (main.default as { chart: Record<string, unknown> }).chart;
+    for (const name of ['barChart', 'areaChart', 'heatmap', 'pieChart', 'scatterPlot',
+      'boxPlot', 'boxStats', 'candlestick', 'createStreamChart', 'composePlots']) {
+      expect(typeof ns[name]).toBe('function');
+    }
+    expect((ns.boxStats as typeof main.boxStats)([1, 2, 3, 4, 5]).q3).toBe(4);
+  });
+});

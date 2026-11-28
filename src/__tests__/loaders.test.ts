@@ -1477,3 +1477,118 @@ describe('loaders — branch coverage (v1.3.6)', () => {
     expect(true).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────
+//  The statements that share a line with covered code: a conditional spread,
+//  a ternary arm and a couple of `??` fallbacks.
+// ─────────────────────────────────────────────
+
+describe('multi-loader — a per-item colour', () => {
+  it('keeps the colour given to add, with a TTY', () => {
+    setTTY(true);
+    setNoColor(false);
+    try {
+      const m = loader.multi();
+      const item = m.add('tinted', { color: '#00ff88', type: 'line' });
+      jest.advanceTimersByTime(200);
+      expect(output).toContain('\x1b[38;2;0;255;136m');
+      expect(stripAnsi(output)).toContain('tinted');
+      item.succeed();
+      m.clear();
+    } finally {
+      resetNoColor();
+    }
+  });
+
+  it('keeps the colour given to add without a TTY', () => {
+    setTTY(false);
+    const m = loader.multi();
+    const item = m.add('plain', { color: '#ff6b6b' });
+    expect(stripAnsi(output)).toContain('plain');
+    item.succeed('done');
+    m.clear();
+  });
+
+  it('spins with no colour at all', () => {
+    setTTY(true);
+    setNoColor(false);
+    try {
+      const m = loader.multi();
+      m.add('untinted');
+      jest.advanceTimersByTime(200);
+      expect(stripAnsi(output)).toContain('untinted');
+      m.clear();
+    } finally {
+      resetNoColor();
+    }
+  });
+});
+
+describe('spin — a tick on an explicit success', () => {
+  it('draws a tick when stopped with success true and a final message', () => {
+    setTTY(true);
+    setNoColor(false);
+    try {
+      const stop = loader.spin('working');
+      jest.advanceTimersByTime(100);
+      stop('finished', true);
+      expect(stripAnsi(output)).toContain('✓');
+      expect(stripAnsi(output)).toContain('finished');
+    } finally {
+      resetNoColor();
+    }
+  });
+
+  it('draws no icon when success is left unsaid', () => {
+    setTTY(true);
+    setNoColor(false);
+    try {
+      output = '';
+      const stop = loader.spin('working');
+      jest.advanceTimersByTime(100);
+      stop('finished');
+      expect(stripAnsi(output)).toContain('finished');
+      expect(stripAnsi(output)).not.toContain('✓');
+      expect(stripAnsi(output)).not.toContain('✗');
+    } finally {
+      resetNoColor();
+    }
+  });
+});
+
+describe('Unicode capability from the locale', () => {
+  it('accepts utf8 written without a hyphen', () => {
+    // `en_US.utf8` is as common as `en_US.UTF-8`, and glibc accepts both.
+    const previous = {
+      lcAll: process.env.LC_ALL, lcCtype: process.env.LC_CTYPE,
+      lang: process.env.LANG, ci: process.env.CI,
+      wt: process.env.WT_SESSION, tp: process.env.TERM_PROGRAM,
+    };
+    delete process.env.CI;
+    delete process.env.LC_ALL;
+    delete process.env.LC_CTYPE;
+    delete process.env.WT_SESSION;
+    delete process.env.TERM_PROGRAM;
+    setTTY(true);
+    try {
+      for (const lang of ['en_US.utf8', 'es_PE.UTF-8']) {
+        output = '';
+        process.env.LANG = lang;
+        const stop = loader.spin('probing');
+        jest.advanceTimersByTime(100);
+        stop();
+        // A Unicode-capable locale gets the braille frames, not the ASCII ones.
+        expect(output).toMatch(/[⠀-⣿|\\\-/]/);
+      }
+    } finally {
+      for (const [key, value] of [
+        ['LC_ALL', previous.lcAll], ['LC_CTYPE', previous.lcCtype],
+        ['LANG', previous.lang], ['CI', previous.ci],
+        ['WT_SESSION', previous.wt], ['TERM_PROGRAM', previous.tp],
+      ] as const) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+});
